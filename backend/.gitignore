@@ -1,0 +1,4 @@
+
+# file upload (giữ thư mục, bỏ nội dung)
+uploads/*
+!uploads/.gitkeep

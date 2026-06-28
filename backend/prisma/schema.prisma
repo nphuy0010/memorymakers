@@ -1,0 +1,100 @@
+// Prisma schema — Memory Makers
+// Dev: SQLite. Production: đổi provider sang "postgresql" và cập nhật DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------- USER + RBAC -----------------
+model User {
+  id            String     @id @default(uuid())
+  name          String
+  email         String     @unique
+  password      String
+  phone         String?
+  phoneVerified Boolean    @default(false)
+  role          String     @default("CUSTOMER") // "ADMIN" | "CUSTOMER"
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  projects      Project[]
+  otps          OtpToken[]
+}
+
+model OtpToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  purpose   String   // "PHONE_VERIFY" | "ORDER_CONFIRM"
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ----------------- TEMPLATE -----------------
+// Một mẫu có thể có:
+//  - blankImage: ảnh PNG "trống" (có vùng placeholder) để CHÈN ẢNH người dùng -> dùng ở bước thiết kế
+//  - demoImage : ảnh "demo" đã điền sẵn -> dùng cho nút XEM PREVIEW
+// Admin khi upload chọn loại ("BLANK" hoặc "DEMO") và set vào đúng trường.
+model Template {
+  id           String    @id @default(uuid())
+  slug         String    @unique
+  title        String
+  description  String    @default("")
+  keywords     String    @default("[]") // JSON array string
+  blankImage   String?                  // PNG để chèn ảnh
+  demoImage    String?                  // ảnh demo để preview
+  coverImage   String?                  // ảnh bìa (marketplace)
+  previewGif   String?                  // GIF xem trước
+  previewVideo String?                  // video mp4 xem trước
+  pages        String    @default("[]") // JSON: mảng URL ảnh từng trang -> dựng Flipbook
+  canvaLink    String    @default("")   // link Canva chỉnh sửa
+  category     String    @default("")   // danh mục
+  slots        Int       @default(4)    // số ô ảnh
+  pageCount    Int       @default(0)    // số trang
+  // Giá theo từng option (VND). Không hiển thị ở gallery — chỉ lộ sau khi chọn option.
+  priceDigital Int       @default(150000)
+  priceSoft    Int       @default(290000)
+  priceHard    Int       @default(450000)
+  priceFan     Int       @default(520000)
+  featured     Boolean   @default(false)
+  rating       Float     @default(5.0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  projects     Project[]
+}
+
+// ----------------- PROJECT (thiết kế + đơn hàng) -----------------
+// Chỉ được tạo khi người dùng THỰC SỰ chỉnh sửa/thiết kế (không seed dự án ảo).
+model Project {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId  String
+  template    Template @relation(fields: [templateId], references: [id])
+  title       String
+  status      String   @default("DESIGNING")
+  // DESIGNING | DESIGNED | PURCHASED | SHIPPING | DELIVERED | CANCELLED
+  photos      String   @default("[]") // JSON: danh sách ảnh user đã chèn (url/filename)
+  mode        String?                  // "digital" | "physical"
+  option      String?                  // "soft" | "hard" | "fan" | "digital"
+  amount      Int?                     // tổng tiền (VND) — chỉ có sau khi chọn option
+  address     String?                  // JSON: { name, phone, address }
+  tracking    String   @default("")    // mã vận đơn (admin nhập khi giao)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ----------------- SITE CONTENT (About Us...) -----------------
+model Setting {
+  key       String   @id          // vd: "about"
+  value     String                // JSON
+  updatedAt DateTime @updatedAt
+}
