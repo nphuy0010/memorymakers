@@ -15,21 +15,23 @@ function slugify(s: string) {
 
 async function main() {
   // ----- Tài khoản admin chính (của bạn) -----
-  const ownerEmail = process.env.OWNER_EMAIL || "owner@memorymakers.com";
-  const ownerPass = process.env.OWNER_PASSWORD || "ChangeMe123!";
+  const ownerEmail = (process.env.OWNER_EMAIL || "owner@memorymakers.com").trim();
+  const ownerPass = (process.env.OWNER_PASSWORD || "ChangeMe123!").trim();
+  const hash = await bcrypt.hash(ownerPass, 10);
   await prisma.user.upsert({
     where: { email: ownerEmail },
-    update: { role: "ADMIN" },
+    // Chạy lại seed sẽ LUÔN đặt lại mật khẩu + quyền admin (tránh kẹt do mật khẩu cũ)
+    update: { role: "ADMIN", password: hash, phoneVerified: true, name: process.env.OWNER_NAME || "Chủ shop" },
     create: {
       name: process.env.OWNER_NAME || "Chủ shop",
       email: ownerEmail,
-      password: await bcrypt.hash(ownerPass, 10),
+      password: hash,
       phone: process.env.OWNER_PHONE || "0900000000",
       phoneVerified: true,
       role: "ADMIN",
     },
   });
-  console.log(`✅ Admin: ${ownerEmail} / ${ownerPass}`);
+  console.log(`✅ Admin sẵn sàng: ${ownerEmail} / ${ownerPass}`);
 
   // Không seed mẫu ảo nữa — admin tự thêm mẫu thật qua /admin/templates.
   console.log("ℹ️  Chưa có template. Hãy đăng nhập admin và thêm mẫu thật ở /admin/templates.");

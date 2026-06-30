@@ -1,53 +1,26 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, BookOpen, Layers, X, EyeOff, ShieldCheck, CheckCircle2 } from "lucide-react";
-import type { Template, PageDef, Slot } from "@/lib/types";
+import type { Template, Slot } from "@/lib/types";
+import { buildPages, imgStyle, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
 
 const INK = "#2A2520", BRASS = "#B08D57", CREAM = "#EFE7DA", SUB = "#6B6258", LINE = "#E5DCCF", SAGE = "#9CA98C";
+type VP = (BuiltPage & { texts?: TextItem[] }) | null;
 
-export interface TextItem { id: string; text: string; x: number; y: number; size: number; color: string; font: string; }
-type Edit = { scale?: number; ox?: number; oy?: number; rot?: number; filter?: string };
-
-const FILTERS: Record<string, string> = {
-  none: "none", warm: "saturate(1.15) sepia(.15)", cool: "saturate(1.1) hue-rotate(-10deg)",
-  bw: "grayscale(1)", vivid: "saturate(1.5) contrast(1.05)", fade: "contrast(.92) brightness(1.05) saturate(.85)",
-};
-function imgStyle(e?: Edit): React.CSSProperties {
-  const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 50, rot = e?.rot ?? 0;
-  return { width: "100%", height: "100%", objectFit: "cover", objectPosition: `${ox}% ${oy}%`, transform: `scale(${sc}) rotate(${rot}deg)`, filter: FILTERS[e?.filter || "none"] || "none", display: "block" };
-}
-
-/* Dựng pages [{image, slots(g)}] — gán chỉ số khung toàn cục g */
-function buildPages(t: Template): { image: string | null; slots: (Slot & { g: number })[] }[] {
-  const pages = (t.pages || []) as PageDef[];
-  if (pages.length && typeof pages[0] === "object" && (pages[0] as PageDef).image) {
-    let g = 0;
-    return pages.map((p) => ({ image: p.image, slots: (p.slots || []).map((s) => ({ ...s, g: g++ })) }));
-  }
-  // fallback: số trang tối thiểu
-  const n = Math.max(t.pageCount || 4, 2);
-  return Array.from({ length: n }).map(() => ({ image: null, slots: [] }));
-}
-
-function NPage({ pg, assignments, edits, texts, sample }: {
-  pg: { image: string | null; slots: (Slot & { g: number })[] } | null;
-  assignments?: (string | undefined)[]; edits?: Record<number, Edit>; texts?: TextItem[]; sample?: boolean;
-}) {
-  if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "Lora, serif", fontStyle: "italic", opacity: .6 }}>Memory Makers</div>;
+function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (string | undefined)[]; edits?: Record<number, Edit>; sample?: boolean; }) {
+  if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "Lora, serif", fontStyle: "italic", opacity: .55 }}>Memory Makers</div>;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
       {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
-      {pg.slots.map((s) => {
-        const img = assignments?.[s.g];
-        const round = s.shape === "circle";
+      {pg.slots.map((s: Slot & { g: number }) => {
+        const img = assignments?.[s.g]; const round = s.shape === "circle";
         return (
           <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", border: img ? "none" : "2px dashed rgba(176,141,87,.9)", background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center" }}>
-            {img ? <img src={img} draggable={false} style={imgStyle(edits?.[s.g])} />
-                 : <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 10, color: BRASS }}>{sample ? "Ảnh mẫu" : "Ảnh"}</span>}
+            {img ? <img src={img} draggable={false} style={imgStyle(edits?.[s.g])} /> : <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 10, color: BRASS }}>{sample ? "Ảnh mẫu" : "Ảnh"}</span>}
           </div>
         );
       })}
-      {(texts || []).map((tx) => (
+      {(pg.texts || []).map((tx) => (
         <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans, sans-serif)" : "Lora, serif", fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
       ))}
     </div>
@@ -58,51 +31,67 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
   texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; sample?: boolean; big?: boolean;
 }) {
-  // Bìa trước = trang 1: hiển thị MỘT MÌNH & CĂN GIỮA. Trang trong ghép đôi.
-  // Bìa sau CHỈ có khi tổng số trang hiển thị là CHẴN (lẻ thì không có bìa sau).
-  const views = useMemo(() => {
+  // Dãy "leaf": bìa trước đứng một mình (phải, trái trống), trang trong ghép đôi,
+  // bìa sau chỉ có khi tổng trang hiển thị CHẴN. Lật trang cong 3D có bóng.
+  const seq = useMemo<VP[]>(() => {
     const all = buildPages(t).map((p, i) => ({ ...p, texts: (texts && texts[i]) || [] }));
     const vis = all.filter((_, i) => !(hidden && hidden[i]));
     const n = vis.length;
-    if (!n) return [] as { type: "single" | "spread"; label: string; pages: any[] }[];
-    const vw: { type: "single" | "spread"; label: string; pages: any[] }[] = [{ type: "single", label: "Bìa trước", pages: [vis[0]] }];
-    let no = 2;
-    const even = n % 2 === 0;
-    const inner = even ? vis.slice(1, n - 1) : vis.slice(1);
-    for (let i = 0; i < inner.length; i += 2) { vw.push({ type: "spread", label: `Trang ${no}–${no + 1}`, pages: [inner[i], inner[i + 1]] }); no += 2; }
-    if (even && n > 1) vw.push({ type: "single", label: "Bìa sau", pages: [vis[n - 1]] });
-    return vw;
+    if (!n) return [];
+    const even = n % 2 === 0 && n > 1;
+    const front = vis[0]; const back = even ? vis[n - 1] : null;
+    const inner = vis.slice(1, even ? n - 1 : n);
+    const s: VP[] = [null, front, ...inner];
+    if (back) { s.push(back, null); }
+    if (s.length % 2) s.push(null);
+    return s;
   }, [t, texts, hidden]);
 
-  const [idx, setIdx] = useState(0);
-  useEffect(() => { setIdx((i) => Math.min(i, Math.max(0, views.length - 1))); }, [views.length]);
-  const v = views[Math.min(idx, views.length - 1)];
-  const render = (pg: any) => <NPage pg={pg} assignments={assignments} edits={edits} texts={pg?.texts} sample={sample} />;
+  const count = seq.length;
+  const [spread, setSpread] = useState(0);
+  const [anim, setAnim] = useState<{ dir: "next" | "prev"; started: boolean } | null>(null);
+  useEffect(() => { setSpread((s) => Math.min(s, Math.max(0, count - 2))); }, [count]);
+  const busy = anim !== null;
+  const page = (i: number) => <NPage pg={seq[i] || null} assignments={assignments} edits={edits} sample={sample} />;
+
+  const go = (dir: "next" | "prev") => {
+    if (busy) return;
+    if (dir === "next" && spread + 2 >= count) return;
+    if (dir === "prev" && spread <= 0) return;
+    setAnim({ dir, started: false });
+    requestAnimationFrame(() => requestAnimationFrame(() => setAnim((a) => a && { ...a, started: true })));
+    setTimeout(() => { setSpread((s) => (dir === "next" ? s + 2 : s - 2)); setAnim(null); }, 720);
+  };
+
+  let L = spread, R = spread + 1;
+  let leaf: { side: "right" | "left"; front: number; back: number; target: number } | null = null;
+  if (anim?.dir === "next") { R = spread + 3; leaf = { side: "right", front: spread + 1, back: spread + 2, target: -180 }; }
+  if (anim?.dir === "prev") { L = spread - 2; leaf = { side: "left", front: spread, back: spread - 1, target: 180 }; }
+  const turning = anim?.started;
+  const half: React.CSSProperties = { position: "absolute", top: 0, width: "50%", height: "100%", overflow: "hidden" };
   const spine = (side: "left" | "right"): React.CSSProperties => ({ position: "absolute", top: 0, bottom: 0, [side]: 0, width: "12%", pointerEvents: "none", background: side === "left" ? "linear-gradient(to right, rgba(0,0,0,.16), transparent)" : "linear-gradient(to left, rgba(0,0,0,.16), transparent)" } as React.CSSProperties);
-  if (!v) return <div style={{ aspectRatio: "40/13", display: "grid", placeItems: "center", background: CREAM, borderRadius: 12, fontFamily: "var(--font-sans, sans-serif)", color: SUB, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
+  if (!count) return <div style={{ aspectRatio: "40/13", display: "grid", placeItems: "center", background: CREAM, borderRadius: 12, fontFamily: "var(--font-sans, sans-serif)", color: SUB, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
 
   return (
     <div onContextMenu={(e) => e.preventDefault()} style={{ userSelect: "none" }}>
-      <style>{`@keyframes mmTurn{0%{opacity:.4;transform:translateX(2%) scale(.99)}100%{opacity:1;transform:none}} .mm-turn{animation:mmTurn .4s ease both}`}</style>
-      <div style={{ perspective: big ? 2600 : 2000 }}>
-        <div style={{ position: "relative", width: "100%", aspectRatio: "40/13", borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", overflow: "hidden" }}>
-          <div key={idx} className="mm-turn" style={{ position: "absolute", inset: 0 }}>
-            {v.type === "single" ? (
-              <div style={{ position: "absolute", top: 0, bottom: 0, left: "25%", width: "50%", overflow: "hidden", boxShadow: "0 0 40px rgba(42,37,32,.25)" }}>{render(v.pages[0])}</div>
-            ) : (
-              <>
-                <div style={{ position: "absolute", top: 0, left: 0, width: "50%", height: "100%", overflow: "hidden", borderRight: "1px solid rgba(0,0,0,.06)" }}>{render(v.pages[0])}<div style={spine("right")} /></div>
-                <div style={{ position: "absolute", top: 0, left: "50%", width: "50%", height: "100%", overflow: "hidden" }}>{render(v.pages[1])}<div style={spine("left")} /></div>
-                <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(50% - 1px)", width: 2, background: "rgba(42,37,32,.12)", zIndex: 6, pointerEvents: "none" }} />
-              </>
-            )}
-          </div>
+      <style>{`@keyframes mmShade{0%{opacity:0}35%{opacity:.55}70%{opacity:.3}100%{opacity:0}} .mm-shade{animation:mmShade .72s ease both}`}</style>
+      <div style={{ perspective: big ? 3000 : 2200 }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "40/13", borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
+          <div style={{ ...half, left: 0, borderRight: "1px solid rgba(0,0,0,.06)" }}>{page(L)}<div style={spine("right")} /></div>
+          <div style={{ ...half, left: "50%" }}>{page(R)}<div style={spine("left")} /></div>
+          {leaf && (
+            <div style={{ position: "absolute", top: 0, height: "100%", width: "50%", [leaf.side === "right" ? "left" : "right"]: "50%", transformStyle: "preserve-3d", transformOrigin: leaf.side === "right" ? "left center" : "right center", transform: `rotateY(${turning ? leaf.target : 0}deg)`, transition: "transform .72s cubic-bezier(.42,.05,.25,1)", zIndex: 5 } as React.CSSProperties}>
+              <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", overflow: "hidden" }}>{page(leaf.front)}<div style={spine(leaf.side === "right" ? "left" : "right")} /><div className={turning ? "mm-shade" : ""} style={{ position: "absolute", inset: 0, opacity: 0, background: `linear-gradient(${leaf.side === "right" ? "to right" : "to left"}, rgba(0,0,0,.5), transparent 60%)` }} /></div>
+              <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)", overflow: "hidden" }}>{page(leaf.back)}<div style={spine(leaf.side === "right" ? "right" : "left")} /><div className={turning ? "mm-shade" : ""} style={{ position: "absolute", inset: 0, opacity: 0, background: `linear-gradient(${leaf.side === "right" ? "to left" : "to right"}, rgba(0,0,0,.4), transparent 60%)` }} /></div>
+            </div>
+          )}
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(50% - 1px)", width: 2, background: "rgba(42,37,32,.12)", zIndex: 6, pointerEvents: "none" }} />
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 14 }}>
-        <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx <= 0} style={navBtn(idx <= 0)}><ChevronLeft size={18} color={INK} /></button>
-        <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, letterSpacing: 1.5, color: SUB, textTransform: "uppercase", minWidth: 150, textAlign: "center" }}>{v.label} · {idx + 1}/{views.length}</span>
-        <button onClick={() => setIdx((i) => Math.min(views.length - 1, i + 1))} disabled={idx >= views.length - 1} style={navBtn(idx >= views.length - 1)}><ChevronRight size={18} color={INK} /></button>
+        <button onClick={() => go("prev")} disabled={spread <= 0 || busy} style={navBtn(spread <= 0)}><ChevronLeft size={18} color={INK} /></button>
+        <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, letterSpacing: 1.5, color: SUB, textTransform: "uppercase", minWidth: 150, textAlign: "center" }}>Trang {spread + 1}–{Math.min(spread + 2, count)} / {count}</span>
+        <button onClick={() => go("next")} disabled={spread + 2 >= count || busy} style={navBtn(spread + 2 >= count)}><ChevronRight size={18} color={INK} /></button>
       </div>
     </div>
   );

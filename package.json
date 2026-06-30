@@ -1,0 +1,17 @@
+{
+  "name": "memory-makers",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Memory Makers — AI Photobook Studio (backend Express/Prisma + frontend Next.js)",
+  "scripts": {
+    "setup": "node setup.js",
+    "backend": "npm --prefix backend run dev",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm:backend\" \"npm:frontend\"",
+    "seed": "npm --prefix backend run seed",
+    "db:reset": "npm --prefix backend run db:reset"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

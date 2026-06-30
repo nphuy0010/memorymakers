@@ -14,12 +14,17 @@ const PRICE_KEY: Record<string, "priceSoft" | "priceHard" | "priceFan" | "priceD
 
 // Danh sách dự án của user (đã thiết kế / đã mua / ...). KHÔNG có dự án ảo.
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
-  const list = await prisma.project.findMany({
-    where: { userId: req.userId },
-    include: { template: true },
-    orderBy: { updatedAt: "desc" },
-  });
-  res.json(list.map(format));
+  try {
+    const list = await prisma.project.findMany({
+      where: { userId: req.userId },
+      include: { template: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json(list.map(format));
+  } catch (e: any) {
+    console.error("projects error:", e?.message);
+    res.json([]);
+  }
 });
 
 // Tạo dự án — chỉ gọi khi người dùng đã chèn ảnh / thiết kế thật.
@@ -61,7 +66,9 @@ router.post("/:id/order", requireAuth, async (req: AuthRequest, res) => {
 
   const key = PRICE_KEY[mode === "digital" ? "digital" : option];
   const amount = (project.template as any)[key] as number;
-  const status = mode === "digital" ? "DELIVERED" : "SHIPPING";
+  // Khách bấm "đã thanh toán" -> lưu đơn ở trạng thái ĐANG XỬ LÝ (PURCHASED).
+  // Admin kiểm tra thanh toán rồi tự chuyển sang Đang giao / Đã giao.
+  const status = "PURCHASED";
 
   const p = await prisma.project.update({
     where: { id: project.id },
@@ -75,6 +82,16 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
   const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
   const p = await prisma.project.update({ where: { id: req.params.id }, data: { status: "CANCELLED" }, include: { template: true } });
+  res.json(format(p));
+});
+
+// Đánh giá đơn đã giao: sao (1-5) + nhận xét
+router.post("/:id/review", requireAuth, async (req: AuthRequest, res) => {
+  const { rating, review } = req.body;
+  const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
+  const r = Math.max(1, Math.min(5, parseInt(rating) || 5));
+  const p = await prisma.project.update({ where: { id: req.params.id }, data: { rating: r, review: (review || "").slice(0, 1000) }, include: { template: true } });
   res.json(format(p));
 });
 

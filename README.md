@@ -29,17 +29,32 @@ frontend/src/app/
 
 ## Chạy dự án (local)
 
-### 1. Backend
+> ⚠️ **Hầu hết lỗi "Failed to fetch" / `ERR_CONNECTION_REFUSED` ở `:5000` là do BACKEND CHƯA CHẠY.** Phải bật cả 2 server: backend (5000) + frontend (3000).
+
+### Cách nhanh nhất — 1 lệnh (khuyên dùng)
+```bash
+# tại thư mục gốc memory-makers/
+npm install        # lấy 'concurrently'
+npm run setup      # tự: copy .env, cài backend (tự prisma generate), tạo DB, seed admin, cài frontend
+npm run dev        # chạy ĐỒNG THỜI backend (:5000) + frontend (:3000)
+```
+Đăng nhập admin: **owner@memorymakers.com** / **ChangeMe123!** (đổi trong `backend/.env`).
+
+> Nếu trước đó từng xoá template và bị lỗi dữ liệu, chạy `npm run db:reset` rồi `npm run setup` lại để làm sạch DB.
+
+### Hoặc chạy thủ công 2 cửa sổ terminal
+
+**1. Backend** (cửa sổ 1)
 ```bash
 cd backend
 cp .env.example .env          # chỉnh JWT_SECRET, OWNER_EMAIL/PASSWORD nếu muốn
-npm install
+npm install                   # tự chạy prisma generate
 npm run db:push               # tạo bảng trong SQLite
- npm run seed                  # tạo tài khoản admin (mẫu thật do admin tự upload, hệ thống tự dò khung)
-npm run dev                   # http://localhost:5000
+npm run seed                  # tạo tài khoản admin
+npm run dev                   # http://localhost:5000  (để NGUYÊN cửa sổ này)
 ```
 
-### 2. Frontend
+**2. Frontend** (cửa sổ 2)
 ```bash
 cd frontend
 cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:5000
@@ -52,7 +67,8 @@ Mặc định (đổi trong `backend/.env`):
 - Email: **owner@memorymakers.com**
 - Mật khẩu: **ChangeMe123!**
 
-Đăng nhập → vào **Admin → Người dùng & quyền** để cấp quyền Admin cho các tài khoản khác.
+Đăng nhập → vào **Admin → Tài khoản** để thêm/xoá tài khoản. Xoá template là **xoá mềm** (ẩn khỏi catalog) nên **đơn hàng cũ vẫn được giữ**.
+
 
 ## Tính năng chính
 - AI **chỉ điền ảnh** người dùng vào mẫu admin upload (không tự tạo layout).

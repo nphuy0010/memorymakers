@@ -11,19 +11,34 @@ function slugify(s: string) {
 }
 
 function format(t: any) {
-  const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, ...rest } = t;
+  const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, _count, ...rest } = t;
   return {
     ...rest,
     keywords: JSON.parse(keywords || "[]"),
     pages: JSON.parse(pages || "[]"),
+    uses: _count?.projects ?? 0, // số lượt người dùng đã dùng mẫu
     prices: { digital: priceDigital, soft: priceSoft, hard: priceHard, fan: priceFan },
   };
 }
 
-// GET /api/templates?q=...  — tìm kiếm theo tiêu đề/keyword (khớp từng ký tự)
+// GET /api/templates?q=...  — trả TẤT CẢ mẫu, SẮP THEO LƯỢT DÙNG (nhiều người dùng nhất lên đầu)
 router.get("/", async (req, res) => {
   const q = ((req.query.q as string) || "").toLowerCase().trim();
-  const all = await prisma.template.findMany({ orderBy: { createdAt: "desc" } });
+  let all;
+  try {
+    all = await prisma.template.findMany({
+      where: { archived: false },
+      include: { _count: { select: { projects: true } } },
+      orderBy: [{ projects: { _count: "desc" } }, { featured: "desc" }, { createdAt: "desc" }],
+    });
+  } catch (e: any) {
+    // DB chưa cập nhật cột archived -> fallback (vẫn trả mẫu) + nhắc chạy db:push
+    console.error("templates fallback:", e?.message);
+    all = await prisma.template.findMany({
+      include: { _count: { select: { projects: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
   let list = all.map(format);
   if (q) {
     list = list.filter(
@@ -111,9 +126,16 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   res.json(format(t));
 });
 
+// "Xoá" template = XOÁ MỀM (ẩn khỏi catalog) để KHÔNG làm mất đơn hàng đã tham chiếu mẫu này.
 router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
+  const orders = await prisma.project.count({ where: { templateId: req.params.id } });
+  if (orders > 0) {
+    await prisma.template.update({ where: { id: req.params.id }, data: { archived: true } });
+    return res.json({ ok: true, archived: true });
+  }
+  // Chưa có đơn nào -> xoá hẳn cho gọn.
   await prisma.template.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
+  res.json({ ok: true, archived: false });
 });
 
 export default router;

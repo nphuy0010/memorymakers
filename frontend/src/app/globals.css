@@ -4,7 +4,68 @@
 @tailwind utilities;
 
 html, body { background: #F6F1E9; color: #2A2520; }
-* { -webkit-font-smoothing: antialiased; }
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+h1, h2, h3 { letter-spacing: -0.015em; text-wrap: balance; }
+p { text-wrap: pretty; }
+::selection { background: #E8C9C1; color: #2A2520; }
+::placeholder { color: #A89E90; }
 
-/* chống bôi đen/kéo ảnh ở khu vực preview chưa thanh toán */
 .no-select { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.mm-strip::-webkit-scrollbar, .mm-marquee::-webkit-scrollbar { display: none; }
+
+/* ===== Hiệu ứng động (transform/opacity -> chạy bằng GPU, mượt) ===== */
+@keyframes mmPageIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mmRise   { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes mmPop    { 0% { opacity: 0; transform: scale(.94); } 60% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes mmFloat  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes mmTwinkle{ 0%,100% { opacity:.45; transform: scale(.6);} 50% { opacity:1; transform: scale(1.15);} }
+@keyframes mmDraw   { to { stroke-dashoffset: 0; } }
+@keyframes mmMarquee{ from { transform: translateX(0);} to { transform: translateX(-50%);} }
+
+.mm-page { animation: mmPageIn .45s cubic-bezier(.2,.7,.2,1) both; }
+.mm-rise { animation: mmRise .5s cubic-bezier(.2,.7,.2,1) both; }
+.mm-pop  { animation: mmPop .4s cubic-bezier(.2,.7,.2,1) both; }
+.mm-float{ animation: mmFloat 3.4s ease-in-out infinite; }
+
+/* ảnh bìa: nâng & phóng nhẹ khi rê chuột */
+.mm-cover { transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease; will-change: transform; }
+.mm-cover:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 22px 48px rgba(42,37,32,.22); }
+
+/* thẻ: nổi lên khi rê chuột */
+.mm-card { transition: transform .3s cubic-bezier(.2,.7,.2,1), box-shadow .3s ease; will-change: transform; }
+.mm-card:hover { transform: translateY(-6px); box-shadow: 0 22px 46px rgba(42,37,32,.16); }
+
+/* nút: nhún nhẹ */
+.mm-btn { transition: transform .16s ease, box-shadow .2s ease, filter .2s ease; will-change: transform; }
+.mm-btn:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 8px 20px rgba(42,37,32,.16); }
+.mm-btn:active { transform: translateY(0) scale(.97); }
+
+/* link menu: gạch chân chạy */
+.mm-nav { position: relative; }
+.mm-nav::after { content: ''; position: absolute; left: 0; bottom: -5px; height: 2px; width: 0; background: #B08D57; transition: width .26s ease; }
+.mm-nav:hover::after { width: 100%; }
+
+/* mũi tên trượt */
+.mm-arrow { transition: box-shadow .2s ease, background .2s ease, transform .2s ease; }
+.mm-arrow:hover { background: #B08D57; box-shadow: 0 10px 26px rgba(176,141,87,.35); }
+.mm-arrow:hover svg { stroke: #fff; }
+
+/* icon danh mục: nghiêng & phóng khi rê thẻ */
+.mm-caticon { transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+.mm-card:hover .mm-caticon { transform: rotate(-8deg) scale(1.1); }
+
+/* Logo nghệ thuật */
+.mm-mark { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+.mm-logo:hover .mm-mark { transform: rotate(-7deg) scale(1.06); }
+.mm-twinkle { transform-origin: 35.5px 13.2px; animation: mmTwinkle 3s ease-in-out infinite; }
+.mm-swash { stroke-dasharray: 175; stroke-dashoffset: 175; animation: mmDraw 1.2s ease .25s forwards; }
+.mm-logo:hover .mm-swash { animation: mmDraw .7s ease forwards; }
+
+/* marquee */
+.mm-marquee-track { display: flex; gap: 20px; width: max-content; animation: mmMarquee 40s linear infinite; }
+.mm-marquee:hover .mm-marquee-track { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-page, .mm-rise, .mm-pop, .mm-float, .mm-twinkle, .mm-swash, .mm-marquee-track { animation: none !important; }
+  .mm-cover:hover, .mm-card:hover, .mm-btn:hover { transform: none !important; }
+}

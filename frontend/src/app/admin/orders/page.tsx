@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 
 const STATUS: Record<string, { label: string; color: string }> = {
-  PURCHASED: { label: "Đã mua", color: "#7E9CC4" },
+  PURCHASED: { label: "Đang xử lý", color: "#7E9CC4" },
   SHIPPING: { label: "Đang giao", color: "#C79BB0" },
   DELIVERED: { label: "Đã giao", color: "#9CA98C" },
   CANCELLED: { label: "Đã hủy", color: "#B0A89C" },

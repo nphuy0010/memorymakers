@@ -1,0 +1,28 @@
+import type { Template, PageDef, Slot } from "./types";
+
+export interface BuiltPage { image: string | null; slots: (Slot & { g: number })[]; }
+
+/* Dựng pages [{image, slots(g)}] — gán chỉ số khung toàn cục g (xuyên suốt cả cuốn). */
+export function buildPages(t: Template): BuiltPage[] {
+  const pages = (t.pages || []) as PageDef[];
+  if (pages.length && typeof pages[0] === "object" && (pages[0] as PageDef).image) {
+    let g = 0;
+    return pages.map((p) => ({ image: p.image, slots: (p.slots || []).map((s) => ({ ...s, g: g++ })) }));
+  }
+  const n = Math.max(t.pageCount || 4, 2);
+  return Array.from({ length: n }).map(() => ({ image: null, slots: [] as (Slot & { g: number })[] }));
+}
+
+export const FILTERS: Record<string, string> = {
+  none: "none", warm: "saturate(1.15) sepia(.15)", cool: "saturate(1.1) hue-rotate(-10deg)",
+  bw: "grayscale(1)", vivid: "saturate(1.5) contrast(1.05)", fade: "contrast(.92) brightness(1.05) saturate(.85)",
+};
+export const FILTER_LABELS: [string, string][] = [["none", "Gốc"], ["warm", "Ấm"], ["cool", "Lạnh"], ["bw", "Đen trắng"], ["vivid", "Rực"], ["fade", "Phai"]];
+
+export type Edit = { scale?: number; ox?: number; oy?: number; rot?: number; filter?: string };
+export function imgStyle(e?: Edit): React.CSSProperties {
+  const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 50, rot = e?.rot ?? 0;
+  return { width: "100%", height: "100%", objectFit: "cover", objectPosition: `${ox}% ${oy}%`, transform: `scale(${sc}) rotate(${rot}deg)`, filter: FILTERS[e?.filter || "none"] || "none", display: "block" };
+}
+
+export interface TextItem { id: string; text: string; x: number; y: number; size: number; color: string; font: string; }

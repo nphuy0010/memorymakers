@@ -44,9 +44,8 @@ export function detectSlots(src: string): Promise<Slot[]> {
           const isGrass = G > R && G > B && G - B > 30 && G > 110;
           sky[i] = isSky ? 1 : 0; grass[i] = isGrass ? 1 : 0; place[i] = isSky || isGrass ? 1 : 0;
         }
-        // closing (nối vùng do mây trắng) + co thêm 1 lần -> khung nằm gọn trong, không lem viền trắng
+        // closing (nối vùng do mây trắng) — KHÔNG co thêm để khung sát mép placeholder (không hở)
         let closed = morph(morph(place, w, h, true), w, h, false);
-        closed = morph(closed, w, h, false);
         const lbl = new Int32Array(N), stack: number[] = [], slots: Slot[] = [];
         let cur = 0;
         for (let p = 0; p < N; p++) {

@@ -65,6 +65,15 @@ export const api = {
   createProject: (b: any) => req("/projects", { method: "POST", body: JSON.stringify(b) }),
   updateProject: (id: string, b: any) => req(`/projects/${id}`, { method: "PUT", body: JSON.stringify(b) }),
   orderProject: (id: string, b: any) => req(`/projects/${id}/order`, { method: "POST", body: JSON.stringify(b) }),
+  reviewProject: (id: string, b: { rating: number; review: string }) => req(`/projects/${id}/review`, { method: "POST", body: JSON.stringify(b) }),
+  // tin nhắn (khách)
+  messages: () => req("/messages"),
+  sendMessage: (content: string) => req("/messages", { method: "POST", body: JSON.stringify({ content }) }),
+  // tin nhắn (admin)
+  adminMessages: () => req("/admin/messages"),
+  adminMessagesUnread: () => req("/admin/messages/unread"),
+  adminMessageRead: (userId: string) => req(`/admin/messages/${userId}/read`, { method: "POST" }),
+  adminReply: (userId: string, content: string) => req("/admin/messages", { method: "POST", body: JSON.stringify({ userId, content }) }),
   cancelProject: (id: string) => req(`/projects/${id}/cancel`, { method: "POST" }),
   // admin
   adminUsers: () => req("/admin/users"),

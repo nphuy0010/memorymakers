@@ -48,16 +48,22 @@ router.patch("/users/:id/role", async (req: AuthRequest, res) => {
 
 // Tất cả đơn hàng (project đã mua trở lên, gồm cả đã hủy để quản lý)
 router.get("/orders", async (_req, res) => {
-  const orders = await prisma.project.findMany({
-    where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"] } },
-    include: { template: true, user: true },
-    orderBy: { updatedAt: "desc" },
-  });
-  res.json(orders.map((o) => ({
-    id: o.id, title: o.title, status: o.status, amount: o.amount, mode: o.mode, option: o.option,
-    tracking: o.tracking || "", customer: o.user.name, phone: o.user.phone,
-    address: o.address ? JSON.parse(o.address) : null, createdAt: o.createdAt,
-  })));
+  try {
+    const orders = await prisma.project.findMany({
+      where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"] } },
+      include: { template: true, user: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json(orders.map((o) => ({
+      id: o.id, title: o.title, status: o.status, amount: o.amount, mode: o.mode, option: o.option,
+      tracking: o.tracking || "", customer: o.user?.name, phone: o.user?.phone,
+      template: o.template?.title || o.title,
+      address: o.address ? JSON.parse(o.address) : null, createdAt: o.createdAt,
+    })));
+  } catch (e: any) {
+    console.error("orders error:", e?.message);
+    res.json([]);
+  }
 });
 
 // Cập nhật đơn: đổi trạng thái và/hoặc nhập mã vận đơn
@@ -82,6 +88,45 @@ router.get("/stats", async (_req, res) => {
   const byOption: Record<string, number> = {};
   for (const p of paid) byOption[p.option || "?"] = (byOption[p.option || "?"] || 0) + (p.amount || 0);
   res.json({ totalOrders: paid.length, revenue, byOption });
+});
+
+// ----- TIN NHẮN: admin nhận & trả lời -----
+// Danh sách hội thoại (gộp theo khách) + số tin chưa đọc
+router.get("/messages", async (_req, res) => {
+  try {
+    const msgs = await prisma.message.findMany({ include: { user: true }, orderBy: { createdAt: "asc" } });
+    const byUser: Record<string, any> = {};
+    for (const m of msgs) {
+      const u = byUser[m.userId] || (byUser[m.userId] = { userId: m.userId, name: m.user?.name, email: m.user?.email, phone: m.user?.phone, messages: [], unread: 0, lastAt: m.createdAt });
+      u.messages.push({ id: m.id, content: m.content, fromAdmin: m.fromAdmin, createdAt: m.createdAt });
+      u.lastAt = m.createdAt;
+      if (!m.fromAdmin && !m.readByAdmin) u.unread++;
+    }
+    const list = Object.values(byUser).sort((a: any, b: any) => +new Date(b.lastAt) - +new Date(a.lastAt));
+    res.json(list);
+  } catch (e: any) { console.error("admin messages:", e?.message); res.json([]); }
+});
+
+// Tổng tin chưa đọc (nốt đỏ cho admin)
+router.get("/messages/unread", async (_req, res) => {
+  try { res.json({ count: await prisma.message.count({ where: { fromAdmin: false, readByAdmin: false } }) }); }
+  catch { res.json({ count: 0 }); }
+});
+
+// Admin mở 1 hội thoại -> đánh dấu đã đọc
+router.post("/messages/:userId/read", async (req, res) => {
+  await prisma.message.updateMany({ where: { userId: req.params.userId, fromAdmin: false, readByAdmin: false }, data: { readByAdmin: true } });
+  res.json({ ok: true });
+});
+
+// Admin trả lời khách
+router.post("/messages", async (req, res) => {
+  const { userId, content } = req.body;
+  if (!userId || !(content || "").trim()) return res.status(400).json({ error: "Thiếu nội dung" });
+  const m = await prisma.message.create({
+    data: { userId, content: String(content).slice(0, 2000), fromAdmin: true, readByAdmin: true, readByUser: false },
+  });
+  res.json(m);
 });
 
 export default router;

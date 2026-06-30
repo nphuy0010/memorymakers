@@ -8,6 +8,30 @@ import { detectSlots } from "@/lib/detectSlots";
 
 const readDataUrl = (f: File) => new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(f); });
 
+// Nén ảnh trang -> dataURL JPEG gọn (giảm dung lượng, tránh upload nặng/timeout)
+function compressDataUrl(dataUrl: string, max = 1600, quality = 0.85): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const ctx = cv.getContext("2d"); if (!ctx) return resolve(dataUrl);
+      ctx.drawImage(img, 0, 0, w, h);
+      try { resolve(cv.toDataURL("image/jpeg", quality)); } catch { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const [head, b64] = dataUrl.split(",");
+  const mime = (head.match(/data:(.*?);/) || [])[1] || "image/jpeg";
+  const bin = atob(b64); const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new File([arr], name, { type: mime });
+}
+
 export default function AdminTemplates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
@@ -19,17 +43,25 @@ export default function AdminTemplates() {
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
 
-  // Tải nhiều trang: với mỗi ảnh -> tự DÒ KHUNG (trên dataURL, tránh CORS) + UPLOAD lấy URL thật
+  // Tải nhiều trang: mỗi ảnh -> tự DÒ KHUNG + nén; thử UPLOAD lấy URL, nếu lỗi thì lưu ảnh dạng dataURL.
   const pickPages = async (files: FileList) => {
     setDetecting(true);
     try {
       for (const f of Array.from(files)) {
         const dataUrl = await readDataUrl(f);
-        const slots = await detectSlots(dataUrl);       // TỰ ĐO & TẠO KHUNG
-        const { url } = await api.uploadFile(f);          // ảnh thật trên server
-        setPages((p) => [...p, { image: url, slots }]);
+        const slots = await detectSlots(dataUrl);          // TỰ ĐO & TẠO KHUNG (sát mép)
+        const small = await compressDataUrl(dataUrl);       // nén để nhẹ
+        let image = small;
+        try {
+          const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg")); // ảnh thật trên server
+          image = url;
+        } catch (err) {
+          // Backend upload lỗi (Failed to fetch / 401…) -> vẫn tạo template với ảnh nhúng dataURL
+          console.warn("Upload lỗi, dùng ảnh nhúng:", err);
+        }
+        setPages((p) => [...p, { image, slots }]);
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { alert("Lỗi xử lý ảnh: " + (e?.message || e)); }
     finally { setDetecting(false); }
   };
 

@@ -1,25 +1,29 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Upload, Wand2, Shuffle, ChevronLeft, ChevronRight, QrCode, CheckCircle2, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, QrCode, CheckCircle2, Download } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
+import Builder from "@/components/Builder";
 import Flipbook from "@/components/Flipbook";
+import type { Edit, TextItem } from "@/lib/pages";
 import { CATS, vnd, type Template } from "@/lib/types";
 
-const STEPS = ["Tải ảnh", "AI điền ảnh", "Xem & chỉnh", "Chọn sản phẩm", "Giao hàng & Thanh toán", "Hoàn tất"];
+const STEPS = ["Thiết kế", "Xem trước", "Chọn sản phẩm", "Giao hàng & Thanh toán", "Hoàn tất"];
 
 export default function DesignPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, hydrate } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { user, hydrate, hydrated } = useAuth();
+  const [saving, setSaving] = useState(false);
 
   const [t, setT] = useState<Template | null>(null);
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [filled, setFilled] = useState<(string | undefined)[]>([]); // assignments theo chỉ số khung toàn cục
-  const [filling, setFilling] = useState(false);
+  const [assignments, setAssignments] = useState<(string | undefined)[]>([]);
+  const [edits, setEdits] = useState<Record<number, Edit>>({});
+  const [hidden, setHidden] = useState<Record<number, boolean>>({});
+  const [texts, setTexts] = useState<Record<number, TextItem[]>>({});
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<"digital" | "physical" | null>(null);
   const [option, setOption] = useState("hard");
@@ -28,49 +32,59 @@ export default function DesignPage() {
 
   useEffect(() => { hydrate(); }, [hydrate]);
   useEffect(() => { api.template(id).then(setT).catch(() => {}); }, [id]);
-  useEffect(() => { if (user === null && typeof window !== "undefined" && !localStorage.getItem("mm_token")) router.push("/login"); }, [user, router]);
+  useEffect(() => { if (hydrated && !user) router.push("/login"); }, [hydrated, user, router]);
+
+  // LƯU DỰ ÁN 1 LẦN (single-flight) — dùng chung cho auto-lưu, xem trước, thanh toán (tránh tạo trùng/đua).
+  const draftRef = useRef<Promise<string> | null>(null);
+  const ensureProject = (): Promise<string> => {
+    if (projectId) return Promise.resolve(projectId);
+    if (!draftRef.current) {
+      const used = assignments.filter(Boolean) as string[];
+      draftRef.current = (async () => {
+        const p = await api.createProject({ templateId: t!.id, photos: used, title: t!.title });
+        if (!p?.id) throw new Error("Máy chủ không trả về dự án");
+        setProjectId(p.id);
+        await api.updateProject(p.id, { status: "DESIGNED" });
+        return p.id as string;
+      })();
+      draftRef.current.catch(() => { draftRef.current = null; }); // lỗi -> cho thử lại
+    }
+    return draftRef.current;
+  };
+
+  // Tự lưu nháp ngay khi chèn ảnh đầu tiên -> thoát ra vẫn còn trong "Dự án của tôi".
+  useEffect(() => {
+    if (!t || projectId || !user) return;
+    if (assignments.filter(Boolean).length < 1) return;
+    ensureProject().catch((e: any) => console.warn("Lưu nháp lỗi:", e?.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, assignments, projectId, user]);
 
   if (!t) return <div className="p-10 text-center text-sub">Đang tải…</div>;
   const price = mode === "digital" ? t.prices.digital : t.prices[option as "soft" | "hard" | "fan"];
   const addrOk = mode !== "physical" || (!!addr.name && !!addr.phone && !!addr.address);
+  const placed = assignments.filter(Boolean).length;
 
-  const addPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach((f) => { const r = new FileReader(); r.onload = () => setPhotos((p) => [...p, r.result as string]); r.readAsDataURL(f); });
+  const goPreview = async () => {
+    if (!placed) return alert("Hãy chèn ít nhất 1 ảnh vào mẫu trước khi tiếp tục.");
+    setStep(1);
+    try { await ensureProject(); }
+    catch (e: any) { alert("Chưa lưu được dự án: " + (e?.message || "lỗi") + "\n→ Hãy ĐĂNG NHẬP LẠI (nếu vừa reset DB) hoặc kiểm tra backend ở cổng 5000."); }
   };
-
-  // AI điền: lặp ảnh để lấp đủ toàn bộ khung của mẫu
-  const autoFill = () => {
-    if (!photos.length) return;
-    setFilling(true);
-    setTimeout(async () => {
-      const n = Math.max(1, t.slots);
-      const f: (string | undefined)[] = Array.from({ length: n }).map((_, i) => photos[i % photos.length]);
-      setFilled(f);
-      setFilling(false);
-      try {
-        const p = await api.createProject({ templateId: t.id, photos: f, title: t.title });
-        setProjectId(p.id);
-        await api.updateProject(p.id, { status: "DESIGNED" });
-      } catch {}
-      setStep(2);
-    }, 1200);
-  };
-  const shuffle = () => setFilled((f) => { const photosOnly = f.filter(Boolean) as string[]; const sh = [...photosOnly].sort(() => Math.random() - 0.5); return f.map((_, i) => sh[i % sh.length]); });
-
-  const placeOrder = async () => {
-    if (!projectId) return;
+  const payNow = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
-      await api.orderProject(projectId, {
-        mode, option: mode === "digital" ? "digital" : option,
-        address: mode === "physical" ? addr : null,
-      });
-    } catch {}
-    router.push("/account");
+      const pid = await ensureProject();
+      await api.orderProject(pid, { mode, option: mode === "digital" ? "digital" : option, address: mode === "physical" ? addr : null });
+      setPaid(true); setStep(4);
+    } catch (e: any) {
+      alert("Đặt hàng thất bại: " + (e?.message || "lỗi không xác định") + "\n→ Đăng nhập lại (nếu vừa reset DB) hoặc kiểm tra backend ở cổng 5000.");
+    } finally { setSaving(false); }
   };
 
   return (
-    <div className="max-w-[980px] mx-auto px-5 pt-8 pb-16">
+    <div className="max-w-[1180px] mx-auto px-5 pt-8 pb-16">
       <div className="flex items-center gap-1.5 mb-7 flex-wrap">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-1.5">
@@ -83,115 +97,78 @@ export default function DesignPage() {
         ))}
       </div>
 
-      {/* STEP 0 upload */}
+      {/* STEP 0 — TRÌNH THIẾT KẾ (chèn/xoá/kéo ảnh, thêm text, ẩn trang, zoom/xoay/lọc) */}
       {step === 0 && (
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="rounded-2xl overflow-hidden">
-            {(t.coverImage || t.pages?.[0]?.image) ? <img src={(t.coverImage || t.pages?.[0]?.image) as string} className="w-full" /> : <div className="aspect-[4/5] bg-gradient-to-br from-blush to-blushDeep rounded-2xl" />}
-          </div>
-          <div>
-            <h2 className="font-serif text-2xl text-ink font-bold">{t.title}</h2>
-            <p className="font-sans text-sm text-sub mt-2 mb-3.5">{t.description} Mẫu có <b>{t.pageCount ?? t.pages?.length ?? 0} trang</b>. Tải ảnh của bạn — AI sẽ điền vào các khung (ảnh có thể lặp lại).</p>
-            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-blushDeep rounded-xl p-6 text-center cursor-pointer bg-cream">
-              <Upload size={22} className="text-brass mx-auto" />
-              <div className="font-sans text-sm text-ink mt-2">Tải ảnh của bạn lên <b>({photos.length})</b></div>
-              <div className="font-sans text-xs text-sub">Chọn nhiều ảnh cùng lúc</div>
-              <input ref={fileRef} type="file" accept="image/*" multiple onChange={addPhotos} className="hidden" />
+        <div className="max-w-none">
+          <div className="flex justify-between items-end mb-3 flex-wrap gap-2">
+            <div>
+              <h2 className="font-serif text-2xl text-ink font-bold">{t.title}</h2>
+              <p className="font-sans text-sm text-sub mt-1">Tải ảnh ở cột phải, bấm khung để chèn, kéo ảnh ra ngoài hoặc nhấn Delete để gỡ. Có thể thêm chữ, ẩn trang, chỉnh zoom/xoay/lọc.</p>
             </div>
-            {photos.length > 0 && (
-              <div className="grid grid-cols-5 gap-1.5 mt-3">
-                {photos.map((p, i) => <img key={i} src={p} className="w-full aspect-square object-cover rounded-lg" />)}
-              </div>
-            )}
-            <button disabled={photos.length < 1} onClick={() => setStep(1)}
-              className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-40 flex items-center justify-center gap-2">
-              {photos.length < 1 ? "Tải ít nhất 1 ảnh" : <>Tiếp tục <ChevronRight size={16} /></>}
-            </button>
+            <button onClick={goPreview} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2 shrink-0">Xem trước <ChevronRight size={16} /></button>
           </div>
+          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} texts={texts} setTexts={setTexts} />
         </div>
       )}
 
-      {/* STEP 1 AI fill */}
+      {/* STEP 1 — XEM TRƯỚC (Flipbook 3D + watermark) */}
       {step === 1 && (
-        <div className="text-center py-5">
-          <h2 className="font-serif text-2xl text-ink font-bold">AI điền ảnh vào mẫu</h2>
-          <p className="font-sans text-sm text-sub mt-2 mb-6">AI sắp ảnh vào các khung có sẵn — giữ nguyên thiết kế gốc.</p>
-          {filling ? (
-            <div className="font-sans text-sub">Đang điền ảnh…</div>
-          ) : (
-            <>
-              <div className="max-w-[420px] mx-auto mb-6 rounded-2xl overflow-hidden">
-                {(t.coverImage || t.pages?.[0]?.image) ? <img src={(t.coverImage || t.pages?.[0]?.image) as string} className="w-full" /> : <div className="aspect-[4/5] bg-gradient-to-br from-blush to-blushDeep" />}
-              </div>
-              <button onClick={autoFill} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Wand2 size={16} /> Điền ảnh tự động</button>
-              <div><button onClick={() => setStep(0)} className="mt-3.5 text-sub font-sans text-sm">← Thêm ảnh khác</button></div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* STEP 2 review (Flipbook thật + watermark) */}
-      {step === 2 && (
-        <div>
-          <h2 className="font-serif text-2xl text-ink font-bold mb-1.5">Xem & chỉnh sửa</h2>
-          <p className="font-sans text-sm text-sub mb-4">Bản nháp có watermark bảo vệ tới khi thanh toán.</p>
-          <Flipbook t={t} assignments={filled} watermark />
-          <div className="flex gap-2.5 mt-3.5">
-            <button onClick={shuffle} className="bg-cream text-ink rounded-full px-4 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><Shuffle size={15} /> Đổi cách sắp</button>
-            <button onClick={() => setStep(1)} className="bg-cream text-ink rounded-full px-4 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><Wand2 size={15} /> Điền lại</button>
-          </div>
+        <div className="max-w-[980px] mx-auto">
+          <h2 className="font-serif text-2xl text-ink font-bold mb-1.5">Xem trước cuốn sách</h2>
+          <p className="font-sans text-sm text-sub mb-4">Bản nháp có watermark bảo vệ tới khi thanh toán. Lật trang để xem toàn bộ.</p>
+          <Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} watermark />
           <div className="mt-5 flex justify-between">
-            <button onClick={() => router.push("/account")} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold">Lưu nháp & thoát</button>
-            <button onClick={() => setStep(3)} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2">Chọn sản phẩm <ChevronRight size={16} /></button>
+            <button onClick={() => setStep(0)} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><ChevronLeft size={16} /> Chỉnh tiếp</button>
+            <button onClick={() => setStep(2)} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2">Chọn sản phẩm <ChevronRight size={16} /></button>
           </div>
         </div>
       )}
 
-      {/* STEP 3 choose product */}
-      {step === 3 && (
-        <div>
+      {/* STEP 2 — CHỌN SẢN PHẨM (2 thẻ CAO BẰNG NHAU) */}
+      {step === 2 && (
+        <div className="max-w-[980px] mx-auto">
           <h2 className="font-serif text-2xl text-ink font-bold mb-1.5">Chọn sản phẩm</h2>
-          <p className="font-sans text-sm text-sub mb-4.5">Bản vật lý in & giao tận nơi (giá cao hơn). Bản digital nhận file ngay.</p>
-          <div className="grid md:grid-cols-2 gap-4 mb-5">
-            <button onClick={() => setMode("digital")} className={`text-left p-4.5 rounded-2xl border-2 ${mode === "digital" ? "border-brass bg-cream" : "border-line bg-white"}`}>
+          <p className="font-sans text-sm text-sub mb-4.5">Bản vật lý in &amp; giao tận nơi (giá cao hơn). Bản digital nhận file ngay.</p>
+          <div className="grid md:grid-cols-2 gap-4 mb-5 items-stretch">
+            <button onClick={() => setMode("digital")} className={`text-left p-5 rounded-2xl border-2 h-full flex flex-col ${mode === "digital" ? "border-brass bg-cream" : "border-line bg-white"}`}>
               <div className="font-serif text-lg text-ink font-bold">Bản digital</div>
-              <div className="font-sans text-sm text-sub my-1.5">File độ phân giải cao, nhận ngay.</div>
-              <div className="font-sans text-lg text-brass font-bold">{vnd(t.prices.digital)}</div>
+              <div className="font-sans text-sm text-sub my-1.5 flex-1">File độ phân giải cao, nhận ngay.</div>
+              <div className="font-sans text-lg text-brass font-bold mt-auto">{vnd(t.prices.digital)}</div>
             </button>
-            <button onClick={() => setMode("physical")} className={`text-left p-4.5 rounded-2xl border-2 ${mode === "physical" ? "border-brass bg-cream" : "border-line bg-white"}`}>
+            <button onClick={() => setMode("physical")} className={`text-left p-5 rounded-2xl border-2 h-full flex flex-col ${mode === "physical" ? "border-brass bg-cream" : "border-line bg-white"}`}>
               <div className="font-serif text-lg text-ink font-bold">In thực tế (vật lý)</div>
-              <div className="font-sans text-sm text-sub my-1.5">Sách in chất lượng cao, giao tận nơi.</div>
-              <div className="font-sans text-lg text-brass font-bold">từ {vnd(Math.min(t.prices.soft, t.prices.hard, t.prices.fan))}</div>
+              <div className="font-sans text-sm text-sub my-1.5 flex-1">Sách in chất lượng cao, giao tận nơi.</div>
+              <div className="font-sans text-lg text-brass font-bold mt-auto">từ {vnd(Math.min(t.prices.soft, t.prices.hard, t.prices.fan))}</div>
             </button>
           </div>
           {mode === "physical" && (
             <div className="mb-5">
               <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Chọn loại bìa</span>
-              <div className="grid grid-cols-3 gap-3 mt-2.5">
+              <div className="grid grid-cols-3 gap-3 mt-2.5 items-stretch">
                 {CATS.filter(c => c.id !== "digital").map(c => (
-                  <button key={c.id} onClick={() => setOption(c.id)} className={`p-3.5 rounded-xl border-2 ${option === c.id ? "border-brass bg-cream" : "border-line bg-white"}`}>
+                  <button key={c.id} onClick={() => setOption(c.id)} className={`p-3.5 rounded-xl border-2 h-full flex flex-col ${option === c.id ? "border-brass bg-cream" : "border-line bg-white"}`}>
                     <div className="font-serif text-[15px] text-ink font-semibold">{c.label}</div>
-                    <div className="font-sans text-sm text-brass font-bold mt-1">{vnd(t.prices[c.id as "soft" | "hard" | "fan"])}</div>
+                    <div className="font-sans text-sm text-brass font-bold mt-auto pt-1">{vnd(t.prices[c.id as "soft" | "hard" | "fan"])}</div>
                   </button>
                 ))}
               </div>
             </div>
           )}
           <div className="flex justify-between">
-            <button onClick={() => setStep(2)} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><ChevronLeft size={16} /> Quay lại</button>
-            <button disabled={!mode} onClick={() => setStep(4)} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold disabled:opacity-40 inline-flex items-center gap-2">Tiếp tục {mode ? "· " + vnd(price) : ""} <ChevronRight size={16} /></button>
+            <button onClick={() => setStep(1)} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><ChevronLeft size={16} /> Quay lại</button>
+            <button disabled={!mode} onClick={() => setStep(3)} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold disabled:opacity-40 inline-flex items-center gap-2">Tiếp tục {mode ? "· " + vnd(price) : ""} <ChevronRight size={16} /></button>
           </div>
         </div>
       )}
 
-      {/* STEP 4 ĐỊA CHỈ (bắt buộc với đơn vật lý) + THANH TOÁN */}
-      {step === 4 && (
-        <div className="grid md:grid-cols-2 gap-8 items-start">
+      {/* STEP 3 — ĐỊA CHỈ (bắt buộc với đơn vật lý) rồi mới THANH TOÁN */}
+      {step === 3 && (
+        <div className="max-w-[980px] mx-auto grid md:grid-cols-2 gap-8 items-start">
           <div>
             {mode === "physical" && (
               <>
                 <h2 className="font-serif text-2xl text-ink font-bold">Thông tin giao hàng</h2>
-                <p className="font-sans text-sm text-sub mt-2 mb-4">Vui lòng điền đủ thông tin giao hàng trước khi thanh toán.</p>
+                <p className="font-sans text-sm text-sub mt-2 mb-4">Điền đủ thông tin giao hàng trước khi thanh toán.</p>
                 <div className="bg-white border border-line rounded-2xl p-5 mb-5">
                   {([["name", "Họ và tên"], ["phone", "Số điện thoại"], ["address", "Địa chỉ nhận hàng"]] as const).map(([k, l]) => (
                     <div key={k} className="mb-3.5 last:mb-0">
@@ -209,26 +186,26 @@ export default function DesignPage() {
               <div className="font-serif text-2xl text-ink font-bold mt-4">{vnd(price)}</div>
               <div className="font-sans text-xs text-sub">MEMORY MAKERS · MM{Math.floor(Math.random() * 9000 + 1000)}</div>
             </div>
-            <button disabled={!addrOk} onClick={() => { setPaid(true); placeOrder(); setStep(5); }} className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"><CheckCircle2 size={16} /> {mode === "physical" && !addrOk ? "Điền đủ địa chỉ để thanh toán" : "Tôi đã thanh toán (demo)"}</button>
+            <button disabled={!addrOk || saving} onClick={payNow} className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"><CheckCircle2 size={16} /> {saving ? "Đang xử lý…" : (mode === "physical" && !addrOk ? "Điền đủ địa chỉ để thanh toán" : "Tôi đã thanh toán (demo)")}</button>
           </div>
           <div className="bg-cream rounded-2xl p-5">
             <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Đơn hàng</span>
             <div className="font-serif text-lg text-ink font-semibold mt-3">{t.title}</div>
-            <div className="font-sans text-sm text-sub mt-1">{mode === "digital" ? "Bản digital" : CATS.find(c => c.id === option)?.label}</div>
+            <div className="font-sans text-sm text-sub mt-1">{mode === "digital" ? "Bản digital" : CATS.find(c => c.id === option)?.label} · {placed} ảnh</div>
             <div className="border-t border-line mt-4 pt-3.5 flex justify-between font-sans text-[15px] text-ink"><span>Tổng cộng</span><b className="text-brass">{vnd(price)}</b></div>
           </div>
         </div>
       )}
 
-      {/* STEP 5 success */}
-      {step === 5 && (
-        <div className="max-w-[640px] mx-auto text-center py-5">
+      {/* STEP 4 — HOÀN TẤT */}
+      {step === 4 && (
+        <div className="max-w-[760px] mx-auto text-center py-5">
           <div className="w-16 h-16 rounded-full bg-sage grid place-items-center mx-auto mb-4"><CheckCircle2 size={34} className="text-white" /></div>
           <h2 className="font-serif text-3xl text-ink font-bold">Đặt hàng thành công!</h2>
           <p className="font-sans text-sm text-sub mt-2.5 mb-5">{mode === "digital" ? "Bản digital đã mở khoá để tải." : "Memory Makers sẽ in và giao tới bạn sớm."}</p>
-          <div className="mb-4.5"><Flipbook t={t} assignments={filled} watermark paid /></div>
+          <div className="mb-4.5"><Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} watermark paid /></div>
           {mode === "digital"
-            ? <button onClick={() => router.push("/account")} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Download size={16} /> Tải & về dự án</button>
+            ? <button onClick={() => router.push("/account")} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Download size={16} /> Tải &amp; về dự án</button>
             : <button onClick={() => router.push("/account")} className="border border-ink text-ink rounded-full px-6 py-3 font-sans font-semibold">Xem trong dự án của tôi</button>}
         </div>
       )}

@@ -50,7 +50,7 @@ export const CATS = [
 ] as const;
 
 export const STATUS_LABEL: Record<ProjectStatus, string> = {
-  DESIGNING: "Đang thiết kế", DESIGNED: "Đã thiết kế", PURCHASED: "Đã mua",
+  DESIGNING: "Đang thiết kế", DESIGNED: "Đã thiết kế", PURCHASED: "Đang xử lý",
   SHIPPING: "Đang giao", DELIVERED: "Đã giao", CANCELLED: "Đã hủy",
 };
 export const STATUS_COLOR: Record<ProjectStatus, string> = {

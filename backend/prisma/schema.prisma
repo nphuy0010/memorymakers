@@ -24,6 +24,7 @@ model User {
 
   projects      Project[]
   otps          OtpToken[]
+  messages      Message[]
 }
 
 model OtpToken {
@@ -64,6 +65,7 @@ model Template {
   priceHard    Int       @default(450000)
   priceFan     Int       @default(520000)
   featured     Boolean   @default(false)
+  archived     Boolean   @default(false)  // xoá mềm: ẩn khỏi catalog nhưng GIỮ đơn hàng cũ
   rating       Float     @default(5.0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -88,8 +90,22 @@ model Project {
   amount      Int?                     // tổng tiền (VND) — chỉ có sau khi chọn option
   address     String?                  // JSON: { name, phone, address }
   tracking    String   @default("")    // mã vận đơn (admin nhập khi giao)
+  rating      Int?                     // đánh giá sao (1-5) sau khi nhận hàng
+  review      String?                  // nhận xét của khách
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ----------------- TIN NHẮN (khách <-> admin) -----------------
+model Message {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  fromAdmin Boolean  @default(false)   // true = admin trả lời
+  readByAdmin Boolean @default(false)  // để đếm tin chưa đọc cho admin
+  readByUser  Boolean @default(true)
+  createdAt DateTime @default(now())
 }
 
 // ----------------- SITE CONTENT (About Us...) -----------------

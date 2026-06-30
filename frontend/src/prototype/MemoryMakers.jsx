@@ -64,7 +64,7 @@ const SEED_TEMPLATES = [realTemplate];
 const STATUSES = {
   designing: { label: "Đang thiết kế", color: C.blushDeep },
   designed: { label: "Đã thiết kế", color: C.brass },
-  purchased: { label: "Đã mua", color: "#7E9CC4" },
+  purchased: { label: "Đang xử lý", color: "#7E9CC4" },
   shipping: { label: "Đang giao", color: "#C79BB0" },
   delivered: { label: "Đã giao", color: C.sage },
   cancelled: { label: "Đã hủy", color: "#B0A89C" },
@@ -109,7 +109,7 @@ function autoDetectSlots(src) {
           const isGrass = G > R && G > B && (G - B) > 30 && G > 110;
           sky[i] = isSky ? 1 : 0; grass[i] = isGrass ? 1 : 0; place[i] = (isSky || isGrass) ? 1 : 0;
         }
-        const closed = morph(morph(morph(place, w, h, true), w, h, false), w, h, false); // closing + erode 1 (sát mép trong)
+        const closed = morph(morph(place, w, h, true), w, h, false); // closing (sát mép placeholder, không hở)
         const lbl = new Int32Array(N), stack = [], slots = []; let cur = 0;
         for (let p = 0; p < N; p++) {
           if (!closed[p] || lbl[p]) continue;
@@ -207,11 +207,11 @@ function FanMotif({ h = 44, n = 22 }) {
 /* Cover: ưu tiên ảnh admin upload, fallback gradient. Không hiện giá. */
 function Cover({ t, big, kind = "cover" }) {
   if (!t) return null;
-  const img = kind === "demo" ? t.demoImage : kind === "blank" ? t.blankImage : (t.coverImage || t.demoImage || t.blankImage);
-  const ratio = big ? "4/5" : "1/1";
+  const img = kind === "demo" ? t.demoImage : kind === "blank" ? t.blankImage : (t.coverImage || (t.pages && t.pages[0] && t.pages[0].image) || t.demoImage || t.blankImage);
+  const ratio = "3/2"; // bìa luôn NẰM NGANG
   if (img) {
-    return <div className="mm-cover" style={{ borderRadius: 14, overflow: "hidden", aspectRatio: ratio, boxShadow: "0 10px 30px rgba(42,37,32,.12)" }}>
-      <img src={img} alt={t.title} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", userSelect: "none" }} />
+    return <div className="mm-cover" style={{ borderRadius: 14, overflow: "hidden", aspectRatio: ratio, background: C.cream2, display: "grid", placeItems: "center", boxShadow: "0 10px 30px rgba(42,37,32,.12)" }}>
+      <img src={img} alt={t.title} draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", userSelect: "none" }} />
     </div>;
   }
   return (
@@ -337,52 +337,66 @@ function BlankPage({ label }) {
   </div>;
 }
 
-/* Lõi cuốn sách: 2 trang/spread, lật cong có bóng đổ như sách thật (CSS 3D). */
+/* Lõi cuốn sách: 2 trang/spread, LẬT TRANG CONG 3D có bóng đổ như sách thật.
+   Bìa trước đứng một mình (nửa phải, trái trống); bìa sau CHỈ có khi tổng trang hiển thị CHẴN. */
 function BookCore({ t, assignments, edits, texts, hidden, sample, big }) {
-  // Bìa trước = trang 1: hiển thị MỘT MÌNH & CĂN GIỮA (như sách đóng).
-  // Trang trong ghép đôi. Bìa sau CHỈ có khi tổng số trang hiển thị là CHẴN (lẻ thì không có bìa sau).
-  const views = useMemo(() => {
+  const seq = useMemo(() => {
     const all = buildPages(t).map((p, i) => ({ ...p, texts: (texts && texts[i]) || [] }));
     const vis = all.filter((_, i) => !(hidden && hidden[i]));
     const n = vis.length;
     if (!n) return [];
-    const vw = [{ type: "single", label: "Bìa trước", pages: [vis[0]] }];
-    let no = 2;
-    const even = n % 2 === 0;
-    const inner = even ? vis.slice(1, n - 1) : vis.slice(1); // độ dài luôn chẵn
-    for (let i = 0; i < inner.length; i += 2) { vw.push({ type: "spread", label: `Trang ${no}–${no + 1}`, pages: [inner[i], inner[i + 1]] }); no += 2; }
-    if (even && n > 1) vw.push({ type: "single", label: "Bìa sau", pages: [vis[n - 1]] });
-    return vw;
+    const even = n % 2 === 0 && n > 1;
+    const front = vis[0]; const back = even ? vis[n - 1] : null;
+    const inner = vis.slice(1, even ? n - 1 : n);
+    const s = [null, front, ...inner];
+    if (back) { s.push(back, null); }
+    if (s.length % 2) s.push(null);
+    return s;
   }, [t, texts, hidden]);
 
-  const [idx, setIdx] = useState(0);
-  useEffect(() => { setIdx(i => Math.min(i, Math.max(0, views.length - 1))); }, [views.length]);
-  const v = views[Math.min(idx, views.length - 1)];
-  const renderPage = (pg) => pg ? <PageView page={pg} assignments={assignments} edits={edits} texts={pg.texts} sample={sample} fill /> : <BlankPage />;
+  const count = seq.length;
+  const [spread, setSpread] = useState(0);
+  const [anim, setAnim] = useState(null);
+  useEffect(() => { setSpread(s => Math.min(s, Math.max(0, count - 2))); }, [count]);
+  const busy = anim !== null;
+  const renderPage = (i) => seq[i] ? <PageView page={seq[i]} assignments={assignments} edits={edits} texts={seq[i].texts} sample={sample} fill /> : <BlankPage />;
+
+  const go = (dir) => {
+    if (busy) return;
+    if (dir === "next" && spread + 2 >= count) return;
+    if (dir === "prev" && spread <= 0) return;
+    setAnim({ dir, started: false });
+    requestAnimationFrame(() => requestAnimationFrame(() => setAnim(a => a && { ...a, started: true })));
+    setTimeout(() => { setSpread(s => dir === "next" ? s + 2 : s - 2); setAnim(null); }, 720);
+  };
+
+  let L = spread, R = spread + 1, leaf = null;
+  if (anim?.dir === "next") { R = spread + 3; leaf = { side: "right", front: spread + 1, back: spread + 2, target: -180 }; }
+  if (anim?.dir === "prev") { L = spread - 2; leaf = { side: "left", front: spread, back: spread - 1, target: 180 }; }
+  const turning = anim?.started;
+  const half = { position: "absolute", top: 0, width: "50%", height: "100%", overflow: "hidden" };
   const spineShadow = (side) => ({ position: "absolute", top: 0, bottom: 0, [side]: 0, width: "12%", pointerEvents: "none", background: side === "left" ? "linear-gradient(to right, rgba(0,0,0,.16), transparent)" : "linear-gradient(to left, rgba(0,0,0,.16), transparent)" });
-  if (!v) return <div style={{ aspectRatio: "40/13", display: "grid", placeItems: "center", background: C.cream2, borderRadius: 12, fontFamily: sans, color: C.sub, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
+  if (!count) return <div style={{ aspectRatio: "40/13", display: "grid", placeItems: "center", background: C.cream2, borderRadius: 12, fontFamily: sans, color: C.sub, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
 
   return (
     <div>
-      <div style={{ perspective: big ? 2600 : 2000 }}>
-        <div style={{ position: "relative", width: "100%", aspectRatio: "40/13", borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", overflow: "hidden" }}>
-          <div key={idx} className="mm-pageturn" style={{ position: "absolute", inset: 0 }}>
-            {v.type === "single" ? (
-              <div style={{ position: "absolute", top: 0, bottom: 0, left: "25%", width: "50%", overflow: "hidden", boxShadow: "0 0 40px rgba(42,37,32,.25)" }}>{renderPage(v.pages[0])}</div>
-            ) : (
-              <>
-                <div style={{ position: "absolute", top: 0, left: 0, width: "50%", height: "100%", overflow: "hidden", borderRight: "1px solid rgba(0,0,0,.06)" }}>{renderPage(v.pages[0])}<div style={spineShadow("right")} /></div>
-                <div style={{ position: "absolute", top: 0, left: "50%", width: "50%", height: "100%", overflow: "hidden" }}>{renderPage(v.pages[1])}<div style={spineShadow("left")} /></div>
-                <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(50% - 1px)", width: 2, background: "rgba(42,37,32,.12)", zIndex: 6, pointerEvents: "none" }} />
-              </>
-            )}
-          </div>
+      <div style={{ perspective: big ? 3000 : 2200 }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "40/13", borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
+          <div style={{ ...half, left: 0, borderRight: "1px solid rgba(0,0,0,.06)" }}>{renderPage(L)}<div style={spineShadow("right")} /></div>
+          <div style={{ ...half, left: "50%" }}>{renderPage(R)}<div style={spineShadow("left")} /></div>
+          {leaf && (
+            <div style={{ position: "absolute", top: 0, height: "100%", width: "50%", [leaf.side === "right" ? "left" : "right"]: "50%", transformStyle: "preserve-3d", transformOrigin: leaf.side === "right" ? "left center" : "right center", transform: `rotateY(${turning ? leaf.target : 0}deg)`, transition: "transform .72s cubic-bezier(.42,.05,.25,1)", zIndex: 5 }}>
+              <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", overflow: "hidden" }}>{renderPage(leaf.front)}<div style={spineShadow(leaf.side === "right" ? "left" : "right")} /><div className={turning ? "mm-shade" : ""} style={{ position: "absolute", inset: 0, opacity: 0, background: `linear-gradient(${leaf.side === "right" ? "to right" : "to left"}, rgba(0,0,0,.5), transparent 60%)` }} /></div>
+              <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)", overflow: "hidden" }}>{renderPage(leaf.back)}<div style={spineShadow(leaf.side === "right" ? "right" : "left")} /><div className={turning ? "mm-shade" : ""} style={{ position: "absolute", inset: 0, opacity: 0, background: `linear-gradient(${leaf.side === "right" ? "to left" : "to right"}, rgba(0,0,0,.4), transparent 60%)` }} /></div>
+            </div>
+          )}
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(50% - 1px)", width: 2, background: "rgba(42,37,32,.12)", zIndex: 6, pointerEvents: "none" }} />
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 14 }}>
-        <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx <= 0} className="mm-arrow" style={{ ...arrowBtn, width: 38, height: 38, opacity: idx <= 0 ? .35 : 1 }}><ChevronLeft size={18} color={C.ink} /></button>
-        <span style={{ fontFamily: sans, fontSize: 12, letterSpacing: 1.5, color: C.sub, textTransform: "uppercase", minWidth: 150, textAlign: "center" }}>{v.label} · {idx + 1}/{views.length}</span>
-        <button onClick={() => setIdx(i => Math.min(views.length - 1, i + 1))} disabled={idx >= views.length - 1} className="mm-arrow" style={{ ...arrowBtn, width: 38, height: 38, opacity: idx >= views.length - 1 ? .35 : 1 }}><ChevronRight size={18} color={C.ink} /></button>
+        <button onClick={() => go("prev")} disabled={spread <= 0 || busy} className="mm-arrow" style={{ ...arrowBtn, width: 38, height: 38, opacity: spread <= 0 ? .35 : 1 }}><ChevronLeft size={18} color={C.ink} /></button>
+        <span style={{ fontFamily: sans, fontSize: 12, letterSpacing: 1.5, color: C.sub, textTransform: "uppercase", minWidth: 150, textAlign: "center" }}>Trang {spread + 1}–{Math.min(spread + 2, count)} / {count}</span>
+        <button onClick={() => go("next")} disabled={spread + 2 >= count || busy} className="mm-arrow" style={{ ...arrowBtn, width: 38, height: 38, opacity: spread + 2 >= count ? .35 : 1 }}><ChevronRight size={18} color={C.ink} /></button>
       </div>
     </div>
   );
@@ -465,7 +479,7 @@ function AIDesignModal({ templates, initialPrompt, onUse, onClose }) {
     setTimeout(() => {
       const scored = matchTemplates(q, templates).filter((s) => s.score > 0).slice(0, 3).map((s) => s.t);
       setResults(scored.length ? scored : [templates.find((t) => t.featured) || templates[0]]); setThinking(false);
-    }, 1100);
+    }, 450);
   };
   useEffect(() => { if (initialPrompt && initialPrompt.trim()) run(initialPrompt); /* eslint-disable-next-line */ }, []);
   return (
@@ -597,6 +611,7 @@ function FeaturedStrip({ templates, go }) {
 function Home({ go, templates, about, onOpenAI }) {
   const featured = templates.filter(t => t.featured);
   const showcase = (featured.length ? featured : templates);
+  const popular = [...templates].sort((a, b) => (Number(b.featured) - Number(a.featured)) || ((+b.rating || 0) - (+a.rating || 0))).slice(0, 10);
   const [hero, setHero] = useState("");
   return (
     <div>
@@ -646,6 +661,27 @@ function Home({ go, templates, about, onOpenAI }) {
         </div>
         <FeaturedStrip templates={showcase} go={go} />
       </section>
+
+      {/* MARQUEE — bìa các mẫu hot, trượt nối tiếp vô tận, hết dãy quay lại mẫu đầu */}
+      {popular.length > 0 && (
+        <section style={{ padding: "10px 0 56px" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 22px 20px", textAlign: "center" }}>
+            <Label>Được yêu thích</Label>
+            <h2 style={{ fontSize: 30, color: C.ink, marginTop: 8, fontWeight: 700 }}>Mẫu nổi bật nhất</h2>
+          </div>
+          <div className="mm-marquee" style={{ overflow: "hidden", WebkitMaskImage: "linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent)", maskImage: "linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent)" }}>
+            <style>{`@keyframes mmMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}} .mm-marquee-track{animation:mmMarquee 40s linear infinite} .mm-marquee:hover .mm-marquee-track{animation-play-state:paused}`}</style>
+            <div className="mm-marquee-track" style={{ display: "flex", gap: 20, width: "max-content" }}>
+              {[...popular, ...popular].map((t, i) => (
+                <button key={t.id + "-" + i} onClick={() => go("design", t)} title={t.title} style={{ flex: "0 0 200px", width: 200, background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                  <Cover t={t} kind="cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <Footer about={about} go={go} />
     </div>
   );
@@ -1017,7 +1053,7 @@ function Builder({ tpl, photos, setPhotos, assignments, setAssignments, edits, s
   const visibleGs = useMemo(() => pages.filter((_, i) => !(hidden && hidden[i])).flatMap(p => p.slots.map(s => s.g)), [pages, hidden]);
   const autoFill = () => {
     if (!photos.length) return; setFilling(true);
-    setTimeout(() => { setAssignments(a => { const n = [...a]; let pi = 0; for (const g of visibleGs) { if (!n[g]) { n[g] = photos[pi % photos.length]; pi++; } } return n; }); setFilling(false); }, 1100);
+    setTimeout(() => { setAssignments(a => { const n = [...a]; let pi = 0; for (const g of visibleGs) { if (!n[g]) { n[g] = photos[pi % photos.length]; pi++; } } return n; }); setFilling(false); }, 250);
   };
 
   // TEXT
@@ -1952,7 +1988,7 @@ export default function App() {
   const completeCheckout = ({ method, address }) => {
     const ids = new Set(checkoutItems.map(i => i.projectId));
     checkoutItems.forEach(it => {
-      const patch = { mode: it.mode, option: it.option, amount: it.amount, status: it.mode === "digital" ? "delivered" : "shipping", address: it.mode === "physical" ? address : null, payMethod: method };
+      const patch = { mode: it.mode, option: it.option, amount: it.amount, status: "purchased", address: it.mode === "physical" ? address : null, payMethod: method };
       if (projects.some(p => p.id === it.projectId)) updateProject(it.projectId, patch);
       else setProjects(ps => [{ id: it.projectId, owner: user?.id, tpl: it.tpl, photos: it.photos || [], ...patch }, ...ps]); // mục thêm từ thẻ -> tạo đơn mới
     });
