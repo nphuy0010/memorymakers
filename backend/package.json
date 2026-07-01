@@ -10,11 +10,14 @@
     "db:push": "prisma db push",
     "db:reset": "prisma db push --force-reset",
     "seed": "ts-node prisma/seed.ts",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "start:prod": "prisma db push && node dist/index.js",
+    "seed:prod": "node dist/prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

@@ -15,7 +15,19 @@ copyIfMissing("backend/.env.example", "backend/.env");
 copyIfMissing("frontend/.env.local.example", "frontend/.env.local");
 
 run("npm install", path.join(root, "backend"));   // có postinstall -> prisma generate
-run("npm run db:push", path.join(root, "backend")); // tạo bảng SQLite
+
+// Kiểm tra DATABASE_URL đã là Postgres thật chưa (không còn placeholder)
+const envPath = path.join(root, "backend", ".env");
+const env = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+if (/ep-xxx|user:password@/.test(env) || !/DATABASE_URL\s*=\s*["']?postgres/i.test(env)) {
+  console.log("\n⚠️  CHƯA cấu hình DATABASE_URL PostgreSQL trong backend/.env");
+  console.log("   → Tạo DB miễn phí ở https://neon.tech, copy connection string dán vào backend/.env (DATABASE_URL)");
+  console.log("   → (Tuỳ chọn) điền CLOUDINARY_* để lưu ảnh trên Cloudinary");
+  console.log("   Sau đó chạy lại:  npm run setup\n");
+  process.exit(1);
+}
+
+run("npm run db:push", path.join(root, "backend")); // tạo bảng trên Postgres
 run("npm run seed", path.join(root, "backend"));    // tạo tài khoản admin
 run("npm install", path.join(root, "frontend"));
 

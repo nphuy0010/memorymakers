@@ -9,6 +9,7 @@ import adminRoutes from "./routes/admin.routes";
 import settingsRoutes from "./routes/settings.routes";
 import uploadRoutes, { UPLOAD_DIR } from "./routes/upload.routes";
 import messageRoutes from "./routes/message.routes";
+import { prisma } from "./lib/prisma";
 
 dotenv.config();
 
@@ -42,5 +43,24 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 process.on("unhandledRejection", (e) => console.error("unhandledRejection:", e));
 process.on("uncaughtException", (e) => console.error("uncaughtException:", e));
 
+// Tự tạo/đảm bảo tài khoản admin chính khi khởi động (tiện khi deploy — không cần chạy seed thủ công)
+async function ensureOwner() {
+  try {
+    const bcrypt = (await import("bcryptjs")).default;
+    const email = (process.env.OWNER_EMAIL || "owner@memorymakers.com").trim();
+    const pass = (process.env.OWNER_PASSWORD || "ChangeMe123!").trim();
+    const hash = await bcrypt.hash(pass, 10);
+    await prisma.user.upsert({
+      where: { email },
+      update: { role: "ADMIN", password: hash, phoneVerified: true },
+      create: { name: process.env.OWNER_NAME || "Chủ shop", email, password: hash, phone: process.env.OWNER_PHONE || "0900000000", phoneVerified: true, role: "ADMIN" },
+    });
+    console.log(`👤 Admin sẵn sàng: ${email}`);
+  } catch (e: any) { console.error("ensureOwner lỗi:", e?.message); }
+}
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Backend chạy tại http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+  await ensureOwner();
+  console.log(`🚀 Backend chạy tại http://localhost:${PORT}`);
+});
