@@ -19,6 +19,15 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
   const exportPdf = async () => {
     setExporting(true);
     try {
+      // Đợi phông chữ + TẤT CẢ ảnh tải xong -> PDF khớp đúng bản khách thiết kế (không bị trắng/thiếu ảnh)
+      try { await (document as any).fonts?.ready; } catch {}
+      const urls = new Set<string>();
+      pages.forEach((p) => { if (p.image) urls.add(p.image); p.slots.forEach((s) => { const a = assignments[s.g]; if (a) urls.add(a); }); });
+      await Promise.all(Array.from(urls).map((u) => new Promise<void>((resolve) => {
+        const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => resolve(); im.onerror = () => resolve(); im.src = u;
+      })));
+      await new Promise((r) => setTimeout(r, 150));
+
       const { default: jsPDF } = await import("jspdf");
       const html2canvas = (await import("html2canvas")).default;
       const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1200, 780] });
@@ -26,7 +35,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       for (let k = 0; k < visible.length; k++) {
         const el = refs.current[k];
         if (!el) continue;
-        const canvas = await html2canvas(el, { useCORS: true, scale: 2, backgroundColor: "#ffffff", logging: false });
+        const canvas = await html2canvas(el, { useCORS: true, allowTaint: false, imageTimeout: 0, scale: 2, backgroundColor: "#ffffff", logging: false });
         const img = canvas.toDataURL("image/jpeg", 0.92);
         if (!first) pdf.addPage([1200, 780], "landscape");
         first = false;

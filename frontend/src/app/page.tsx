@@ -56,7 +56,9 @@ export default function HomePage() {
 
         {/* hai bìa nghiêng */}
         <div className="relative min-h-[320px]">
-          {featured[0] && <div className="rotate-3"><TemplateCover t={featured[0]} big kind="cover" /></div>}
+          {featured[0]
+            ? <div className="rotate-3"><TemplateCover t={featured[0]} big kind="cover" /></div>
+            : <div className="rotate-3 rounded-2xl bg-cream animate-pulse" style={{ aspectRatio: "4/5" }} />}
           {featured[1] && <div className="absolute -bottom-6 -left-7 w-[62%] -rotate-6"><TemplateCover t={featured[1]} big kind="cover" /></div>}
         </div>
       </section>

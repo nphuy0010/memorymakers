@@ -5,6 +5,7 @@ import { Sparkles, Trash2, Truck, Star, ShoppingBag, X, CheckCircle2 } from "luc
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
 import TemplateCover from "@/components/TemplateCover";
+import Loading from "@/components/Loading";
 import { STATUS_LABEL, STATUS_COLOR, vnd, CATS, type Project, type ProjectStatus } from "@/lib/types";
 
 const TABS: (ProjectStatus | "ALL")[] = ["ALL", "DESIGNING", "DESIGNED", "PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"];
@@ -13,6 +14,7 @@ export default function AccountPage() {
   const router = useRouter();
   const { user, hydrate } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ProjectStatus | "ALL">("ALL");
   const [track, setTrack] = useState<Project | null>(null);
   const [review, setReview] = useState<Project | null>(null);
@@ -34,7 +36,8 @@ export default function AccountPage() {
   useEffect(() => { hydrate(); }, [hydrate]);
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("mm_token")) { router.push("/login"); return; }
-    api.projects().then(setProjects).catch(() => {});
+    setLoading(true);
+    api.projects().then(setProjects).catch(() => {}).finally(() => setLoading(false));
   }, [router]);
 
   const list = tab === "ALL" ? projects : projects.filter(p => p.status === tab);
@@ -53,7 +56,9 @@ export default function AccountPage() {
         })}
       </div>
 
-      {list.length === 0 ? (
+      {loading ? (
+        <Loading text="Đang tải dự án của bạn…" />
+      ) : list.length === 0 ? (
         <div className="text-center py-14">
           <p className="font-sans text-sub mb-4">Chưa có dự án nào ở mục này.</p>
           <button onClick={() => router.push("/templates")} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Sparkles size={16} /> Bắt đầu thiết kế</button>

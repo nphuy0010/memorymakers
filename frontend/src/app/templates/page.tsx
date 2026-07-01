@@ -5,14 +5,16 @@ import { Wand2 } from "lucide-react";
 import { api } from "@/lib/api";
 import TemplateCard from "@/components/TemplateCard";
 import AIDesignModal from "@/components/AIDesignModal";
+import { SkeletonGrid } from "@/components/Loading";
 import type { Template } from "@/lib/types";
 
 export default function GalleryPage() {
   const router = useRouter();
   const [all, setAll] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
   const [ai, setAi] = useState(false);
 
-  useEffect(() => { api.templates().then(setAll).catch(() => {}); }, []);
+  useEffect(() => { api.templates().then(setAll).catch(() => {}).finally(() => setLoading(false)); }, []);
 
   return (
     <div className="mm-page max-w-[1200px] mx-auto px-5 pt-10 pb-16">
@@ -26,7 +28,9 @@ export default function GalleryPage() {
         </button>
       </div>
 
-      {all.length === 0 ? (
+      {loading ? (
+        <SkeletonGrid count={8} />
+      ) : all.length === 0 ? (
         <div className="text-center py-16 text-sub font-sans">Chưa có mẫu nào. Admin có thể thêm mẫu trong khu quản trị.</div>
       ) : (
         <div className="grid md:grid-cols-4 gap-5">
