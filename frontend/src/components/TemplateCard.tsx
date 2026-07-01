@@ -13,7 +13,11 @@ export default function TemplateCard({ t }: { t: Template }) {
         {t.category && <span className="font-sans text-[10.5px] tracking-[1.5px] uppercase text-brass font-bold mb-1">{t.category}</span>}
         <div className="flex items-start justify-between gap-2">
           <div className="font-serif text-base text-ink font-semibold leading-snug">{t.title}</div>
-          <span className="font-sans text-xs text-sub flex items-center gap-1 shrink-0 mt-0.5"><Star size={12} className="fill-brass text-brass" />{t.rating}</span>
+          {(t as any).ratingCount > 0 && (
+            <span className="font-sans text-xs text-sub flex items-center gap-1 shrink-0 mt-0.5" title={`${(t as any).ratingCount} đánh giá`}>
+              <Star size={12} className="fill-brass text-brass" />{Number((t as any).ratingAvg).toFixed(1)} <span className="text-line">·</span> {(t as any).ratingCount}
+            </span>
+          )}
         </div>
         {t.description && <p className="font-sans text-[12.5px] text-sub mt-1 line-clamp-2 leading-snug">{t.description}</p>}
         <div className="font-sans text-[11.5px] text-sub mt-1.5">{t.pageCount ?? t.pages?.length ?? 0} trang</div>

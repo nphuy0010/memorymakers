@@ -5,7 +5,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 const router = Router();
 
 function format(p: any) {
-  return { ...p, photos: JSON.parse(p.photos || "[]"), address: p.address ? JSON.parse(p.address) : null };
+  return { ...p, photos: JSON.parse(p.photos || "[]"), layout: p.layout ? JSON.parse(p.layout) : null, address: p.address ? JSON.parse(p.address) : null };
 }
 
 const PRICE_KEY: Record<string, "priceSoft" | "priceHard" | "priceFan" | "priceDigital"> = {
@@ -27,9 +27,16 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// Lấy 1 dự án của chính user (để khôi phục thiết kế khi tiếp tục)
+router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
+  const p = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId }, include: { template: true } });
+  if (!p) return res.status(404).json({ error: "Không tìm thấy dự án" });
+  res.json(format(p));
+});
+
 // Tạo dự án — chỉ gọi khi người dùng đã chèn ảnh / thiết kế thật.
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  const { templateId, photos, title } = req.body;
+  const { templateId, photos, title, layout } = req.body;
   const tpl = await prisma.template.findUnique({ where: { id: templateId } });
   if (!tpl) return res.status(404).json({ error: "Template không tồn tại" });
   const p = await prisma.project.create({
@@ -39,6 +46,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       title: title || tpl.title,
       status: "DESIGNING",
       photos: JSON.stringify(photos || []),
+      layout: layout ? JSON.stringify(layout) : null,
     },
     include: { template: true },
   });
@@ -49,9 +57,10 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
   const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
-  const { photos, status, title } = req.body;
+  const { photos, status, title, layout } = req.body;
   const data: any = {};
   if (photos !== undefined) data.photos = JSON.stringify(photos);
+  if (layout !== undefined) data.layout = layout ? JSON.stringify(layout) : null;
   if (status !== undefined) data.status = status;
   if (title !== undefined) data.title = title;
   const p = await prisma.project.update({ where: { id: req.params.id }, data, include: { template: true } });

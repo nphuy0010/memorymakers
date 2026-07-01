@@ -5,7 +5,17 @@ function token() {
   return localStorage.getItem("mm_token");
 }
 
-async function req(path: string, opts: RequestInit = {}) {
+// Cache GET để không tải lại dữ liệu đã tải (tăng tốc chuyển trang)
+const cache = new Map<string, { exp: number; data: any }>();
+export function clearApiCache() { cache.clear(); }
+
+async function req(path: string, opts: RequestInit = {}, cacheTtl = 0) {
+  const method = (opts.method || "GET").toUpperCase();
+  const key = method + " " + path;
+  if (method === "GET" && cacheTtl > 0) {
+    const hit = cache.get(key);
+    if (hit && hit.exp > Date.now()) return hit.data;
+  }
   const res = await fetch(`${BASE}/api${path}`, {
     ...opts,
     headers: {
@@ -16,6 +26,8 @@ async function req(path: string, opts: RequestInit = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || "Lỗi"), { data, status: res.status });
+  if (method === "GET" && cacheTtl > 0) cache.set(key, { exp: Date.now() + cacheTtl, data });
+  else if (method !== "GET") cache.clear(); // có thay đổi dữ liệu -> xoá cache
   return data;
 }
 
@@ -53,15 +65,17 @@ export const api = {
   forgotPassword: (b: any) => req("/auth/forgot-password", { method: "POST", body: JSON.stringify(b) }),
   resetPassword: (b: any) => req("/auth/reset-password", { method: "POST", body: JSON.stringify(b) }),
   me: () => req("/auth/me"),
-  // templates
-  templates: (q = "") => req(`/templates${q ? `?q=${encodeURIComponent(q)}` : ""}`),
-  template: (id: string) => req(`/templates/${id}`),
-  templateBySlug: (slug: string) => req(`/templates/slug/${slug}`),
+  // templates (cache 60s để chuyển trang nhanh)
+  templates: (q = "") => req(`/templates${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, 60_000),
+  template: (id: string) => req(`/templates/${id}`, {}, 60_000),
+  templateBySlug: (slug: string) => req(`/templates/slug/${slug}`, {}, 60_000),
+  templateReviews: (id: string) => req(`/templates/${id}/reviews`, {}, 60_000),
   createTemplate: (b: any) => req("/templates", { method: "POST", body: JSON.stringify(b) }),
   updateTemplate: (id: string, b: any) => req(`/templates/${id}`, { method: "PUT", body: JSON.stringify(b) }),
   deleteTemplate: (id: string) => req(`/templates/${id}`, { method: "DELETE" }),
   // projects
   projects: () => req("/projects"),
+  getProject: (id: string) => req(`/projects/${id}`),
   createProject: (b: any) => req("/projects", { method: "POST", body: JSON.stringify(b) }),
   updateProject: (id: string, b: any) => req(`/projects/${id}`, { method: "PUT", body: JSON.stringify(b) }),
   orderProject: (id: string, b: any) => req(`/projects/${id}/order`, { method: "POST", body: JSON.stringify(b) }),
@@ -84,6 +98,6 @@ export const api = {
   adminUpdateOrder: (id: string, body: { status?: string; tracking?: string }) => req(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   adminStats: () => req("/admin/stats"),
   // settings
-  about: () => req("/settings/about"),
+  about: () => req("/settings/about", {}, 60_000),
   saveAbout: (b: any) => req("/settings/about", { method: "PUT", body: JSON.stringify(b) }),
 };

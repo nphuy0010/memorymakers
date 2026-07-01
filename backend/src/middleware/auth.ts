@@ -7,6 +7,9 @@ export interface AuthRequest extends Request {
   role?: string;
 }
 
+// Cache user hợp lệ 60s -> không phải truy vấn DB ở MỌI request (giảm độ trễ rõ rệt)
+const cache = new Map<string, { role: string; exp: number }>();
+
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
@@ -18,10 +21,17 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   } catch {
     return res.status(401).json({ error: "Token không hợp lệ" });
   }
+  const now = Date.now();
+  const hit = cache.get(payload.userId);
+  if (hit && hit.exp > now) {
+    req.userId = payload.userId;
+    req.role = hit.role;
+    return next();
+  }
   try {
-    // Xác minh user CÒN tồn tại (token cũ sau khi reset DB sẽ bị vô hiệu, tránh lỗi khoá ngoại khi tạo dự án)
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) return res.status(401).json({ error: "Tài khoản không tồn tại — hãy đăng nhập lại" });
+    if (!user) { cache.delete(payload.userId); return res.status(401).json({ error: "Tài khoản không tồn tại — hãy đăng nhập lại" }); }
+    cache.set(user.id, { role: user.role, exp: now + 60_000 });
     req.userId = user.id;
     req.role = user.role;
     next();

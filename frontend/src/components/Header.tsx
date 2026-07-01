@@ -25,7 +25,7 @@ export default function Header() {
     refresh();
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
-    const t = setInterval(refresh, 15000);
+    const t = setInterval(refresh, 30000);
     return () => { window.removeEventListener("focus", onFocus); clearInterval(t); };
   }, [user]);
 

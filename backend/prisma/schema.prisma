@@ -85,6 +85,7 @@ model Project {
   status      String   @default("DESIGNING")
   // DESIGNING | DESIGNED | PURCHASED | SHIPPING | DELIVERED | CANCELLED
   photos      String   @default("[]") // JSON: danh sách ảnh user đã chèn (url/filename)
+  layout      String?                  // JSON: { assignments, edits, texts, hidden } để khôi phục thiết kế
   mode        String?                  // "digital" | "physical"
   option      String?                  // "soft" | "hard" | "fan" | "digital"
   amount      Int?                     // tổng tiền (VND) — chỉ có sau khi chọn option

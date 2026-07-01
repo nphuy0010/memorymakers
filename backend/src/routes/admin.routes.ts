@@ -56,8 +56,13 @@ router.get("/orders", async (_req, res) => {
     });
     res.json(orders.map((o) => ({
       id: o.id, title: o.title, status: o.status, amount: o.amount, mode: o.mode, option: o.option,
-      tracking: o.tracking || "", customer: o.user?.name, phone: o.user?.phone,
+      tracking: o.tracking || "", customer: o.user?.name, phone: o.user?.phone, email: o.user?.email,
       template: o.template?.title || o.title,
+      // dữ liệu để admin XEM/IN mẫu khách đã đặt
+      photos: JSON.parse(o.photos || "[]"),
+      layout: o.layout ? JSON.parse(o.layout) : null,
+      pages: o.template ? JSON.parse((o.template as any).pages || "[]") : [],
+      slots: (o.template as any)?.slots || 0,
       address: o.address ? JSON.parse(o.address) : null, createdAt: o.createdAt,
     })));
   } catch (e: any) {

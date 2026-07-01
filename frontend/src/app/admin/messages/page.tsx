@@ -15,7 +15,7 @@ export default function AdminMessages() {
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const load = () => api.adminMessages().then((d: Convo[]) => setConvos(d)).catch(() => {});
-  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t); }, []);
+  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
   useEffect(() => { bodyRef.current?.scrollTo({ top: 1e9 }); }, [convos, sel]);
 
   const cur = convos.find(c => c.userId === sel);

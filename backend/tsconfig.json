@@ -4,12 +4,15 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noEmitOnError": false
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }

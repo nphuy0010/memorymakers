@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Download, Search, Loader2 } from "lucide-react";
+import { Download, Search, Loader2, Eye } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
+import OrderDesignModal from "@/components/OrderDesignModal";
 
 const STATUS: Record<string, { label: string; color: string }> = {
   PURCHASED: { label: "Đang xử lý", color: "#7E9CC4" },
@@ -14,7 +15,7 @@ const STAGES = ["PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"];
 const OPT_LABEL: Record<string, string> = { soft: "Bìa thường", hard: "Bìa cứng", fan: "Gấp quạt", digital: "Digital" };
 const vnd = (n: number) => (n || 0).toLocaleString("vi-VN") + "₫";
 
-type Order = { id: string; title: string; status: string; amount: number; mode: string; option: string; tracking: string; customer: string; phone: string; address: { name?: string; phone?: string; address?: string } | null; };
+type Order = { id: string; title: string; status: string; amount: number; mode: string; option: string; tracking: string; customer: string; phone: string; address: { name?: string; phone?: string; address?: string } | null; pages?: any[]; layout?: any; photos?: string[]; slots?: number; };
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -22,6 +23,7 @@ export default function AdminOrders() {
   const [fStatus, setFStatus] = useState("all");
   const [q, setQ] = useState("");
   const [saving, setSaving] = useState<string>("");
+  const [viewOrder, setViewOrder] = useState<Order | null>(null);
 
   const load = () => { setLoading(true); api.adminOrders().then((d: Order[]) => setOrders(d)).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, []);
@@ -82,7 +84,7 @@ export default function AdminOrders() {
           : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse min-w-[860px]">
-                <thead><tr>{["Mã đơn", "Khách hàng", "Mẫu", "Loại", "Số tiền", "Trạng thái", "Mã vận đơn", "Địa chỉ"].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Mã đơn", "Khách hàng", "Mẫu", "Loại", "Số tiền", "Trạng thái", "Mã vận đơn", "Địa chỉ", "Mẫu đặt"].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                 <tbody>{list.map(o => (
                   <tr key={o.id} className="border-t border-line">
                     <td className={td + " font-mono text-xs"}>{o.id.slice(0, 8)}… {saving === o.id && <Loader2 size={11} className="animate-spin inline ml-1" />}</td>
@@ -102,12 +104,16 @@ export default function AdminOrders() {
                         : <input defaultValue={o.tracking || ""} onBlur={e => { if (e.target.value !== (o.tracking || "")) patch(o.id, { tracking: e.target.value }); }} placeholder="Nhập mã…" className="w-[130px] font-sans text-[12.5px] px-2 py-1.5 rounded-lg border border-line outline-none" />}
                     </td>
                     <td className={td + " max-w-[180px] text-[12.5px] text-sub"}>{o.address?.address || "—"}</td>
+                    <td className={td}>
+                      <button onClick={() => setViewOrder(o)} className="mm-btn inline-flex items-center gap-1.5 border border-brass text-brass rounded-full px-3 py-1.5 font-sans text-[12.5px] font-semibold whitespace-nowrap"><Eye size={14} /> Xem / In</button>
+                    </td>
                   </tr>
                 ))}</tbody>
               </table>
             </div>
           )}
       </div>
+      {viewOrder && <OrderDesignModal order={viewOrder} onClose={() => setViewOrder(null)} />}
     </AdminShell>
   );
 }

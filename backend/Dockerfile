@@ -9,7 +9,7 @@ COPY prisma ./prisma
 RUN npm install
 
 COPY . .
-RUN npm run build
+RUN npm run build && test -f dist/index.js || (echo "BUILD FAILED: thiếu dist/index.js" && ls -la dist && exit 1)
 
 ENV NODE_ENV=production
 # Chỉ dùng khi KHÔNG bật Cloudinary (fallback). Mount volume vào đây nếu muốn giữ ảnh.

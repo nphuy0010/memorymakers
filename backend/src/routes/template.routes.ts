@@ -40,6 +40,13 @@ router.get("/", async (req, res) => {
     });
   }
   let list = all.map(format);
+  // Số sao thực = trung bình các lượt đánh giá đã có
+  try {
+    const grp = await prisma.project.groupBy({ by: ["templateId"], where: { rating: { not: null } }, _avg: { rating: true }, _count: { rating: true } });
+    const rmap: Record<string, any> = {};
+    for (const g of grp) rmap[g.templateId] = { ratingAvg: g._avg.rating, ratingCount: g._count.rating };
+    list = list.map((t) => ({ ...t, ratingAvg: rmap[t.id]?.ratingAvg ?? null, ratingCount: rmap[t.id]?.ratingCount ?? 0 }));
+  } catch { list = list.map((t) => ({ ...t, ratingAvg: null, ratingCount: 0 })); }
   if (q) {
     list = list.filter(
       (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.keywords.some((k: string) => k.toLowerCase().includes(q))
@@ -48,16 +55,35 @@ router.get("/", async (req, res) => {
   res.json(list);
 });
 
+async function withRating(t: any) {
+  try {
+    const agg = await prisma.project.aggregate({ where: { templateId: t.id, rating: { not: null } }, _avg: { rating: true }, _count: { rating: true } });
+    return { ...format(t), ratingAvg: agg._avg.rating, ratingCount: agg._count.rating };
+  } catch { return { ...format(t), ratingAvg: null, ratingCount: 0 }; }
+}
+
 router.get("/slug/:slug", async (req, res) => {
   const t = await prisma.template.findUnique({ where: { slug: req.params.slug } });
   if (!t) return res.status(404).json({ error: "Không tìm thấy template" });
-  res.json(format(t));
+  res.json(await withRating(t));
+});
+
+// Đánh giá công khai của 1 mẫu (mọi người xem được)
+router.get("/:id/reviews", async (req, res) => {
+  try {
+    const rows = await prisma.project.findMany({
+      where: { templateId: req.params.id, rating: { not: null } },
+      include: { user: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" }, take: 100,
+    });
+    res.json(rows.map((r: any) => ({ rating: r.rating, review: r.review || "", name: r.user?.name || "Khách", createdAt: r.updatedAt })));
+  } catch { res.json([]); }
 });
 
 router.get("/:id", async (req, res) => {
   const t = await prisma.template.findUnique({ where: { id: req.params.id } });
   if (!t) return res.status(404).json({ error: "Không tìm thấy template" });
-  res.json(format(t));
+  res.json(await withRating(t));
 });
 
 // POST /api/templates (admin) — tạo template.

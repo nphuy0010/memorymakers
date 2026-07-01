@@ -30,7 +30,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const refresh = () => api.adminMessagesUnread().then((d: any) => setUnread(d.count || 0)).catch(() => {});
     refresh();
-    const t = setInterval(refresh, 10000);
+    const t = setInterval(refresh, 20000);
     return () => clearInterval(t);
   }, [pathname]);
 

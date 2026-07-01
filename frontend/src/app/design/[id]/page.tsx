@@ -1,6 +1,7 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, QrCode, CheckCircle2, Download } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
@@ -14,6 +15,7 @@ const STEPS = ["Thiết kế", "Xem trước", "Chọn sản phẩm", "Giao hàn
 export default function DesignPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const projectParam = useSearchParams().get("project"); // tiếp tục dự án đã lưu
   const { user, hydrate, hydrated } = useAuth();
   const [saving, setSaving] = useState(false);
 
@@ -34,14 +36,31 @@ export default function DesignPage() {
   useEffect(() => { api.template(id).then(setT).catch(() => {}); }, [id]);
   useEffect(() => { if (hydrated && !user) router.push("/login"); }, [hydrated, user, router]);
 
+  // KHÔI PHỤC dự án đã lưu (khi bấm "Tiếp tục" từ Dự án của tôi) — không mất ảnh/thiết kế.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!t || !projectParam || hydratedRef.current) return;
+    hydratedRef.current = true;
+    api.getProject(projectParam).then((p: any) => {
+      setProjectId(p.id);
+      if (Array.isArray(p.photos) && p.photos.length) setPhotos(p.photos);
+      const L = p.layout || {};
+      if (L.assignments) setAssignments(L.assignments);
+      if (L.edits) setEdits(L.edits);
+      if (L.texts) setTexts(L.texts);
+      if (L.hidden) setHidden(L.hidden);
+    }).catch(() => {});
+  }, [t, projectParam]);
+
+  const layoutObj = () => ({ assignments, edits, texts, hidden });
+
   // LƯU DỰ ÁN 1 LẦN (single-flight) — dùng chung cho auto-lưu, xem trước, thanh toán (tránh tạo trùng/đua).
   const draftRef = useRef<Promise<string> | null>(null);
   const ensureProject = (): Promise<string> => {
     if (projectId) return Promise.resolve(projectId);
     if (!draftRef.current) {
-      const used = assignments.filter(Boolean) as string[];
       draftRef.current = (async () => {
-        const p = await api.createProject({ templateId: t!.id, photos: used, title: t!.title });
+        const p = await api.createProject({ templateId: t!.id, title: t!.title, photos, layout: layoutObj() });
         if (!p?.id) throw new Error("Máy chủ không trả về dự án");
         setProjectId(p.id);
         await api.updateProject(p.id, { status: "DESIGNED" });
@@ -59,6 +78,18 @@ export default function DesignPage() {
     ensureProject().catch((e: any) => console.warn("Lưu nháp lỗi:", e?.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, assignments, projectId, user]);
+
+  // TỰ LƯU khi khách sửa (ảnh/bố cục/chữ) — giữ nguyên ảnh khách khi thoát ra rồi vào lại.
+  const saveTimer = useRef<any>(null);
+  useEffect(() => {
+    if (!projectId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.updateProject(projectId, { photos, layout: layoutObj() }).catch(() => {});
+    }, 900);
+    return () => clearTimeout(saveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, photos, assignments, edits, texts, hidden]);
 
   if (!t) return <div className="p-10 text-center text-sub">Đang tải…</div>;
   const price = mode === "digital" ? t.prices.digital : t.prices[option as "soft" | "hard" | "fan"];
