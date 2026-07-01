@@ -9,14 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-<<<<<<< HEAD
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.460.0",
-    "next": "15.1.0",
-=======
     "next": "15.1.11",
->>>>>>> 19faab0b57fe5a6dbbe25b3c5dd1c7b9ae5f326a
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.0"
