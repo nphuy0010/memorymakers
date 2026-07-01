@@ -1,4 +1,4 @@
-# Backend Memory Makers — deploy Render / Railway / Fly / VPS
+# Backend Memory Makers — deploy Render / Fly / VPS
 # Dùng PostgreSQL (Neon) + Cloudinary => KHÔNG cần volume, chạy được cả nền free.
 FROM node:20-slim
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*

@@ -2,7 +2,7 @@
 
 Stack: **PostgreSQL (Neon, free)** + **Cloudinary (ảnh, free)** → backend không cần ổ đĩa, deploy được trên nền free.
 - **Frontend (Next.js)** → Vercel
-- **Backend (Express + Prisma)** → Render (free) hoặc Railway
+- **Backend (Express + Prisma)** → Render (free)
 
 ---
 
@@ -40,7 +40,6 @@ git push -u origin main
 4. Create → chờ build. Khởi động sẽ tự đẩy schema lên Postgres + tự tạo admin.
 5. Kiểm tra `https://<backend>.onrender.com/api/health` → `{"ok":true}`.
 
-> Dùng Railway thay Render cũng được: New Project → Deploy repo → Root `backend` → thêm biến y hệt → Generate Domain.
 
 ## Bước 5 — Deploy FRONTEND (Vercel)
 1. https://vercel.com → **Add New → Project** → chọn repo.
@@ -49,7 +48,7 @@ git push -u origin main
 4. Deploy → nhận domain, vd `https://memory-makers.vercel.app`.
 
 ## Bước 6 — Nối 2 bên (CORS)
-1. Quay lại backend (Render/Railway) → sửa `FRONTEND_ORIGIN` = domain Vercel (không có `/` cuối) → redeploy.
+1. Quay lại backend (Render) → sửa `FRONTEND_ORIGIN` = domain Vercel (không có `/` cuối) → redeploy.
 2. Mở web Vercel → đăng nhập admin → thêm template (ảnh lên Cloudinary) → thử đặt đơn → kiểm tra admin nhận đơn & tin nhắn.
 
 ---
