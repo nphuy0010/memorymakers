@@ -11,6 +11,7 @@ export interface Template {
   keywords: string[];
   blankImage: string | null; // PNG trống để chèn ảnh
   demoImage: string | null;  // ảnh demo để preview
+  demoPhotos?: string[];     // ảnh admin up -> tự điền vào khung để xem thành phẩm
   coverImage?: string | null;
   previewGif?: string | null;   // GIF xem trước
   previewVideo?: string | null; // video mp4 xem trước

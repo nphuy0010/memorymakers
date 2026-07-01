@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutGrid, Package, Users, Pencil, ListOrdered, MessageCircle } from "lucide-react";
+import { LayoutGrid, Package, Users, Pencil, ListOrdered, MessageCircle, Images } from "lucide-react";
 import { useAuth } from "@/store/useAuth";
 import { api } from "@/lib/api";
 
@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin", label: "Tổng quan", icon: LayoutGrid },
   { href: "/admin/orders", label: "Đơn hàng", icon: ListOrdered },
   { href: "/admin/templates", label: "Template", icon: Package },
+  { href: "/admin/demo", label: "Ảnh demo", icon: Images },
   { href: "/admin/messages", label: "Tin nhắn", icon: MessageCircle },
   { href: "/admin/users", label: "Tài khoản", icon: Users },
   { href: "/admin/about", label: "Trang About", icon: Pencil },

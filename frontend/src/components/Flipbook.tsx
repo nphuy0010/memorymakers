@@ -48,11 +48,20 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
   }, [t, texts, hidden]);
 
   const count = seq.length;
+
+  // CHẾ ĐỘ XEM MẪU: nếu chưa thiết kế (không có assignments) mà template có ảnh demo -> tự điền vào các khung.
+  const effAssign = useMemo<(string | undefined)[] | undefined>(() => {
+    if (assignments) return assignments; // đang thiết kế: dùng ảnh thật của khách
+    const dp = ((t as any).demoPhotos || []) as string[];
+    if (!dp.length) return undefined;
+    const total = buildPages(t).reduce((n, p) => n + p.slots.length, 0);
+    return Array.from({ length: total }, (_, g) => dp[g % dp.length]);
+  }, [t, assignments]);
   const [spread, setSpread] = useState(0);
   const [anim, setAnim] = useState<{ dir: "next" | "prev"; started: boolean } | null>(null);
   useEffect(() => { setSpread((s) => Math.min(s, Math.max(0, count - 2))); }, [count]);
   const busy = anim !== null;
-  const page = (i: number) => <NPage pg={seq[i] || null} assignments={assignments} edits={edits} sample={sample} />;
+  const page = (i: number) => <NPage pg={seq[i] || null} assignments={effAssign} edits={edits} sample={sample} />;
 
   const go = (dir: "next" | "prev") => {
     if (busy) return;
