@@ -4,7 +4,7 @@ const GRADS = ["from-blush to-blushDeep", "from-sage/40 to-sage", "from-cream to
 
 // Bìa luôn hiển thị NẰM NGANG & ĐẦY ĐỦ (không cắt) — dùng object-contain trong khung 3/2, nền kem.
 export default function TemplateCover({ t, big, kind = "cover" }: { t: Template; big?: boolean; kind?: "cover" | "demo" | "blank" }) {
-  const img = kind === "demo" ? t.demoImage : kind === "blank" ? t.blankImage : (t.coverImage || t.pages?.[0]?.image || t.demoImage || t.blankImage);
+  const img = kind === "demo" ? t.demoImage : kind === "blank" ? t.blankImage : (t.demoImage || t.coverImage || t.pages?.[0]?.image || t.blankImage);
   const ratio = "aspect-[3/2]"; // khung ngang cho mọi bìa
   if (img) {
     return (

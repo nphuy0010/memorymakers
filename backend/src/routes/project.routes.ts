@@ -104,4 +104,15 @@ router.post("/:id/review", requireAuth, async (req: AuthRequest, res) => {
   res.json(format(p));
 });
 
+// Xóa dự án của CHÍNH mình — cho phép nháp/đã hủy; KHÔNG cho xóa đơn đã thanh toán (giữ lịch sử đơn).
+router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
+  if (["PURCHASED", "SHIPPING", "DELIVERED"].includes(existing.status)) {
+    return res.status(400).json({ error: "Không thể xóa đơn đã thanh toán" });
+  }
+  await prisma.project.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
 export default router;

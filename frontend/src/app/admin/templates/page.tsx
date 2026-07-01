@@ -36,12 +36,27 @@ export default function AdminTemplates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
   const [pages, setPages] = useState<PageDef[]>([]);
+  const [demoImage, setDemoImage] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [demoUploading, setDemoUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const pagesRef = useRef<HTMLInputElement>(null);
+  const demoRef = useRef<HTMLInputElement>(null);
 
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
+
+  // Ảnh HIỂN THỊ mẫu (demo/thành phẩm) — chỉ để show cho khách xem, KHÔNG dùng khi thiết kế.
+  const pickDemo = async (f: File) => {
+    setDemoUploading(true);
+    try {
+      const small = await compressDataUrl(await readDataUrl(f));
+      let img = small;
+      try { const { url } = await api.uploadFile(dataUrlToFile(small, "demo.jpg")); img = url; } catch { /* fallback dataURL */ }
+      setDemoImage(img);
+    } catch (e: any) { alert("Lỗi ảnh demo: " + (e?.message || e)); }
+    finally { setDemoUploading(false); }
+  };
 
   // Tải nhiều trang: mỗi ảnh -> tự DÒ KHUNG + nén; thử UPLOAD lấy URL, nếu lỗi thì lưu ảnh dạng dataURL.
   const pickPages = async (files: FileList) => {
@@ -77,11 +92,12 @@ export default function AdminTemplates() {
         slots: totalSlots, pageCount: pages.length, featured: form.featured, canvaLink: form.canvaLink,
         keywords: form.keywords.split(",").map((s) => s.trim()).filter(Boolean),
         prices: { soft: +form.soft, hard: +form.hard, fan: +form.fan, digital: +form.digital },
-        coverImage: pages[0]?.image || null,   // bìa = trang đầu
+        coverImage: pages[0]?.image || null,   // bìa mặc định = trang đầu
+        demoImage: demoImage || null,          // ảnh hiển thị mẫu (nếu admin upload)
         pages,
       });
       setForm({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
-      setPages([]);
+      setPages([]); setDemoImage(null);
       load();
     } catch (e: any) { alert(e.message); }
     finally { setSaving(false); }
@@ -126,6 +142,24 @@ export default function AdminTemplates() {
                   <button onClick={() => setPages((ps) => ps.filter((_, j) => j !== i))} className="absolute top-1 right-1 bg-ink/70 rounded-full w-5 h-5 grid place-items-center"><X size={11} color="#fff" /></button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Ảnh HIỂN THỊ mẫu (demo/thành phẩm) — chỉ để show cho khách; thiết kế vẫn dùng trang trống ở trên */}
+        <div className="border border-line rounded-xl p-4 mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <div className="font-serif text-base font-bold text-ink flex items-center gap-1.5"><ImageIcon size={16} className="text-brass" /> Ảnh hiển thị mẫu (demo)</div>
+            <button onClick={() => demoRef.current?.click()} disabled={demoUploading} className="font-sans text-[13px] text-white bg-brass rounded-full px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-60">
+              {demoUploading ? <><Loader2 size={14} className="animate-spin" /> Đang tải…</> : <><Plus size={14} /> {demoImage ? "Đổi ảnh" : "Tải ảnh demo"}</>}
+            </button>
+          </div>
+          <p className="font-sans text-[12.5px] text-sub">Ảnh thành phẩm đẹp để khách xem ở kho mẫu/preview. Khi khách bấm “Dùng mẫu” vẫn dùng các trang trống phía trên để chèn ảnh. Bỏ trống thì hệ thống dùng trang bìa làm ảnh hiển thị.</p>
+          <input ref={demoRef} type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) pickDemo(e.target.files[0]); e.currentTarget.value = ""; }} />
+          {demoImage && (
+            <div className="relative mt-3 inline-block">
+              <img src={demoImage} className="max-h-40 rounded-lg border border-line" />
+              <button onClick={() => setDemoImage(null)} className="absolute top-1 right-1 bg-ink/70 rounded-full w-6 h-6 grid place-items-center"><X size={13} color="#fff" /></button>
             </div>
           )}
         </div>

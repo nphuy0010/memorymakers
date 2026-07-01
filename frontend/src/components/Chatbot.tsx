@@ -21,7 +21,7 @@ export default function Chatbot() {
   useEffect(() => {
     if (!open || !user) return;
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 15000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user]);

@@ -89,6 +89,7 @@ export const api = {
   adminMessageRead: (userId: string) => req(`/admin/messages/${userId}/read`, { method: "POST" }),
   adminReply: (userId: string, content: string) => req("/admin/messages", { method: "POST", body: JSON.stringify({ userId, content }) }),
   cancelProject: (id: string) => req(`/projects/${id}/cancel`, { method: "POST" }),
+  deleteProject: (id: string) => req(`/projects/${id}`, { method: "DELETE" }),
   // admin
   adminUsers: () => req("/admin/users"),
   adminCreateUser: (b: any) => req("/admin/users", { method: "POST", body: JSON.stringify(b) }),

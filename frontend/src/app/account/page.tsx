@@ -42,6 +42,11 @@ export default function AccountPage() {
 
   const list = tab === "ALL" ? projects : projects.filter(p => p.status === tab);
   const cancel = async (p: Project) => { await api.cancelProject(p.id); setProjects(ps => ps.map(x => x.id === p.id ? { ...x, status: "CANCELLED" } : x)); };
+  const remove = async (p: Project) => {
+    if (!confirm("Xóa hẳn dự án này khỏi danh sách?")) return;
+    try { await api.deleteProject(p.id); setProjects(ps => ps.filter(x => x.id !== p.id)); }
+    catch (e: any) { alert("Không xóa được: " + (e?.message || "")); }
+  };
 
   return (
     <div className="max-w-[1100px] mx-auto px-5 pt-9 pb-16">
@@ -81,7 +86,7 @@ export default function AccountPage() {
                   {p.status === "DELIVERED" && ((p as any).rating
                     ? <div className="flex-1 flex items-center justify-center gap-1 py-2 font-sans text-sm text-brass font-semibold">{Array.from({ length: 5 }).map((_, i) => <Star key={i} size={14} className={i < (p as any).rating ? "fill-brass text-brass" : "text-line"} />)}<span className="ml-1">Đã đánh giá</span></div>
                     : <button onClick={() => { setReview(p); setRStars(5); setRText(""); }} className="flex-1 border border-ink text-ink rounded-full py-2 font-sans text-sm font-semibold inline-flex items-center justify-center gap-1.5"><Star size={15} /> Đánh giá</button>)}
-                  {p.status === "CANCELLED" && <button onClick={() => router.push(`/design/${p.template.id}`)} className="flex-1 bg-cream text-ink rounded-full py-2 font-sans text-sm font-semibold">Thiết kế lại</button>}
+                  {p.status === "CANCELLED" && <><button onClick={() => router.push(`/design/${p.template.id}?project=${p.id}`)} className="flex-1 bg-cream text-ink rounded-full py-2 font-sans text-sm font-semibold">Thiết kế lại</button><button onClick={() => remove(p)} title="Xóa dự án" className="bg-cream rounded-full px-3"><Trash2 size={15} className="text-[#B05A4A]" /></button></>}
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Send, User } from "lucide-react";
+import { Send, User, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 
@@ -12,10 +12,11 @@ export default function AdminMessages() {
   const [sel, setSel] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const load = () => api.adminMessages().then((d: Convo[]) => setConvos(d)).catch(() => {});
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+  const load = () => api.adminMessages().then((d: Convo[]) => setConvos(d)).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => clearInterval(t); }, []);
   useEffect(() => { bodyRef.current?.scrollTo({ top: 1e9 }); }, [convos, sel]);
 
   const cur = convos.find(c => c.userId === sel);
@@ -34,7 +35,8 @@ export default function AdminMessages() {
         {/* danh sách hội thoại */}
         <div className="border-r border-line overflow-y-auto">
           <div className="px-4 py-3 font-serif text-lg text-ink font-bold border-b border-line">Tin nhắn ({convos.length})</div>
-          {convos.length === 0 && <div className="p-5 text-center font-sans text-sm text-sub">Chưa có tin nhắn nào từ khách.</div>}
+          {loading && convos.length === 0 && <div className="p-5 text-center font-sans text-sm text-sub"><Loader2 className="animate-spin inline text-brass" size={20} /><div className="mt-2">Đang tải…</div></div>}
+          {!loading && convos.length === 0 && <div className="p-5 text-center font-sans text-sm text-sub">Chưa có tin nhắn nào từ khách.</div>}
           {convos.map(c => (
             <button key={c.userId} onClick={() => openConvo(c)} className={`w-full text-left px-4 py-3 border-b border-line flex items-center gap-3 ${sel === c.userId ? "bg-cream" : "hover:bg-cream/50"}`}>
               <span className="w-9 h-9 rounded-full bg-brass text-white grid place-items-center font-semibold shrink-0">{(c.name || "?")[0]?.toUpperCase()}</span>
