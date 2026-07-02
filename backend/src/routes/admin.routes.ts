@@ -88,7 +88,8 @@ router.patch("/orders/:id", async (req, res) => {
 
 // Thống kê doanh thu
 router.get("/stats", async (_req, res) => {
-  const paid = await prisma.project.findMany({ where: { amount: { not: null } } });
+  // Chỉ tính đơn ĐÃ THANH TOÁN (khớp với danh sách đơn) -> hủy/xóa đơn thì số đơn & doanh thu tự giảm
+  const paid = await prisma.project.findMany({ where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } } });
   const revenue = paid.reduce((s, p) => s + (p.amount || 0), 0);
   const byOption: Record<string, number> = {};
   for (const p of paid) byOption[p.option || "?"] = (byOption[p.option || "?"] || 0) + (p.amount || 0);
