@@ -50,7 +50,7 @@ router.patch("/users/:id/role", async (req: AuthRequest, res) => {
 router.get("/orders", async (_req, res) => {
   try {
     const orders = await prisma.project.findMany({
-      where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"] } },
+      where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } },
       include: { template: true, user: true },
       orderBy: { updatedAt: "desc" },
     });

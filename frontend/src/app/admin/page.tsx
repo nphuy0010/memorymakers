@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Wallet, ListOrdered, Package, TrendingUp } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
-import { vnd, CATS } from "@/lib/types";
+import { vnd, CATS, STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
 
 export default function AdminHome() {
   const [stats, setStats] = useState<any>(null);
@@ -60,7 +60,7 @@ export default function AdminHome() {
                   <td className="py-3 font-sans text-sm text-ink">{o.customer}</td>
                   <td className="py-3 font-sans text-sm text-ink">{CATS.find(c => c.id === o.option)?.label || o.option}</td>
                   <td className="py-3 font-sans text-sm text-ink">{o.amount ? vnd(o.amount) : "—"}</td>
-                  <td className="py-3 font-sans text-sm text-ink">{o.status}</td>
+                  <td className="py-3"><span className="font-sans text-xs font-semibold text-white rounded-full px-2.5 py-1" style={{ background: (STATUS_COLOR as any)[o.status] || "#7E9CC4" }}>{(STATUS_LABEL as any)[o.status] || o.status}</span></td>
                   <td className="py-3 font-sans text-sm text-sub">{o.address?.address || "Digital"}</td>
                 </tr>
               ))}
