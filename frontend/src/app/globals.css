@@ -62,7 +62,7 @@ p { text-wrap: pretty; }
 .mm-logo:hover .mm-swash { animation: mmDraw .7s ease forwards; }
 
 /* marquee */
-.mm-marquee-track { display: flex; gap: 20px; width: max-content; animation: mmMarquee 40s linear infinite; }
+.mm-marquee-track { display: flex; gap: 20px; width: max-content; animation: mmMarquee 23s linear infinite; }
 .mm-marquee:hover .mm-marquee-track { animation-play-state: paused; }
 
 @media (prefers-reduced-motion: reduce) {
