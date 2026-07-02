@@ -64,14 +64,20 @@ export default function AdminDemoPhotos() {
     if (!sel) return;
     setSaving(true);
     try {
-      await api.updateTemplate(sel.id, { demoPhotos: photos });
-      setTemplates(ts => ts.map(t => t.id === sel.id ? ({ ...t, demoPhotos: photos } as any) : t));
+      // Lưu rồi ĐỌC LẠI kết quả máy chủ trả về -> xác nhận đã lưu thật (nếu backend chưa có cột demoPhotos sẽ báo lỗi rõ)
+      const updated: any = await api.updateTemplate(sel.id, { demoPhotos: photos });
+      const serverPhotos: string[] = updated?.demoPhotos || [];
+      setPhotos(serverPhotos);
+      setTemplates(ts => ts.map(t => t.id === sel.id ? updated : t));
       setSaved(true);
-    } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "")); }
-    finally { setSaving(false); }
+      if (serverPhotos.length !== photos.length) {
+        alert("Máy chủ chưa lưu đủ ảnh. Có thể backend chưa cập nhật CSDL — hãy chạy 'npm run db:push' (local) hoặc deploy lại backend.");
+      }
+    } catch (e: any) {
+      alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần cập nhật CSDL (cột demoPhotos). Chạy 'npm run db:push' hoặc deploy lại backend.");
+    } finally { setSaving(false); }
   };
 
-  // template xem trước với ảnh demo đang chọn (chưa lưu cũng thấy)
   const previewT = sel ? ({ ...sel, demoPhotos: photos } as any) : null;
 
   return (
@@ -85,7 +91,6 @@ export default function AdminDemoPhotos() {
 
         {loading ? <Loading text="Đang tải template…" /> : (
           <div className="grid md:grid-cols-[260px_1fr] gap-5">
-            {/* danh sách template */}
             <div className="border border-line rounded-xl overflow-hidden max-h-[520px] overflow-y-auto">
               {templates.length === 0 && <div className="p-4 text-sm text-sub font-sans">Chưa có template.</div>}
               {templates.map(t => {
@@ -102,7 +107,6 @@ export default function AdminDemoPhotos() {
               })}
             </div>
 
-            {/* khu làm việc */}
             <div>
               {!sel ? <div className="grid place-items-center h-[300px] text-sub font-sans text-sm">Chọn một template ở bên trái để thêm ảnh demo.</div> : (
                 <>
