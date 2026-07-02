@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, ImageIcon, X, Loader2, Wand2 } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
+import SlotEditor from "@/components/SlotEditor";
 import { type Template, type PageDef } from "@/lib/types";
 import { detectSlots } from "@/lib/detectSlots";
 
@@ -34,6 +35,7 @@ function dataUrlToFile(dataUrl: string, name: string): File {
 
 export default function AdminTemplates() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [editSlots, setEditSlots] = useState<Template | null>(null);
   const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
   const [pages, setPages] = useState<PageDef[]>([]);
   const [detecting, setDetecting] = useState(false);
@@ -164,11 +166,13 @@ export default function AdminTemplates() {
               </div>
               <div className="font-serif text-sm text-ink font-semibold mt-2">{t.title}</div>
               <div className="font-sans text-[11px] text-sub">{t.category || "—"} · {t.pageCount ?? t.pages?.length ?? 0} trang</div>
-              <button onClick={() => del(t.id)} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
+              <button onClick={() => setEditSlots(t)} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
+              <button onClick={() => del(t.id)} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
             </div>
           ))}
         </div>
       </div>
+      {editSlots && <SlotEditor template={editSlots} onClose={() => setEditSlots(null)} onSaved={(u: any) => { setTemplates(ts => ts.map(x => x.id === u.id ? u : x)); }} />}
     </AdminShell>
   );
 }

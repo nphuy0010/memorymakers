@@ -24,7 +24,7 @@ export function Logo({ size = 40, light = false, withText = true }: { size?: num
       </svg>
       {withText && (
         <div style={{ textAlign: "left", lineHeight: 1 }}>
-          <div style={{ fontFamily: "Lora, serif", fontSize: size * 0.5, fontWeight: 700, color: ink, letterSpacing: 0.2 }}>
+          <div style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: size * 0.5, fontWeight: 700, color: ink, letterSpacing: 0.2 }}>
             <span style={{ fontStyle: "italic", color: light ? "#E8C9C1" : C.brass }}>Memory</span> Makers
           </div>
           <svg width={size * 3.4} height="8" viewBox="0 0 160 8" style={{ display: "block", marginTop: 2 }} preserveAspectRatio="none">

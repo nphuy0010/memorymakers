@@ -69,12 +69,16 @@ export function detectSlots(src: string): Promise<Slot[]> {
           if (area < N * 0.008) continue;
           if (skc / area < 0.08 || grc / area < 0.05) continue;
           const bw = maxx - minx + 1, bh = maxy - miny + 1;
+          // Đoán hình dạng: tỉ lệ lấp đầy (area/bbox). Hình tròn/ellipse ~ π/4 ≈ 0.785; hình chữ nhật ~ 1.
+          const fill = area / (bw * bh);
+          const aspect = bw / bh;
+          const isCircle = fill >= 0.68 && fill <= 0.88 && aspect >= 0.8 && aspect <= 1.25;
           slots.push({
             x: +((minx / w) * 100).toFixed(1),
             y: +((miny / h) * 100).toFixed(1),
             w: +((bw / w) * 100).toFixed(1),
             h: +((bh / h) * 100).toFixed(1),
-            shape: "rect",
+            shape: isCircle ? "circle" : "rect",
           });
         }
         slots.sort((a, b) => a.y - b.y || a.x - b.x);

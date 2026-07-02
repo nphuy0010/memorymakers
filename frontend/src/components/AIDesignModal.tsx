@@ -35,7 +35,7 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
           <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
             <div style={{ width: 38, height: 38, borderRadius: 11, background: "rgba(255,255,255,.25)", display: "grid", placeItems: "center" }}><Wand2 size={20} color="#fff" /></div>
             <div>
-              <div style={{ fontFamily: "Lora, serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>Thiết kế với AI</div>
+              <div style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>Thiết kế với AI</div>
               <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12, color: "rgba(255,255,255,.9)" }}>Mô tả mẫu — AI chọn giúp bạn</div>
             </div>
           </div>
@@ -76,7 +76,7 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
                     {results.map((t) => (
                       <button key={t.id} onClick={() => onUse(t)} className="mm-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 8, cursor: "pointer", textAlign: "left" }}>
                         <TemplateCover t={t} kind="cover" />
-                        <div style={{ fontFamily: "Lora, serif", fontSize: 14, color: C.ink, fontWeight: 600, marginTop: 8 }}>{t.title}</div>
+                        <div style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 14, color: C.ink, fontWeight: 600, marginTop: 8 }}>{t.title}</div>
                         <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12, color: C.brass, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Wand2 size={12} /> Thiết kế ngay</div>
                       </button>
                     ))}

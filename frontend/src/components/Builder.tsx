@@ -73,7 +73,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
       })}
       {(texts || []).map((tx) => (
         <div key={tx.id} onPointerDown={onTextMove ? (e) => startTextDrag(tx, e) : undefined} onClick={onTextSelect ? (e) => { e.stopPropagation(); onTextSelect(tx.id); } : undefined}
-          style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "Lora, serif", fontSize: tx.size || 20, color: tx.color || C.ink, fontWeight: 600, whiteSpace: "pre", textAlign: "center", cursor: onTextMove ? "move" : "default", userSelect: "none", zIndex: 6, padding: "2px 6px", borderRadius: 5, border: selText === tx.id ? `1.5px dashed ${C.brass}` : "1.5px solid transparent", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text || "Nhập chữ"}</div>
+          style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || C.ink, fontWeight: 600, whiteSpace: "pre", textAlign: "center", cursor: onTextMove ? "move" : "default", userSelect: "none", zIndex: 6, padding: "2px 6px", borderRadius: 5, border: selText === tx.id ? `1.5px dashed ${C.brass}` : "1.5px solid transparent", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text || "Nhập chữ"}</div>
       ))}
     </div>
   );
@@ -90,7 +90,7 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
           {img && <img src={img} loading="lazy" decoding="async" style={imgStyle(edits?.[s.g])} />}
         </div>;
       })}
-      {texts.map((tx) => <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "Lora,serif", fontSize: (tx.size || 20) * 0.34, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>)}
+      {texts.map((tx) => <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: (tx.size || 20) * 0.34, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>)}
     </div>
   );
 }, (a, b) =>

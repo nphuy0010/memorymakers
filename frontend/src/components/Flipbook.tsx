@@ -8,7 +8,7 @@ const INK = "#2A2520", BRASS = "#B08D57", CREAM = "#EFE7DA", SUB = "#6B6258", LI
 type VP = (BuiltPage & { texts?: TextItem[] }) | null;
 
 function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (string | undefined)[]; edits?: Record<number, Edit>; sample?: boolean; }) {
-  if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "Lora, serif", fontStyle: "italic", opacity: .55 }}>Memory Makers</div>;
+  if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", opacity: .55 }}>Memory Makers</div>;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
       {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
@@ -21,7 +21,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
         );
       })}
       {(pg.texts || []).map((tx) => (
-        <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans, sans-serif)" : "Lora, serif", fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
+        <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans, sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
       ))}
     </div>
   );

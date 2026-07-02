@@ -16,8 +16,8 @@ const config: Config = {
         line: "#E5DCCF",
       },
       fontFamily: {
-        serif: ["Lora", "Georgia", "serif"],
-        sans: ["'Be Vietnam Pro'", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Georgia", "serif"],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },

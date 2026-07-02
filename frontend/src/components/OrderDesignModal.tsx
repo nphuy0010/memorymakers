@@ -99,7 +99,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
                   );
                 })}
                 {(texts[i] || []).map((tx) => (
-                  <div key={tx.id} className="absolute" style={{ left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "Lora,serif", fontSize: `${(tx.size || 20) * 0.5}px`, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>
+                  <div key={tx.id} className="absolute" style={{ left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: `${(tx.size || 20) * 0.5}px`, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>
                 ))}
               </div>
             </div>
