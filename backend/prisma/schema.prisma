@@ -50,8 +50,9 @@ model Template {
   description  String    @default("")
   keywords     String    @default("[]") // JSON array string
   blankImage   String?                  // PNG để chèn ảnh
-  demoImage    String?                  // ảnh demo để preview
-  demoPhotos   String   @default("[]")  // JSON: ảnh admin up để tự điền vào khung -> preview thành phẩm
+  demoImage    String?                  // ảnh demo đã ghép (BÌA) để hiển thị
+  demoPhotos   String   @default("[]")  // JSON: ảnh gốc admin up (để ghép/sửa lại)
+  demoPages    String   @default("[]")  // JSON: ảnh đã ghép cho từng trang -> preview flipbook
   coverImage   String?                  // ảnh bìa (marketplace)
   previewGif   String?                  // GIF xem trước
   previewVideo String?                  // video mp4 xem trước

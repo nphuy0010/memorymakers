@@ -2,27 +2,8 @@ import type { Template } from "@/lib/types";
 
 const GRADS = ["from-blush to-blushDeep", "from-sage/40 to-sage", "from-cream to-brass", "from-slate-200 to-slate-400"];
 
-// Bìa: nếu template có ẢNH DEMO -> ghép ảnh vào khung trang bìa (hiển thị bản đã điền ở MỌI nơi).
-// Nếu chưa có demo -> hiển thị ảnh bìa/trang trống như cũ.
+// Bìa hiển thị ẢNH PHẲNG: ưu tiên ảnh demo đã ghép sẵn (demoImage) -> bìa -> trang đầu.
 export default function TemplateCover({ t, big, kind = "cover" }: { t: Template; big?: boolean; kind?: "cover" | "demo" | "blank" }) {
-  const cover = t.pages?.[0];
-  const dp = (t.demoPhotos || []) as string[];
-  const composed = kind === "cover" && cover?.image && (cover.slots?.length || 0) > 0 && dp.length > 0;
-
-  // Bìa ghép ảnh demo vào khung
-  if (composed) {
-    return (
-      <div className="mm-cover relative overflow-hidden rounded-2xl shadow-md bg-white aspect-[3/2]">
-        <img src={cover!.image as string} alt={t.title} draggable={false} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover select-none" />
-        {cover!.slots.map((s: any, i: number) => (
-          <div key={i} className="absolute overflow-hidden" style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: s.shape === "circle" ? "50%" : 2 }}>
-            <img src={dp[i % dp.length]} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover select-none" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   const img = kind === "demo" ? t.demoImage : kind === "blank" ? t.blankImage : (t.demoImage || t.coverImage || t.pages?.[0]?.image || t.blankImage);
   if (img) {
     return (

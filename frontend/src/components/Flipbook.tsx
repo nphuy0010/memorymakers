@@ -34,7 +34,14 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
   // Dãy "leaf": bìa trước đứng một mình (phải, trái trống), trang trong ghép đôi,
   // bìa sau chỉ có khi tổng trang hiển thị CHẴN. Lật trang cong 3D có bóng.
   const seq = useMemo<VP[]>(() => {
-    const all = buildPages(t).map((p, i) => ({ ...p, texts: (texts && texts[i]) || [] }));
+    const dpg = ((t as any).demoPages || []) as string[];
+    const useComposed = !assignments && dpg.length > 0; // xem mẫu + đã có ảnh ghép -> hiển thị ảnh phẳng, KHÔNG chồng khung
+    const all = buildPages(t).map((p, i) => ({
+      ...p,
+      image: useComposed && dpg[i] ? dpg[i] : p.image,
+      slots: useComposed ? [] : p.slots,
+      texts: (texts && texts[i]) || [],
+    }));
     const vis = all.filter((_, i) => !(hidden && hidden[i]));
     const n = vis.length;
     if (!n) return [];
@@ -45,7 +52,7 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
     if (back) { s.push(back, null); }
     if (s.length % 2) s.push(null);
     return s;
-  }, [t, texts, hidden]);
+  }, [t, texts, hidden, assignments]);
 
   const count = seq.length;
 

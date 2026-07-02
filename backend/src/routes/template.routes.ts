@@ -11,12 +11,13 @@ function slugify(s: string) {
 }
 
 function format(t: any) {
-  const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, demoPhotos, _count, ...rest } = t;
+  const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, demoPhotos, demoPages, _count, ...rest } = t;
   return {
     ...rest,
     keywords: JSON.parse(keywords || "[]"),
     pages: JSON.parse(pages || "[]"),
     demoPhotos: JSON.parse(demoPhotos || "[]"),
+    demoPages: JSON.parse(demoPages || "[]"),
     uses: _count?.projects ?? 0, // số lượt người dùng đã dùng mẫu
     prices: { digital: priceDigital, soft: priceSoft, hard: priceHard, fan: priceFan },
   };
@@ -93,7 +94,7 @@ router.get("/:id", async (req, res) => {
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
   const { title, description, keywords, slots, prices, featured, imageType, image,
     category, pages, pageCount, previewGif, previewVideo, canvaLink,
-    coverImage, demoImage, blankImage, demoPhotos } = req.body;
+    coverImage, demoImage, blankImage, demoPhotos, demoPages } = req.body;
   if (!title) return res.status(400).json({ error: "Thiếu tên template" });
   const nSlots = slots || 4;
   const t = await prisma.template.create({
@@ -107,6 +108,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       pageCount: pageCount ?? Math.ceil(nSlots / 2),
       pages: JSON.stringify(pages || []),
       demoPhotos: JSON.stringify(demoPhotos || []),
+      demoPages: JSON.stringify(demoPages || []),
       canvaLink: canvaLink || "",
       featured: !!featured,
       // Ưu tiên URL trực tiếp (từ /api/upload); vẫn nhận imageType+image (tương thích cũ).
@@ -128,7 +130,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   const { title, description, keywords, slots, prices, featured, imageType, image,
     category, pages, pageCount, previewGif, previewVideo, canvaLink,
-    coverImage, demoImage, blankImage, demoPhotos } = req.body;
+    coverImage, demoImage, blankImage, demoPhotos, demoPages } = req.body;
   const data: any = {};
   if (title !== undefined) data.title = title;
   if (description !== undefined) data.description = description;
@@ -139,6 +141,7 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   if (pageCount !== undefined) data.pageCount = pageCount;
   if (pages !== undefined) data.pages = JSON.stringify(pages);
   if (demoPhotos !== undefined) data.demoPhotos = JSON.stringify(demoPhotos);
+  if (demoPages !== undefined) data.demoPages = JSON.stringify(demoPages);
   if (previewGif !== undefined) data.previewGif = previewGif;
   if (previewVideo !== undefined) data.previewVideo = previewVideo;
   if (coverImage !== undefined) data.coverImage = coverImage;

@@ -28,6 +28,34 @@ function toFile(dataUrl: string, name: string): File {
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   return new File([arr], name, { type: mime });
 }
+const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+// vẽ ảnh kiểu object-cover vào ô (dx,dy,dw,dh)
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const sc = Math.max(dw / iw, dh / ih);
+  const sw = dw / sc, sh = dh / sc;
+  const sx = (iw - sw) / 2, sy = (ih - sh) / 2;
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+// Ghép 1 trang: ảnh nền trang + các ảnh demo lấp đầy khung -> trả dataURL ảnh phẳng
+async function composePage(pageImage: string, slots: any[], photos: string[], gStart: number): Promise<string> {
+  const base = await loadImg(pageImage);
+  const W = base.naturalWidth || 2000, H = base.naturalHeight || 1300;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d"); if (!ctx) return pageImage;
+  ctx.drawImage(base, 0, 0, W, H);
+  for (let j = 0; j < slots.length; j++) {
+    const s = slots[j]; const url = photos[(gStart + j) % photos.length];
+    if (!url) continue;
+    try {
+      const ph = await loadImg(url);
+      const dx = (s.x / 100) * W, dy = (s.y / 100) * H, dw = (s.w / 100) * W, dh = (s.h / 100) * H;
+      if (s.shape === "circle") { ctx.save(); ctx.beginPath(); ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2); ctx.clip(); drawCover(ctx, ph, dx, dy, dw, dh); ctx.restore(); }
+      else drawCover(ctx, ph, dx, dy, dw, dh);
+    } catch { /* bỏ qua ảnh lỗi */ }
+  }
+  return cv.toDataURL("image/jpeg", 0.9);
+}
 
 export default function AdminDemoPhotos() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -62,19 +90,26 @@ export default function AdminDemoPhotos() {
 
   const save = async () => {
     if (!sel) return;
+    if (!photos.length) { alert("Hãy thêm ít nhất 1 ảnh demo."); return; }
     setSaving(true);
     try {
-      // Lưu rồi ĐỌC LẠI kết quả máy chủ trả về -> xác nhận đã lưu thật (nếu backend chưa có cột demoPhotos sẽ báo lỗi rõ)
-      const updated: any = await api.updateTemplate(sel.id, { demoPhotos: photos });
-      const serverPhotos: string[] = updated?.demoPhotos || [];
-      setPhotos(serverPhotos);
+      // GHÉP ảnh demo vào từng trang -> ảnh phẳng; upload lấy URL (lỗi thì dùng dataURL)
+      const composed: string[] = [];
+      let g = 0;
+      for (const pg of (sel.pages || [])) {
+        const slots = (pg as any).slots || [];
+        const dataUrl = slots.length ? await composePage((pg as any).image, slots, photos, g) : (pg as any).image;
+        g += slots.length;
+        let url = dataUrl;
+        try { const r = await api.uploadFile(toFile(dataUrl, "demopage.jpg")); url = r.url; } catch { /* fallback dataURL */ }
+        composed.push(url);
+      }
+      const cover = composed[0] || null;
+      const updated: any = await api.updateTemplate(sel.id, { demoPhotos: photos, demoPages: composed, demoImage: cover });
       setTemplates(ts => ts.map(t => t.id === sel.id ? updated : t));
       setSaved(true);
-      if (serverPhotos.length !== photos.length) {
-        alert("Máy chủ chưa lưu đủ ảnh. Có thể backend chưa cập nhật CSDL — hãy chạy 'npm run db:push' (local) hoặc deploy lại backend.");
-      }
     } catch (e: any) {
-      alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần cập nhật CSDL (cột demoPhotos). Chạy 'npm run db:push' hoặc deploy lại backend.");
+      alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần cập nhật CSDL (cột demoPages). Chạy 'npm run db:push' hoặc deploy lại backend.");
     } finally { setSaving(false); }
   };
 
