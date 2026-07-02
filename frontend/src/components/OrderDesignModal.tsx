@@ -16,34 +16,54 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
 
   const visible = pages.map((p, i) => ({ p, i })).filter(({ i }) => !hidden[i]);
 
+  const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) {
+    const iw = img.naturalWidth, ih = img.naturalHeight; const sc = Math.max(dw / iw, dh / ih);
+    const sw = dw / sc, sh = dh / sc; ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, dx, dy, dw, dh);
+  }
+  // Vẽ 1 trang ở ĐỘ PHÂN GIẢI GỐC -> không méo, khớp đúng thiết kế
+  async function renderPageCanvas(p: any, pageIndex: number): Promise<HTMLCanvasElement> {
+    const base = await loadImg(p.image);
+    const W = base.naturalWidth || 2000, H = base.naturalHeight || 1300;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d")!; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.drawImage(base, 0, 0, W, H);
+    for (const s of p.slots) {
+      const url = assignments[s.g]; if (!url) continue;
+      try {
+        const ph = await loadImg(url);
+        const dx = (s.x / 100) * W, dy = (s.y / 100) * H, dw = (s.w / 100) * W, dh = (s.h / 100) * H;
+        if (s.shape === "circle") { ctx.save(); ctx.beginPath(); ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2); ctx.clip(); drawCover(ctx, ph, dx, dy, dw, dh); ctx.restore(); }
+        else drawCover(ctx, ph, dx, dy, dw, dh);
+      } catch { /* bỏ ảnh lỗi */ }
+    }
+    for (const tx of (texts[pageIndex] || [])) {
+      ctx.save();
+      ctx.fillStyle = tx.color || "#2A2520";
+      ctx.font = `600 ${(tx.size || 20) * (W / 1000)}px ${tx.font === "sans" ? "sans-serif" : "Georgia, serif"}`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(tx.text, (tx.x / 100) * W, (tx.y / 100) * H);
+      ctx.restore();
+    }
+    return cv;
+  }
+
   const exportPdf = async () => {
     setExporting(true);
     try {
-      // Đợi phông chữ + TẤT CẢ ảnh tải xong -> PDF khớp đúng bản khách thiết kế (không bị trắng/thiếu ảnh)
       try { await (document as any).fonts?.ready; } catch {}
-      const urls = new Set<string>();
-      pages.forEach((p) => { if (p.image) urls.add(p.image); p.slots.forEach((s) => { const a = assignments[s.g]; if (a) urls.add(a); }); });
-      await Promise.all(Array.from(urls).map((u) => new Promise<void>((resolve) => {
-        const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => resolve(); im.onerror = () => resolve(); im.src = u;
-      })));
-      await new Promise((r) => setTimeout(r, 150));
-
       const { default: jsPDF } = await import("jspdf");
-      const html2canvas = (await import("html2canvas")).default;
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1200, 780] });
-      let first = true;
-      for (let k = 0; k < visible.length; k++) {
-        const el = refs.current[k];
-        if (!el) continue;
-        const canvas = await html2canvas(el, { useCORS: true, allowTaint: false, imageTimeout: 0, scale: 2, backgroundColor: "#ffffff", logging: false });
-        const img = canvas.toDataURL("image/jpeg", 0.92);
-        if (!first) pdf.addPage([1200, 780], "landscape");
-        first = false;
-        pdf.addImage(img, "JPEG", 0, 0, 1200, 780);
-      }
+      const canvases: HTMLCanvasElement[] = [];
+      for (const { p, i } of visible) canvases.push(await renderPageCanvas(p, i));
+      if (!canvases.length) { alert("Không có trang để xuất."); return; }
+      const first = canvases[0];
+      const pdf = new jsPDF({ orientation: first.width >= first.height ? "landscape" : "portrait", unit: "px", format: [first.width, first.height] });
+      canvases.forEach((c, k) => {
+        if (k > 0) pdf.addPage([c.width, c.height], c.width >= c.height ? "landscape" : "portrait");
+        pdf.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, c.width, c.height);
+      });
       pdf.save(`memory-makers-${order.customer || "don"}-${order.id.slice(0, 6)}.pdf`);
     } catch (e: any) {
-      alert("Xuất PDF lỗi: " + (e?.message || "") + "\n(Ảnh mẫu cần cho phép CORS — dùng Cloudinary là ổn.)");
+      alert("Xuất PDF lỗi: " + (e?.message || "") + "\n(Ảnh cần cho phép CORS — dùng Cloudinary là ổn.)");
     } finally { setExporting(false); }
   };
 
