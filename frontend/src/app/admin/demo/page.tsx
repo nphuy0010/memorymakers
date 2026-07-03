@@ -52,24 +52,40 @@ export default function AdminDemoPool() {
   const [uploading, setUploading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState("");
+  const [poolMsg, setPoolMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([api.getDemoPool().then(setPool).catch(() => {}), api.templates().then(setTemplates).catch(() => {})]).finally(() => setLoading(false));
   }, []);
 
+  // Lưu kho ảnh lên máy chủ + báo lỗi rõ nếu backend chưa hỗ trợ
+  const savePool = async (next: string[]) => {
+    setPoolMsg("Đang lưu kho…");
+    try { await api.setDemoPool(next); setPoolMsg("Đã lưu kho ✓"); setTimeout(() => setPoolMsg(""), 2000); }
+    catch (e: any) {
+      setPoolMsg("");
+      alert("KHÔNG lưu được kho ảnh: " + (e?.message || "") + "\n→ Backend chưa có mục kho ảnh (route /settings/demo-pool). Hãy DEPLOY LẠI backend rồi thử lại.");
+    }
+  };
+
   const addPhotos = async (files: FileList) => {
     setUploading(true);
     try {
+      const added: string[] = [];
       for (const f of Array.from(files)) {
         const small = await compress(await readDataUrl(f));
         let url = small;
         try { const r = await api.uploadFile(toFile(small, "demo.jpg")); url = r.url; } catch {}
-        setPool(p => [...p, url]);
+        added.push(url);
       }
+      const next = [...pool, ...added];
+      setPool(next);
+      await savePool(next); // LƯU NGAY -> thoát ra vào lại vẫn còn
     } catch (e: any) { alert("Lỗi ảnh: " + (e?.message || e)); }
     finally { setUploading(false); }
   };
+  const removePhoto = async (i: number) => { const next = pool.filter((_, j) => j !== i); setPool(next); await savePool(next); };
 
   // Lưu kho + ghép ảnh vào TẤT CẢ trang của mọi template -> ảnh phẳng (dùng cho preview nhẹ)
   const applyAll = async () => {
@@ -129,7 +145,7 @@ export default function AdminDemoPool() {
 
             {applying && progress && <div className="font-sans text-[13px] text-brass mb-3 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> {progress}</div>}
 
-            <div className="font-sans text-xs text-sub mb-2">{pool.length} ảnh trong kho · {templates.length} template sẽ được áp dụng</div>
+            <div className="font-sans text-xs text-sub mb-2">{pool.length} ảnh trong kho · {templates.length} template sẽ được áp dụng {poolMsg && <span className="text-brass font-semibold ml-2">· {poolMsg}</span>}</div>
             {pool.length === 0 ? (
               <div className="border border-dashed border-line rounded-xl py-12 text-center font-sans text-sm text-sub">Kho trống. Bấm “Thêm ảnh vào kho”.</div>
             ) : (
@@ -137,7 +153,7 @@ export default function AdminDemoPool() {
                 {pool.map((p, i) => (
                   <div key={i} className="relative rounded-lg overflow-hidden border border-line" style={{ aspectRatio: "1" }}>
                     <img src={p} className="w-full h-full object-cover" />
-                    <button onClick={() => setPool(ph => ph.filter((_, j) => j !== i))} className="absolute top-1 right-1 bg-ink/70 rounded-full w-5 h-5 grid place-items-center"><X size={11} color="#fff" /></button>
+                    <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 bg-ink/70 rounded-full w-5 h-5 grid place-items-center"><X size={11} color="#fff" /></button>
                   </div>
                 ))}
               </div>
