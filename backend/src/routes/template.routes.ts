@@ -10,6 +10,7 @@ function slugify(s: string) {
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+// Bản ĐẦY ĐỦ (có pages) — dùng khi xem 1 mẫu / thiết kế
 function format(t: any) {
   const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, demoPhotos, demoPages, _count, ...rest } = t;
   return {
@@ -18,7 +19,19 @@ function format(t: any) {
     pages: JSON.parse(pages || "[]"),
     demoPhotos: JSON.parse(demoPhotos || "[]"),
     demoPages: JSON.parse(demoPages || "[]"),
-    uses: _count?.projects ?? 0, // số lượt người dùng đã dùng mẫu
+    uses: _count?.projects ?? 0,
+    prices: { digital: priceDigital, soft: priceSoft, hard: priceHard, fan: priceFan },
+  };
+}
+
+// Bản NHẸ (KHÔNG kèm pages/demoPages) — dùng cho DANH SÁCH: tải nhanh hơn nhiều
+function formatLight(t: any) {
+  const { priceDigital, priceSoft, priceHard, priceFan, keywords, pages, demoPhotos, demoPages, _count, ...rest } = t;
+  return {
+    ...rest,
+    keywords: JSON.parse(keywords || "[]"),
+    pageCount: rest.pageCount ?? JSON.parse(pages || "[]").length,
+    uses: _count?.projects ?? 0,
     prices: { digital: priceDigital, soft: priceSoft, hard: priceHard, fan: priceFan },
   };
 }
@@ -41,7 +54,7 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
   }
-  let list = all.map(format);
+  let list = all.map(formatLight);
   // Số sao thực = trung bình các lượt đánh giá đã có
   try {
     const grp = await prisma.project.groupBy({ by: ["templateId"], where: { rating: { not: null } }, _avg: { rating: true }, _count: { rating: true } });

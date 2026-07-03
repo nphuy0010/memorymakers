@@ -26,4 +26,15 @@ router.put("/about", requireAuth, requireAdmin, async (req, res) => {
   res.json(req.body);
 });
 
+// KHO ẢNH DEMO CHUNG (áp dụng cho mọi template)
+router.get("/demo-pool", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "demoPool" } });
+  res.json(row ? JSON.parse(row.value) : []);
+});
+router.put("/demo-pool", requireAuth, requireAdmin, async (req, res) => {
+  const value = JSON.stringify(req.body?.photos || []);
+  await prisma.setting.upsert({ where: { key: "demoPool" }, update: { value }, create: { key: "demoPool", value } });
+  res.json(JSON.parse(value));
+});
+
 export default router;

@@ -100,5 +100,7 @@ export const api = {
   adminStats: () => req("/admin/stats"),
   // settings
   about: () => req("/settings/about", {}, 60_000),
+  getDemoPool: () => req("/settings/demo-pool"),
+  setDemoPool: (photos: string[]) => req("/settings/demo-pool", { method: "PUT", body: JSON.stringify({ photos }) }),
   saveAbout: (b: any) => req("/settings/about", { method: "PUT", body: JSON.stringify(b) }),
 };

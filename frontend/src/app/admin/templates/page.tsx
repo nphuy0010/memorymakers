@@ -89,7 +89,13 @@ export default function AdminTemplates() {
     finally { setSaving(false); }
   };
 
-  const del = async (id: string) => { if (!confirm("Xóa template này?")) return; await api.deleteTemplate(id).catch((e: any) => alert(e.message)); load(); };
+  const del = async (id: string) => {
+    if (!confirm("Xóa template này?")) return;
+    const prev = templates;
+    setTemplates(ts => ts.filter(t => t.id !== id)); // xóa NGAY trên giao diện
+    try { await api.deleteTemplate(id); }             // gọi API chạy nền, không tải lại cả danh sách
+    catch (e: any) { alert("Xóa lỗi: " + (e?.message || "")); setTemplates(prev); } // lỗi thì khôi phục
+  };
 
   const inp = "w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-2.5";
 
@@ -166,7 +172,7 @@ export default function AdminTemplates() {
               </div>
               <div className="font-serif text-sm text-ink font-semibold mt-2">{t.title}</div>
               <div className="font-sans text-[11px] text-sub">{t.category || "—"} · {t.pageCount ?? t.pages?.length ?? 0} trang</div>
-              <button onClick={() => setEditSlots(t)} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
+              <button onClick={async () => { try { setEditSlots(await api.template(t.id)); } catch { setEditSlots(t); } }} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
               <button onClick={() => del(t.id)} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
             </div>
           ))}
