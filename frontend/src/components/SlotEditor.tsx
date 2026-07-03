@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { X, Square, Circle, Trash2, ChevronUp, ChevronDown, Loader2, Plus, Save } from "lucide-react";
+import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save } from "lucide-react";
 import { api } from "@/lib/api";
 
 type Slot = { x: number; y: number; w: number; h: number; shape: "rect" | "circle" };
@@ -40,7 +40,6 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
 
   const addSlot = (shape: "rect" | "circle") => { setSlots(ss => [...ss, { x: 35, y: 35, w: 30, h: 30, shape }]); setSel(slots.length); };
   const delSlot = (i: number) => { setSlots(ss => ss.filter((_, j) => j !== i)); setSel(null); };
-  const toggleShape = (i: number) => setSlots(ss => ss.map((s, j) => j === i ? { ...s, shape: s.shape === "rect" ? "circle" : "rect" } : s));
   const moveLayer = (i: number, dir: -1 | 1) => setSlots(ss => { const a = [...ss]; const j = i + dir; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; setSel(j); return a; });
 
   const save = async () => {
@@ -98,8 +97,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
               ))}
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={() => addSlot("rect")} className="mm-btn flex items-center gap-1.5 border border-ink text-ink rounded-full px-3.5 py-2 font-sans text-[13px] font-semibold"><Square size={14} /> Thêm khung chữ nhật</button>
-              <button onClick={() => addSlot("circle")} className="mm-btn flex items-center gap-1.5 border border-ink text-ink rounded-full px-3.5 py-2 font-sans text-[13px] font-semibold"><Circle size={14} /> Thêm khung tròn</button>
+              <button onClick={() => addSlot("rect")} className="mm-btn flex items-center gap-1.5 border border-ink text-ink rounded-full px-3.5 py-2 font-sans text-[13px] font-semibold"><Square size={14} /> Thêm khung</button>
             </div>
           </div>
 
@@ -110,9 +108,8 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
             <div className="flex flex-col gap-1.5">
               {slots.map((s, i) => (
                 <div key={i} onClick={() => setSel(i)} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer ${sel === i ? "bg-cream" : "hover:bg-cream/50"}`}>
-                  {s.shape === "circle" ? <Circle size={14} className="text-brass shrink-0" /> : <Square size={14} className="text-brass shrink-0" />}
+                  <Square size={14} className="text-brass shrink-0" />
                   <span className="font-sans text-xs text-ink flex-1">Khung {i + 1}</span>
-                  <button onClick={(e) => { e.stopPropagation(); toggleShape(i); }} title="Đổi hình" className="p-1 hover:bg-cream rounded">{s.shape === "circle" ? <Square size={12} /> : <Circle size={12} />}</button>
                   <button onClick={(e) => { e.stopPropagation(); moveLayer(i, -1); }} title="Xuống dưới" className="p-1 hover:bg-cream rounded"><ChevronUp size={12} /></button>
                   <button onClick={(e) => { e.stopPropagation(); moveLayer(i, 1); }} title="Lên trên" className="p-1 hover:bg-cream rounded"><ChevronDown size={12} /></button>
                   <button onClick={(e) => { e.stopPropagation(); delSlot(i); }} className="p-1 hover:bg-cream rounded"><Trash2 size={12} className="text-[#B05A4A]" /></button>
