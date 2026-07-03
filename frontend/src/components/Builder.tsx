@@ -56,7 +56,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
     <div ref={rootRef} style={{ position: "relative", width: "100%", aspectRatio: "2000/1300", borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(42,37,32,.14)" }}>
       {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />}
       {page.slots.map((s) => {
-        const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = s.shape === "circle";
+        const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = false; /* chỉ dùng khung chữ nhật */
         const canDragOut = !!onSlot && !!img && !sel;
         return (
           <div key={s.g}
@@ -86,7 +86,7 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
       {page.image && <img src={page.image} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
       {page.slots.map((s, k) => {
         const img = urls[k];
-        return <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: s.shape === "circle" ? "50%" : 2, overflow: "hidden", background: img ? "transparent" : "rgba(176,141,87,.18)" }}>
+        return <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 2, overflow: "hidden", background: img ? "transparent" : "rgba(176,141,87,.18)" }}>
           {img && <img src={img} loading="lazy" decoding="async" style={imgStyle(edits?.[s.g])} />}
         </div>;
       })}

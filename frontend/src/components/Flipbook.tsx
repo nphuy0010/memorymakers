@@ -13,7 +13,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
       {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
       {pg.slots.map((s: Slot & { g: number }) => {
-        const img = assignments?.[s.g]; const round = s.shape === "circle";
+        const img = assignments?.[s.g]; const round = false; /* chỉ dùng khung chữ nhật */
         return (
           <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", border: img ? "none" : "2px dashed rgba(176,141,87,.9)", background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center" }}>
             {img ? <img src={img} draggable={false} style={imgStyle(edits?.[s.g])} /> : <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 10, color: BRASS }}>{sample ? "Ảnh mẫu" : "Ảnh"}</span>}

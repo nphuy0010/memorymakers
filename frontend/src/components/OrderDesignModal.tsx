@@ -32,8 +32,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       try {
         const ph = await loadImg(url);
         const dx = (s.x / 100) * W, dy = (s.y / 100) * H, dw = (s.w / 100) * W, dh = (s.h / 100) * H;
-        if (s.shape === "circle") { ctx.save(); ctx.beginPath(); ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2); ctx.clip(); drawCover(ctx, ph, dx, dy, dw, dh); ctx.restore(); }
-        else drawCover(ctx, ph, dx, dy, dw, dh);
+        drawCover(ctx, ph, dx, dy, dw, dh);
       } catch { /* bỏ ảnh lỗi */ }
     }
     for (const tx of (texts[pageIndex] || [])) {
@@ -93,7 +92,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
                 {p.slots.map((s) => {
                   const img = assignments[s.g];
                   return (
-                    <div key={s.g} className="absolute overflow-hidden" style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: s.shape === "circle" ? "50%" : 4 }}>
+                    <div key={s.g} className="absolute overflow-hidden" style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 4 }}>
                       {img && <img src={img} crossOrigin="anonymous" style={imgStyle(edits[s.g])} />}
                     </div>
                   );

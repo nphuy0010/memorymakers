@@ -50,8 +50,7 @@ async function composePage(pageImage: string, slots: any[], photos: string[], gS
     try {
       const ph = await loadImg(url);
       const dx = (s.x / 100) * W, dy = (s.y / 100) * H, dw = (s.w / 100) * W, dh = (s.h / 100) * H;
-      if (s.shape === "circle") { ctx.save(); ctx.beginPath(); ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2); ctx.clip(); drawCover(ctx, ph, dx, dy, dw, dh); ctx.restore(); }
-      else drawCover(ctx, ph, dx, dy, dw, dh);
+      drawCover(ctx, ph, dx, dy, dw, dh);
     } catch { /* bỏ qua ảnh lỗi */ }
   }
   return cv.toDataURL("image/jpeg", 0.9);

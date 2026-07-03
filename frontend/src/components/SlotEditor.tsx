@@ -10,7 +10,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // Trình chỉnh khung thủ công: kéo–thả, đổi cỡ, chữ nhật/tròn, chồng lớp
 export default function SlotEditor({ template, onClose, onSaved }: { template: any; onClose: () => void; onSaved: (t: any) => void }) {
-  const [pages, setPages] = useState<Page[]>(() => (template.pages || []).map((p: any) => ({ image: p.image, slots: (p.slots || []).map((s: any) => ({ x: s.x, y: s.y, w: s.w, h: s.h, shape: s.shape === "circle" ? "circle" : "rect" })) })));
+  const [pages, setPages] = useState<Page[]>(() => (template.pages || []).map((p: any) => ({ image: p.image, slots: (p.slots || []).map((s: any) => ({ x: s.x, y: s.y, w: s.w, h: s.h, shape: "rect" })) })));
   const [pi, setPi] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -84,7 +84,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                 <div key={i}
                   onPointerDown={(e) => { e.stopPropagation(); setSel(i); drag.current = { mode: "move", idx: i, sx: e.clientX, sy: e.clientY, orig: { ...s } }; }}
                   className="absolute"
-                  style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: s.shape === "circle" ? "50%" : 4, border: `2px solid ${sel === i ? "#B08D57" : "rgba(176,141,87,.7)"}`, background: sel === i ? "rgba(176,141,87,.18)" : "rgba(176,141,87,.08)", cursor: "move", boxShadow: sel === i ? "0 0 0 2px rgba(176,141,87,.3)" : "none" }}>
+                  style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 4, border: `2px solid ${sel === i ? "#B08D57" : "rgba(176,141,87,.7)"}`, background: sel === i ? "rgba(176,141,87,.18)" : "rgba(176,141,87,.08)", cursor: "move", boxShadow: sel === i ? "0 0 0 2px rgba(176,141,87,.3)" : "none" }}>
                   <span className="absolute top-0.5 left-1 font-sans text-[10px] font-bold text-brass bg-white/70 rounded px-1">{i + 1}</span>
                   {sel === i && (
                     <>
