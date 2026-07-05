@@ -106,6 +106,11 @@ export default function DesignPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, photos, assignments, edits, texts, hidden]);
 
+  // Hooks MoMo phải nằm TRƯỚC mọi early-return (quy tắc hooks — tránh lỗi React #310)
+  const [momo, setMomo] = useState<{ payUrl?: string; qrCodeUrl?: string; amount?: number } | null>(null);
+  const pollRef = useRef<any>(null);
+  useEffect(() => () => clearInterval(pollRef.current), []);
+
   if (!t) return <div className="p-10 text-center text-sub">Đang tải…</div>;
   const price = mode === "digital" ? t.prices.digital : t.prices[option as "soft" | "hard" | "fan"];
   const addrOk = mode !== "physical" || (!!addr.name && !!addr.phone && !!addr.address);
@@ -118,8 +123,6 @@ export default function DesignPage() {
     catch (e: any) { alert("Chưa lưu được dự án: " + (e?.message || "lỗi") + "\n→ Hãy ĐĂNG NHẬP LẠI (nếu vừa reset DB) hoặc kiểm tra backend ở cổng 5000."); }
   };
   // THANH TOÁN: gọi MoMo thật (server tính tiền + verify IPN). Chưa bật MoMo -> demo có kiểm soát.
-  const [momo, setMomo] = useState<{ payUrl?: string; qrCodeUrl?: string; amount?: number } | null>(null);
-  const pollRef = useRef<any>(null);
   const payNow = async () => {
     if (saving) return;
     setSaving(true);
@@ -147,7 +150,6 @@ export default function DesignPage() {
       alert("Thanh toán thất bại: " + (e?.message || "lỗi không xác định") + "\n→ Đăng nhập lại (nếu vừa reset DB) hoặc kiểm tra backend.");
     } finally { setSaving(false); }
   };
-  useEffect(() => () => clearInterval(pollRef.current), []);
 
   return (
     <div className="max-w-[1180px] mx-auto px-5 pt-8 pb-16">

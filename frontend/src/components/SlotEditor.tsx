@@ -65,7 +65,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
 
   return (
     <div className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.6)" }}>
-      <div className="bg-paper rounded-2xl w-full max-w-[1000px] max-h-[92vh] flex flex-col overflow-hidden border border-line">
+      <div className="bg-paper rounded-2xl w-full max-w-[1280px] max-h-[94vh] flex flex-col overflow-hidden border border-line">
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-line bg-white">
           <div>
             <div className="font-serif text-lg text-ink font-bold">Chỉnh khung ảnh — {template.title}</div>
@@ -90,8 +90,10 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                 ))}
               </div>
             )}
-            <div ref={boxRef} className="relative w-full rounded-lg overflow-hidden border border-line bg-white select-none" style={{ aspectRatio: "2000 / 1300", touchAction: "none" }} onPointerDown={() => setSel(null)}>
-              {page?.image && <img src={page.image} className="absolute inset-0 w-full h-full object-cover pointer-events-none" draggable={false} />}
+            {/* VÙNG ĐỆM quanh ảnh: ô sát mép vẫn lộ tay cầm xoay/đổi cỡ ra ngoài để thao tác dễ */}
+            <div className="bg-cream/60 rounded-xl border border-line" style={{ padding: 44 }}>
+              <div ref={boxRef} className="relative w-full select-none" style={{ aspectRatio: "2000 / 1300", touchAction: "none", overflow: "visible" }} onPointerDown={() => setSel(null)}>
+                {page?.image && <img src={page.image} className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-md border border-line bg-white" draggable={false} />}
               {slots.map((s, i) => (
                 <div key={i}
                   onPointerDown={(e) => { e.stopPropagation(); setSel(i); drag.current = { mode: "move", idx: i, sx: e.clientX, sy: e.clientY, orig: { ...s } }; }}
@@ -113,6 +115,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                   )}
                 </div>
               ))}
+              </div>
             </div>
             <div className="flex gap-2 mt-3">
               <button onClick={() => addSlot("rect")} className="mm-btn flex items-center gap-1.5 border border-ink text-ink rounded-full px-3.5 py-2 font-sans text-[13px] font-semibold"><Square size={14} /> Thêm khung</button>
