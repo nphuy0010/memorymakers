@@ -1,6 +1,8 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
+import { aggregateStats } from "../lib/business";
+import { composeTemplateDemo, getDemoPool } from "../lib/composeDemo";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
 
@@ -12,7 +14,7 @@ const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").
 // Danh sách user
 router.get("/users", async (_req, res) => {
   const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
-  res.json(users.map((u) => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, phoneVerified: u.phoneVerified })));
+  res.json(users.map((u: any) => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, phoneVerified: u.phoneVerified })));
 });
 
 // Tạo tài khoản mới (admin thêm account — Customer hoặc Admin)
@@ -47,14 +49,20 @@ router.patch("/users/:id/role", async (req: AuthRequest, res) => {
 });
 
 // Tất cả đơn hàng (project đã mua trở lên, gồm cả đã hủy để quản lý)
-router.get("/orders", async (_req, res) => {
+router.get("/orders", async (req, res) => {
   try {
+    const page = Math.max(1, parseInt(String(req.query.page || "1")) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "50")) || 50));
+    const where = { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } } as any;
+    const total = await prisma.project.count({ where });
+    res.setHeader("X-Total-Count", String(total));
     const orders = await prisma.project.findMany({
-      where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } },
+      where,
       include: { template: true, user: true },
       orderBy: { updatedAt: "desc" },
+      skip: (page - 1) * limit, take: limit,
     });
-    res.json(orders.map((o) => ({
+    res.json(orders.map((o: any) => ({
       id: o.id, title: o.title, status: o.status, amount: o.amount, mode: o.mode, option: o.option,
       tracking: o.tracking || "", customer: o.user?.name, phone: o.user?.phone, email: o.user?.email,
       template: o.template?.title || o.title,
@@ -89,11 +97,8 @@ router.patch("/orders/:id", async (req, res) => {
 // Thống kê doanh thu
 router.get("/stats", async (_req, res) => {
   // Chỉ tính đơn ĐÃ THANH TOÁN (khớp với danh sách đơn) -> hủy/xóa đơn thì số đơn & doanh thu tự giảm
-  const paid = await prisma.project.findMany({ where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } } });
-  const revenue = paid.reduce((s, p) => s + (p.amount || 0), 0);
-  const byOption: Record<string, number> = {};
-  for (const p of paid) byOption[p.option || "?"] = (byOption[p.option || "?"] || 0) + (p.amount || 0);
-  res.json({ totalOrders: paid.length, revenue, byOption });
+  const paid = await prisma.project.findMany({ where: { status: { in: ["PURCHASED", "SHIPPING", "DELIVERED"] } }, select: { status: true, amount: true, option: true } });
+  res.json(aggregateStats(paid));
 });
 
 // ----- TIN NHẮN: admin nhận & trả lời -----
@@ -133,6 +138,19 @@ router.post("/messages", async (req, res) => {
     data: { userId, content: String(content).slice(0, 2000), fromAdmin: true, readByAdmin: true, readByUser: false },
   });
   res.json(m);
+});
+
+// Ghép ảnh demo (server-side, sharp) cho TẤT CẢ template từ kho ảnh chung
+router.post("/apply-demo", async (_req, res) => {
+  const pool = await getDemoPool();
+  if (!pool.length) return res.status(400).json({ error: "Kho ảnh demo trống" });
+  const templates = await prisma.template.findMany({ where: { archived: false }, select: { id: true, title: true } });
+  const results: any[] = [];
+  for (const t of templates) {
+    try { const r = await composeTemplateDemo(t.id, pool); results.push({ id: t.id, title: t.title, ...r }); }
+    catch (e: any) { results.push({ id: t.id, title: t.title, ok: false, error: e?.message }); }
+  }
+  res.json({ done: true, results });
 });
 
 export default router;

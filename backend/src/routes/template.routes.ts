@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
+import { composeTemplateDemo, getDemoPool } from "../lib/composeDemo";
+import { validate, templateSchema } from "../lib/validate";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
 
@@ -60,14 +62,18 @@ router.get("/", async (req, res) => {
     const grp = await prisma.project.groupBy({ by: ["templateId"], where: { rating: { not: null } }, _avg: { rating: true }, _count: { rating: true } });
     const rmap: Record<string, any> = {};
     for (const g of grp) rmap[g.templateId] = { ratingAvg: g._avg.rating, ratingCount: g._count.rating };
-    list = list.map((t) => ({ ...t, ratingAvg: rmap[t.id]?.ratingAvg ?? null, ratingCount: rmap[t.id]?.ratingCount ?? 0 }));
-  } catch { list = list.map((t) => ({ ...t, ratingAvg: null, ratingCount: 0 })); }
+    list = list.map((t: any) => ({ ...t, ratingAvg: rmap[t.id]?.ratingAvg ?? null, ratingCount: rmap[t.id]?.ratingCount ?? 0 }));
+  } catch { list = list.map((t: any) => ({ ...t, ratingAvg: null, ratingCount: 0 })); }
   if (q) {
     list = list.filter(
-      (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.keywords.some((k: string) => k.toLowerCase().includes(q))
+      (t: any) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.keywords.some((k: string) => k.toLowerCase().includes(q))
     );
   }
-  res.json(list);
+  // PHÂN TRANG: mặc định 60/mẫu một trang; client đọc tổng qua header X-Total-Count
+  const page = Math.max(1, parseInt(String(req.query.page || "1")) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || "60")) || 60));
+  res.setHeader("X-Total-Count", String(list.length));
+  res.json(list.slice((page - 1) * limit, page * limit));
 });
 
 async function withRating(t: any) {
@@ -104,7 +110,7 @@ router.get("/:id", async (req, res) => {
 // POST /api/templates (admin) — tạo template.
 // body: { title, description, keywords[], slots, prices{}, featured,
 //         imageType: "DEMO"|"BLANK", image: dataUrl }
-router.post("/", requireAuth, requireAdmin, async (req, res) => {
+router.post("/", requireAuth, requireAdmin, validate(templateSchema), async (req, res) => {
   const { title, description, keywords, slots, prices, featured, imageType, image,
     category, pages, pageCount, previewGif, previewVideo, canvaLink,
     coverImage, demoImage, blankImage, demoPhotos, demoPages } = req.body;
@@ -136,6 +142,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       priceFan: prices?.fan ?? 520000,
     },
   });
+  getDemoPool().then((pool) => { if (pool.length) return composeTemplateDemo(t.id, pool); }).catch((e) => console.warn("compose demo:", e?.message));
   res.json(format(t));
 });
 
@@ -168,6 +175,10 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   if (imageType === "COVER" && image) data.coverImage = image;
   if (imageType === "GIF" && image) data.previewGif = image;
   const t = await prisma.template.update({ where: { id: req.params.id }, data });
+  // pages đổi -> ghép lại ảnh demo server-side (fire-and-forget, không chặn phản hồi)
+  if (pages !== undefined) {
+    getDemoPool().then((pool) => { if (pool.length) return composeTemplateDemo(t.id, pool); }).catch((e) => console.warn("compose demo:", e?.message));
+  }
   res.json(format(t));
 });
 

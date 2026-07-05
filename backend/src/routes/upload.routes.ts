@@ -34,7 +34,7 @@ const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gi
 // Dùng memoryStorage: giữ buffer để đẩy lên Cloudinary hoặc ghi ra đĩa
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 30 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED.includes(file.mimetype)) cb(null, true);
     else cb(new Error("Định dạng không hỗ trợ (chỉ ảnh PNG/JPG/WEBP/GIF hoặc video MP4/WEBM)"));
@@ -60,8 +60,25 @@ async function saveFile(req: any, file: Express.Multer.File): Promise<string> {
   return diskUrl(req, name);
 }
 
+/** Lưu buffer bất kỳ -> URL (Cloudinary hoặc đĩa) — dùng cho ghép demo server-side. */
+export async function saveBuffer(buf: Buffer, mime: string, name: string): Promise<string> {
+  if (CLOUD_ON) {
+    const dataUri = `data:${mime};base64,${buf.toString("base64")}`;
+    const r = await cloudinary.uploader.upload(dataUri, { folder: "memory-makers/demo" });
+    return r.secure_url as string;
+  }
+  const safe = Date.now() + "-" + name.replace(/[^a-z0-9.-]/gi, "");
+  fs.writeFileSync(path.join(UPLOAD_DIR, safe), buf);
+  const base = process.env.PUBLIC_URL || "http://localhost:" + (process.env.PORT || 5000);
+  return `${base}/uploads/${safe}`;
+}
+
 // 1 file -> { url }
-router.post("/", requireAuth, requireAdmin, upload.single("file"), async (req, res) => {
+router.post("/", requireAuth, upload.single("file"), async (req: any, res) => {
+  // ảnh: mọi user đã đăng nhập; video: chỉ admin
+  if (req.file && req.file.mimetype.startsWith("video") && req.role !== "ADMIN") {
+    return res.status(403).json({ error: "Chỉ admin được upload video" });
+  }
   try {
     if (!req.file) return res.status(400).json({ error: "Không có file" });
     const url = await saveFile(req, req.file);

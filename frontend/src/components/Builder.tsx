@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, FILTER_LABELS, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
+import { detectFocus } from "@/lib/face";
+import { api } from "@/lib/api";
 
 const C = { ink: "#2A2520", sub: "#6B6258", brass: "#B08D57", line: "#E5DCCF", cream: "#EFE7DA", blushDeep: "#D9A99E" };
 
@@ -64,7 +66,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
             onPointerDown={editable ? (e) => startPan(s, e) : undefined}
             onDragOver={onSlot ? (e) => e.preventDefault() : undefined}
             onDrop={onSlot ? (e) => { e.preventDefault(); const u = e.dataTransfer.getData("text/mm"); const fr = e.dataTransfer.getData("text/mm-from"); if (u) onSlot(s.g, u); else if (fr !== "") onSlot(s.g, { move: +fr }); } : undefined}
-            style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", cursor: editable ? "move" : (onSlot ? "pointer" : "default"), border: sel ? `3px solid ${C.brass}` : img ? "none" : `2px dashed rgba(176,141,87,.9)`, background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 0 3px rgba(176,141,87,.3)" : "none", zIndex: 3 }}>
+            style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", cursor: editable ? "move" : (onSlot ? "pointer" : "default"), border: sel ? `3px solid ${C.brass}` : img ? "none" : `2px dashed rgba(176,141,87,.9)`, background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 0 3px rgba(176,141,87,.3)" : "none", zIndex: 3, transform: `rotate(${(s as any).rot || 0}deg)` }}>
             {img
               ? <img src={img} draggable={canDragOut} onDragStart={canDragOut ? (e) => { e.dataTransfer.setData("text/mm-from", String(s.g)); onPhotoDragStart && onPhotoDragStart(s.g); } : undefined} onDragEnd={canDragOut ? () => onPhotoDragEnd && onPhotoDragEnd(s.g) : undefined} style={imgStyle(edits?.[s.g])} />
               : <div style={{ textAlign: "center", color: C.brass, fontFamily: "var(--font-sans,sans-serif)", fontSize: 11 }}><ImageIcon size={16} /><div>Chèn ảnh</div></div>}
@@ -86,7 +88,7 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
       {page.image && <img src={page.image} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
       {page.slots.map((s, k) => {
         const img = urls[k];
-        return <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 2, overflow: "hidden", background: img ? "transparent" : "rgba(176,141,87,.18)" }}>
+        return <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 2, overflow: "hidden", background: img ? "transparent" : "rgba(176,141,87,.18)", transform: `rotate(${(s as any).rot || 0}deg)` }}>
           {img && <img src={img} loading="lazy" decoding="async" style={imgStyle(edits?.[s.g])} />}
         </div>;
       })}
@@ -117,8 +119,28 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const pageTexts = (texts && texts[pageIdx]) || [];
   const pageHidden = !!(hidden && hidden[pageIdx]);
 
-  const addPhotos = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files || []).forEach(async (f) => { const url = await compressImage(f); setPhotos((p) => [...p, url]); }); };
-  const assign = (g: number, url: string) => setAssignments((a) => { const n = [...a]; n[g] = url; return n; });
+  // Ảnh khách: nén -> UPLOAD lên server lấy URL (KHÔNG lưu base64 vào DB — nhẹ & nhanh).
+  const addPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    Array.from(e.target.files || []).forEach(async (f) => {
+      try {
+        const dataUrl = await compressImage(f);
+        const [head, b64] = dataUrl.split(",");
+        const mime = (head.match(/data:(.*?);/) || [])[1] || "image/jpeg";
+        const bin = atob(b64); const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        const { url } = await api.uploadFile(new File([arr], "photo.jpg", { type: mime }));
+        setPhotos((p) => [...p, url]);
+      } catch (err: any) {
+        alert("Tải ảnh lỗi: " + (err?.message || "") + "\nVui lòng thử lại (cần đăng nhập & có mạng).");
+      }
+    });
+  };
+  // DÒ MẶT XONG mới điền ảnh -> điểm crop giữ mặt được đặt ngay từ đầu, ảnh không bị "nhảy"
+  const assign = async (g: number, url: string) => {
+    const f = await detectFocus(url).catch(() => null);
+    setAssignments((a) => { const n = [...a]; n[g] = url; return n; });
+    if (f) setEdits((e) => (e[g]?.ox !== undefined ? e : { ...e, [g]: { ...e[g], ox: f.ox, oy: f.oy } }));
+  };
   const clearSlot = (g: number) => { setAssignments((a) => { const n = [...a]; n[g] = undefined; return n; }); setEdits((e) => { const n = { ...e }; delete n[g]; return n; }); };
   const onSlot = (g: number, payload?: any) => {
     if (payload && typeof payload === "object" && "move" in payload) { const from = payload.move; if (from === g) return; setAssignments((a) => { const n = [...a]; n[g] = a[from]; n[from] = undefined; return n; }); setEdits((e) => { const n = { ...e }; if (e[from]) n[g] = e[from]; delete n[from]; return n; }); if (dragInfo.current) dragInfo.current.landed = true; setSelSlot(null); return; }
@@ -132,7 +154,20 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const onPhotoDragEnd = () => { if (dragInfo.current && !dragInfo.current.landed) clearSlot(dragInfo.current.from); dragInfo.current = null; };
 
   const visibleGs = useMemo(() => pages.filter((_, i) => !(hidden && hidden[i])).flatMap((p) => p.slots.map((s) => s.g)), [pages, hidden]);
-  const autoFill = () => { if (!photos.length) return; setFilling(true); setTimeout(() => { setAssignments((a) => { const n = [...a]; let pi = 0; for (const g of visibleGs) { if (!n[g]) { n[g] = photos[pi % photos.length]; pi++; } } return n; }); setFilling(false); }, 250); };
+  // Tự động điền: DÒ KHUÔN MẶT TẤT CẢ ảnh xong -> điền ảnh + điểm crop CÙNG LÚC (không nhảy)
+  const autoFill = async () => {
+    if (!photos.length) return;
+    setFilling(true);
+    try {
+      const plan: Record<number, string> = {};
+      let pi = 0;
+      for (const g of visibleGs) { if (!assignments[g]) { plan[g] = photos[pi % photos.length]; pi++; } }
+      const focus: Record<number, { ox: number; oy: number }> = {};
+      await Promise.all(Object.entries(plan).map(async ([g, url]) => { try { focus[+g] = await detectFocus(url); } catch {} }));
+      setAssignments((a) => { const n = [...a]; for (const g in plan) n[+g] = plan[+g]; return n; });
+      setEdits((e) => { const n = { ...e }; for (const g in focus) { if (n[+g]?.ox === undefined) n[+g] = { ...n[+g], ...focus[+g] }; } return n; });
+    } finally { setFilling(false); }
+  };
 
   const addText = () => { const id = "tx" + Date.now(); setTexts((x) => ({ ...x, [pageIdx]: [...((x && x[pageIdx]) || []), { id, text: "Nhập chữ", x: 50, y: 50, size: 24, color: "#2A2520", font: "serif" }] })); setSelText(id); setSelSlot(null); };
   const updateText = (id: string, patch: any) => setTexts((x) => ({ ...x, [pageIdx]: ((x && x[pageIdx]) || []).map((i) => (i.id === id ? { ...i, ...patch } : i)) }));

@@ -9,8 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "noEmitOnError": false
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*.ts"

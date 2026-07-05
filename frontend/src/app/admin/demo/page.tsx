@@ -27,24 +27,6 @@ function toFile(dataUrl: string, name: string): File {
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   return new File([arr], name, { type: mime });
 }
-const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
-function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) {
-  const iw = img.naturalWidth, ih = img.naturalHeight; const sc = Math.max(dw / iw, dh / ih);
-  const sw = dw / sc, sh = dh / sc; ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, dx, dy, dw, dh);
-}
-async function composePage(pageImage: string, slots: any[], photos: string[], gStart: number): Promise<string> {
-  const base = await loadImg(pageImage);
-  const W = base.naturalWidth || 2000, H = base.naturalHeight || 1300;
-  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-  const ctx = cv.getContext("2d"); if (!ctx) return pageImage;
-  ctx.drawImage(base, 0, 0, W, H);
-  for (let j = 0; j < slots.length; j++) {
-    const s = slots[j]; const url = photos[(gStart + j) % photos.length]; if (!url) continue;
-    try { const ph = await loadImg(url); drawCover(ctx, ph, (s.x / 100) * W, (s.y / 100) * H, (s.w / 100) * W, (s.h / 100) * H); } catch {}
-  }
-  return cv.toDataURL("image/jpeg", 0.9);
-}
-
 export default function AdminDemoPool() {
   const [pool, setPool] = useState<string[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -75,9 +57,8 @@ export default function AdminDemoPool() {
       const added: string[] = [];
       for (const f of Array.from(files)) {
         const small = await compress(await readDataUrl(f));
-        let url = small;
-        try { const r = await api.uploadFile(toFile(small, "demo.jpg")); url = r.url; } catch {}
-        added.push(url);
+        const r = await api.uploadFile(toFile(small, "demo.jpg")); // lỗi -> nhảy xuống catch, KHÔNG nhét base64
+        added.push(r.url);
       }
       const next = [...pool, ...added];
       setPool(next);
@@ -87,38 +68,18 @@ export default function AdminDemoPool() {
   };
   const removePhoto = async (i: number) => { const next = pool.filter((_, j) => j !== i); setPool(next); await savePool(next); };
 
-  // Lưu kho + ghép ảnh vào TẤT CẢ trang của mọi template -> ảnh phẳng (dùng cho preview nhẹ)
+  // GHÉP PHÍA SERVER (sharp): 1 lệnh, chạy trên backend — nhanh, idempotent, không phụ thuộc máy admin
   const applyAll = async () => {
     if (!pool.length) { alert("Hãy thêm ít nhất 1 ảnh vào kho."); return; }
-    setApplying(true); setProgress("Đang lưu kho ảnh…");
+    setApplying(true); setProgress("Server đang ghép ảnh demo cho tất cả template…");
     try {
       await api.setDemoPool(pool);
-      for (let i = 0; i < templates.length; i++) {
-        setProgress(`Đang áp dụng: ${i + 1}/${templates.length} — ${templates[i].title}`);
-        try {
-          const full: any = await api.template(templates[i].id); // bản đầy đủ (có pages)
-          const composed: string[] = [];
-          let g = 0;
-          for (const pg of (full.pages || [])) {
-            const slots = pg.slots || [];
-            const dataUrl = slots.length ? await composePage(pg.image, slots, pool, g) : pg.image;
-            g += slots.length;
-            let url = dataUrl;
-            try { const r = await api.uploadFile(toFile(dataUrl, "demopage.jpg")); url = r.url; } catch {}
-            composed.push(url);
-          }
-          // Lưu ảnh phẳng từng trang + bìa -> preview hiển thị ảnh, không cần render flipbook
-          const updated: any = await api.updateTemplate(templates[i].id, { demoPages: composed, demoImage: composed[0] || null });
-          if (composed.length && !(updated?.demoPages || []).length) {
-            setProgress("");
-            alert("Máy chủ CHƯA lưu được ảnh demo (thiếu cột demoPages).\n→ Deploy lại backend (tự chạy db:push) rồi thử lại.");
-            return;
-          }
-        } catch (e: any) { console.warn("Bỏ qua template", templates[i].title, e?.message); }
-      }
+      const r: any = await api.applyDemo();
+      const ok = (r.results || []).filter((x: any) => x.ok).length;
+      const fail = (r.results || []).filter((x: any) => !x.ok);
       setProgress("");
-      alert("Đã tạo ảnh demo cho tất cả template ✓");
-    } catch (e: any) { alert("Lỗi: " + (e?.message || "")); }
+      alert(`Đã ghép xong ${ok}/${(r.results || []).length} template ✓` + (fail.length ? `\nLỗi: ${fail.map((f: any) => f.title).join(", ")}` : ""));
+    } catch (e: any) { alert("Lỗi: " + (e?.message || "") + "\n→ Backend cần deploy bản mới (route /admin/apply-demo + sharp)."); }
     finally { setApplying(false); setProgress(""); }
   };
 

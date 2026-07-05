@@ -1,6 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
+import { validate, registerSchema, loginSchema, verifySchema } from "../lib/validate";
 import { signToken } from "../lib/jwt";
 import { createOtp, sendOtpSms, verifyOtp, isDev } from "../lib/otp";
 import { requireAuth, AuthRequest } from "../middleware/auth";
@@ -16,7 +17,7 @@ function isValidEmail(e: string) {
 }
 
 // 1) Đăng ký: tạo user (chưa verify), gửi OTP tới SĐT để chống lừa đảo
-router.post("/register", async (req, res) => {
+router.post("/register", validate(registerSchema), async (req, res) => {
   const { name, email, password, phone } = req.body;
   if (!name || !email || !password || !phone) {
     return res.status(400).json({ error: "Thiếu thông tin (tên, email, mật khẩu, SĐT)" });
@@ -39,7 +40,7 @@ router.post("/register", async (req, res) => {
 });
 
 // 2) Xác thực OTP SĐT -> hoàn tất đăng ký, trả JWT
-router.post("/verify-phone", async (req, res) => {
+router.post("/verify-phone", validate(verifySchema), async (req, res) => {
   const { userId, code } = req.body;
   const ok = await verifyOtp(userId, code, "PHONE_VERIFY");
   if (!ok) return res.status(400).json({ error: "OTP sai hoặc đã hết hạn" });
@@ -60,7 +61,7 @@ router.post("/resend-otp", async (req, res) => {
 });
 
 // 3) Đăng nhập
-router.post("/login", async (req, res) => {
+router.post("/login", validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.password))) {

@@ -24,9 +24,11 @@ export default function AdminOrders() {
   const [q, setQ] = useState("");
   const [saving, setSaving] = useState<string>("");
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
+  const [page, setPage] = useState(1);
+  const LIMIT = 50;
 
-  const load = () => { setLoading(true); api.adminOrders().then((d: Order[]) => setOrders(d)).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  const load = () => { setLoading(true); api.adminOrders(page, LIMIT).then((d: Order[]) => setOrders(d)).catch(() => {}).finally(() => setLoading(false)); };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length };
@@ -112,6 +114,12 @@ export default function AdminOrders() {
               </table>
             </div>
           )}
+      </div>
+      {/* PHÂN TRANG: 50 đơn/trang — nhiều đơn không làm đứng trang admin */}
+      <div className="flex items-center justify-center gap-3 mt-4">
+        <button disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)} className="font-sans text-sm border border-line rounded-full px-4 py-2 disabled:opacity-40">← Trước</button>
+        <span className="font-sans text-sm text-sub">Trang {page}</span>
+        <button disabled={orders.length < LIMIT || loading} onClick={() => setPage(p => p + 1)} className="font-sans text-sm border border-line rounded-full px-4 py-2 disabled:opacity-40">Sau →</button>
       </div>
       {viewOrder && <OrderDesignModal order={viewOrder} onClose={() => setViewOrder(null)} />}
     </AdminShell>

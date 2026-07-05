@@ -1,0 +1,4 @@
+{ "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src/**/*.ts", "typecheck/**/*.d.ts"],
+  "exclude": ["src/**/*.test.ts"] }

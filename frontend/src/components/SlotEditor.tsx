@@ -1,21 +1,21 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save } from "lucide-react";
+import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save, RotateCw } from "lucide-react";
 import { api } from "@/lib/api";
 
-type Slot = { x: number; y: number; w: number; h: number; shape: "rect" | "circle" };
+type Slot = { x: number; y: number; w: number; h: number; shape: "rect" | "circle"; rot?: number };
 type Page = { image: string; slots: Slot[] };
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-// Trình chỉnh khung thủ công: kéo–thả, đổi cỡ, chữ nhật/tròn, chồng lớp
+// Trình chỉnh khung thủ công: kéo–thả, đổi cỡ, XOAY, chồng lớp
 export default function SlotEditor({ template, onClose, onSaved }: { template: any; onClose: () => void; onSaved: (t: any) => void }) {
-  const [pages, setPages] = useState<Page[]>(() => (template.pages || []).map((p: any) => ({ image: p.image, slots: (p.slots || []).map((s: any) => ({ x: s.x, y: s.y, w: s.w, h: s.h, shape: "rect" })) })));
+  const [pages, setPages] = useState<Page[]>(() => (template.pages || []).map((p: any) => ({ image: p.image, slots: (p.slots || []).map((s: any) => ({ x: s.x, y: s.y, w: s.w, h: s.h, shape: "rect", rot: s.rot || 0 })) })));
   const [pi, setPi] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ mode: "move" | "resize"; idx: number; sx: number; sy: number; orig: Slot } | null>(null);
+  const drag = useRef<{ mode: "move" | "resize" | "rotate"; idx: number; sx: number; sy: number; orig: Slot; cx?: number; cy?: number } | null>(null);
 
   const page = pages[pi];
   const slots = page?.slots || [];
@@ -25,6 +25,12 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
     const move = (e: PointerEvent) => {
       const d = drag.current; if (!d || !boxRef.current) return;
       const r = boxRef.current.getBoundingClientRect();
+      if (d.mode === "rotate") {
+        const ang = Math.atan2(e.clientY - (d.cy || 0), e.clientX - (d.cx || 0)) * 180 / Math.PI + 90;
+        const snapped = e.shiftKey ? Math.round(ang / 15) * 15 : Math.round(ang);
+        setSlots(ss => ss.map((s, i) => i === d.idx ? { ...s, rot: snapped } : s));
+        return;
+      }
       const dxp = ((e.clientX - d.sx) / r.width) * 100, dyp = ((e.clientY - d.sy) / r.height) * 100;
       setSlots(ss => ss.map((s, i) => {
         if (i !== d.idx) return s;
@@ -38,9 +44,15 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pi]);
 
-  const addSlot = (shape: "rect" | "circle") => { setSlots(ss => [...ss, { x: 35, y: 35, w: 30, h: 30, shape }]); setSel(slots.length); };
+  const addSlot = (shape: "rect" | "circle") => { setSlots(ss => [...ss, { x: 35, y: 35, w: 30, h: 30, shape, rot: 0 }]); setSel(slots.length); };
   const delSlot = (i: number) => { setSlots(ss => ss.filter((_, j) => j !== i)); setSel(null); };
   const moveLayer = (i: number, dir: -1 | 1) => setSlots(ss => { const a = [...ss]; const j = i + dir; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; setSel(j); return a; });
+  const startRotate = (e: React.PointerEvent, i: number, s: Slot) => {
+    e.stopPropagation();
+    const r = boxRef.current!.getBoundingClientRect();
+    const cx = r.left + ((s.x + s.w / 2) / 100) * r.width, cy = r.top + ((s.y + s.h / 2) / 100) * r.height;
+    drag.current = { mode: "rotate", idx: i, sx: 0, sy: 0, orig: { ...s }, cx, cy };
+  };
 
   const save = async () => {
     setSaving(true);
@@ -84,12 +96,18 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                 <div key={i}
                   onPointerDown={(e) => { e.stopPropagation(); setSel(i); drag.current = { mode: "move", idx: i, sx: e.clientX, sy: e.clientY, orig: { ...s } }; }}
                   className="absolute"
-                  style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 4, border: `2px solid ${sel === i ? "#B08D57" : "rgba(176,141,87,.7)"}`, background: sel === i ? "rgba(176,141,87,.18)" : "rgba(176,141,87,.08)", cursor: "move", boxShadow: sel === i ? "0 0 0 2px rgba(176,141,87,.3)" : "none" }}>
-                  <span className="absolute top-0.5 left-1 font-sans text-[10px] font-bold text-brass bg-white/70 rounded px-1">{i + 1}</span>
+                  style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 4, border: `2px solid ${sel === i ? "#B08D57" : "rgba(176,141,87,.7)"}`, background: sel === i ? "rgba(176,141,87,.18)" : "rgba(176,141,87,.08)", cursor: "move", boxShadow: sel === i ? "0 0 0 2px rgba(176,141,87,.3)" : "none", transform: `rotate(${s.rot || 0}deg)` }}>
+                  <span className="absolute top-0.5 left-1 font-sans text-[10px] font-bold text-brass bg-white/70 rounded px-1">{i + 1}{s.rot ? ` · ${s.rot}°` : ""}</span>
                   {sel === i && (
                     <>
                       <div onPointerDown={(e) => { e.stopPropagation(); drag.current = { mode: "resize", idx: i, sx: e.clientX, sy: e.clientY, orig: { ...s } }; }}
                         className="absolute bg-brass rounded-full" style={{ right: -7, bottom: -7, width: 14, height: 14, cursor: "nwse-resize", border: "2px solid #fff" }} />
+                      {/* tay cầm XOAY (kéo để xoay; giữ Shift để bắt 15°) */}
+                      <div onPointerDown={(e) => startRotate(e, i, s)} title="Kéo để xoay (giữ Shift: 15°)"
+                        className="absolute bg-white rounded-full grid place-items-center" style={{ top: -30, left: "50%", transform: "translateX(-50%)", width: 18, height: 18, cursor: "grab", border: "2px solid #B08D57" }}>
+                        <RotateCw size={11} className="text-brass" />
+                      </div>
+                      <div className="absolute" style={{ top: -14, left: "50%", width: 2, height: 14, background: "#B08D57", transform: "translateX(-50%)" }} />
                       <button onPointerDown={(e) => e.stopPropagation()} onClick={() => delSlot(i)} className="absolute bg-[#B05A4A] rounded-full grid place-items-center" style={{ top: -9, right: -9, width: 18, height: 18 }}><X size={11} color="#fff" /></button>
                     </>
                   )}

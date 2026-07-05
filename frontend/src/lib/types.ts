@@ -1,6 +1,6 @@
 export interface Prices { digital: number; soft: number; hard: number; fan: number; }
 
-export interface Slot { x: number; y: number; w: number; h: number; shape?: "rect" | "circle"; }
+export interface Slot { x: number; y: number; w: number; h: number; shape?: "rect" | "circle"; rot?: number; }
 export interface PageDef { image: string; slots: Slot[]; }
 
 export interface Template {

@@ -79,6 +79,10 @@ export const api = {
   createProject: (b: any) => req("/projects", { method: "POST", body: JSON.stringify(b) }),
   updateProject: (id: string, b: any) => req(`/projects/${id}`, { method: "PUT", body: JSON.stringify(b) }),
   orderProject: (id: string, b: any) => req(`/projects/${id}/order`, { method: "POST", body: JSON.stringify(b) }),
+  // THANH TOÁN: MoMo thật (verify server-side) hoặc demo có kiểm soát
+  momoCreate: (projectId: string, b: any) => req(`/payments/momo/create`, { method: "POST", body: JSON.stringify({ projectId, ...b }) }),
+  paymentStatus: (projectId: string) => req(`/payments/status/${projectId}`),
+  demoConfirm: (projectId: string, b: any) => req(`/payments/demo-confirm/${projectId}`, { method: "POST", body: JSON.stringify(b) }),
   reviewProject: (id: string, b: { rating: number; review: string }) => req(`/projects/${id}/review`, { method: "POST", body: JSON.stringify(b) }),
   // tin nhắn (khách)
   messages: () => req("/messages"),
@@ -95,7 +99,8 @@ export const api = {
   adminCreateUser: (b: any) => req("/admin/users", { method: "POST", body: JSON.stringify(b) }),
   adminDeleteUser: (id: string) => req(`/admin/users/${id}`, { method: "DELETE" }),
   setRole: (id: string, role: string) => req(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
-  adminOrders: () => req("/admin/orders"),
+  adminOrders: (page = 1, limit = 50) => req(`/admin/orders?page=${page}&limit=${limit}`),
+  applyDemo: () => req("/admin/apply-demo", { method: "POST" }),
   adminUpdateOrder: (id: string, body: { status?: string; tracking?: string }) => req(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   adminStats: () => req("/admin/stats"),
   // settings

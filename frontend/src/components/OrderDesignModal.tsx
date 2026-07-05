@@ -17,9 +17,13 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
   const visible = pages.map((p, i) => ({ p, i })).filter(({ i }) => !hidden[i]);
 
   const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
-  function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) {
+  function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number, e?: any) {
     const iw = img.naturalWidth, ih = img.naturalHeight; const sc = Math.max(dw / iw, dh / ih);
-    const sw = dw / sc, sh = dh / sc; ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, dx, dy, dw, dh);
+    const sw = dw / sc, sh = dh / sc;
+    const ox = (e?.ox ?? 50) / 100, oy = (e?.oy ?? 38) / 100; // theo điểm mặt; mặc định lệch lên trên
+    const sx = Math.max(0, Math.min(iw - sw, ox * iw - sw / 2));
+    const sy = Math.max(0, Math.min(ih - sh, oy * ih - sh / 2));
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   }
   // Vẽ 1 trang ở ĐỘ PHÂN GIẢI GỐC -> không méo, khớp đúng thiết kế
   async function renderPageCanvas(p: any, pageIndex: number): Promise<HTMLCanvasElement> {
@@ -32,7 +36,9 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       try {
         const ph = await loadImg(url);
         const dx = (s.x / 100) * W, dy = (s.y / 100) * H, dw = (s.w / 100) * W, dh = (s.h / 100) * H;
-        drawCover(ctx, ph, dx, dy, dw, dh);
+        const rot = (s as any).rot || 0;
+        if (rot) { ctx.save(); ctx.translate(dx + dw / 2, dy + dh / 2); ctx.rotate(rot * Math.PI / 180); drawCover(ctx, ph, -dw / 2, -dh / 2, dw, dh, edits[s.g]); ctx.restore(); }
+        else drawCover(ctx, ph, dx, dy, dw, dh, edits[s.g]);
       } catch { /* bỏ ảnh lỗi */ }
     }
     for (const tx of (texts[pageIndex] || [])) {

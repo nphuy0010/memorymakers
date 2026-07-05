@@ -8,6 +8,7 @@ import { useAuth } from "@/store/useAuth";
 import Builder from "@/components/Builder";
 import Flipbook from "@/components/Flipbook";
 import type { Edit, TextItem } from "@/lib/pages";
+import { detectFocus } from "@/lib/face";
 import { CATS, vnd, type Template } from "@/lib/types";
 
 const STEPS = ["Thiết kế", "Xem trước", "Chọn sản phẩm", "Giao hàng & Thanh toán", "Hoàn tất"];
@@ -79,6 +80,20 @@ export default function DesignPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, assignments, projectId, user]);
 
+  // DÒ KHUÔN MẶT: khi có ảnh mới vào ô, tự đặt điểm lấy nét (ox,oy) để không cắt mất mặt.
+  const focusDone = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    assignments.forEach((img, g) => {
+      if (!img) return;
+      if (edits[g]?.ox !== undefined) return; // khách đã tự chỉnh -> tôn trọng
+      const key = g + "|" + img.slice(0, 40);
+      if (focusDone.current[key]) return;
+      focusDone.current[key] = true;
+      detectFocus(img).then(({ ox, oy }) => setEdits((e) => (e[g]?.ox !== undefined ? e : { ...e, [g]: { ...e[g], ox, oy } })));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignments]);
+
   // TỰ LƯU khi khách sửa (ảnh/bố cục/chữ) — giữ nguyên ảnh khách khi thoát ra rồi vào lại.
   const saveTimer = useRef<any>(null);
   useEffect(() => {
@@ -102,17 +117,37 @@ export default function DesignPage() {
     try { await ensureProject(); }
     catch (e: any) { alert("Chưa lưu được dự án: " + (e?.message || "lỗi") + "\n→ Hãy ĐĂNG NHẬP LẠI (nếu vừa reset DB) hoặc kiểm tra backend ở cổng 5000."); }
   };
+  // THANH TOÁN: gọi MoMo thật (server tính tiền + verify IPN). Chưa bật MoMo -> demo có kiểm soát.
+  const [momo, setMomo] = useState<{ payUrl?: string; qrCodeUrl?: string; amount?: number } | null>(null);
+  const pollRef = useRef<any>(null);
   const payNow = async () => {
     if (saving) return;
     setSaving(true);
     try {
       const pid = await ensureProject();
-      await api.orderProject(pid, { mode, option: mode === "digital" ? "digital" : option, address: mode === "physical" ? addr : null });
-      setPaid(true); setStep(4);
+      const body = { mode, option: mode === "digital" ? "digital" : option, address: mode === "physical" ? addr : null };
+      const r: any = await api.momoCreate(pid, body);
+      if (r.demo) {
+        // Demo có kiểm soát: server vẫn tự tính tiền + ghi rõ DEMO-PAYMENT
+        await api.demoConfirm(pid, body);
+        setPaid(true); setStep(4);
+        return;
+      }
+      // MoMo thật: hiện QR + poll trạng thái (chỉ IPN của MoMo mới đánh dấu đã trả tiền)
+      setMomo(r);
+      if (r.payUrl) window.open(r.payUrl, "_blank");
+      clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const st: any = await api.paymentStatus(pid);
+          if (st.status === "PURCHASED") { clearInterval(pollRef.current); setPaid(true); setStep(4); }
+        } catch {}
+      }, 3000);
     } catch (e: any) {
-      alert("Đặt hàng thất bại: " + (e?.message || "lỗi không xác định") + "\n→ Đăng nhập lại (nếu vừa reset DB) hoặc kiểm tra backend ở cổng 5000.");
+      alert("Thanh toán thất bại: " + (e?.message || "lỗi không xác định") + "\n→ Đăng nhập lại (nếu vừa reset DB) hoặc kiểm tra backend.");
     } finally { setSaving(false); }
   };
+  useEffect(() => () => clearInterval(pollRef.current), []);
 
   return (
     <div className="max-w-[1180px] mx-auto px-5 pt-8 pb-16">
@@ -213,11 +248,14 @@ export default function DesignPage() {
             <h2 className="font-serif text-2xl text-ink font-bold">Thanh toán qua MoMo</h2>
             <p className="font-sans text-sm text-sub mt-2 mb-4.5">{mode === "physical" && !addrOk ? "Hãy điền đủ địa chỉ ở trên để mở thanh toán." : "Quét mã QR bằng app MoMo để hoàn tất."}</p>
             <div className={`bg-white border border-line rounded-2xl p-6 text-center ${mode === "physical" && !addrOk ? "opacity-40 pointer-events-none" : ""}`}>
-              <div className="w-44 h-44 mx-auto bg-white border border-line rounded-xl grid place-items-center"><QrCode size={120} className="text-ink" /></div>
+              {momo?.qrCodeUrl
+                ? <img src={momo.qrCodeUrl} alt="QR MoMo" className="w-44 h-44 mx-auto bg-white border border-line rounded-xl object-contain" />
+                : <div className="w-44 h-44 mx-auto bg-white border border-line rounded-xl grid place-items-center"><QrCode size={120} className="text-ink" /></div>}
+              {momo && <div className="font-sans text-xs text-sub text-center mt-2">Quét bằng app MoMo — hệ thống tự xác nhận khi bạn trả xong (đang chờ…)</div>}
               <div className="font-serif text-2xl text-ink font-bold mt-4">{vnd(price)}</div>
               <div className="font-sans text-xs text-sub">MEMORY MAKERS · MM{Math.floor(Math.random() * 9000 + 1000)}</div>
             </div>
-            <button disabled={!addrOk || saving} onClick={payNow} className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"><CheckCircle2 size={16} /> {saving ? "Đang xử lý…" : (mode === "physical" && !addrOk ? "Điền đủ địa chỉ để thanh toán" : "Tôi đã thanh toán (demo)")}</button>
+            <button disabled={!addrOk || saving} onClick={payNow} className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"><CheckCircle2 size={16} /> {saving ? "Đang xử lý…" : (mode === "physical" && !addrOk ? "Điền đủ địa chỉ để thanh toán" : (momo ? "Mở lại trang MoMo" : "Thanh toán"))}</button>
           </div>
           <div className="bg-cream rounded-2xl p-5">
             <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Đơn hàng</span>

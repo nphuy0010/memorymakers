@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { validate, messageSchema } from "../lib/validate";
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Khách gửi tin -> admin nhận được (readByAdmin = false)
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
+router.post("/", requireAuth, validate(messageSchema), async (req: AuthRequest, res) => {
   const content = (req.body?.content || "").trim();
   if (!content) return res.status(400).json({ error: "Nội dung trống" });
   const m = await prisma.message.create({

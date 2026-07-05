@@ -45,7 +45,7 @@ export default function AdminTemplates() {
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
 
-  // Tải nhiều trang: mỗi ảnh -> tự DÒ KHUNG + nén; thử UPLOAD lấy URL, nếu lỗi thì lưu ảnh dạng dataURL.
+  // Tải nhiều trang: mỗi ảnh -> tự DÒ KHUNG + nén -> UPLOAD lấy URL. Upload lỗi = BÁO LỖI (không nhúng base64 vào DB).
   const pickPages = async (files: FileList) => {
     setDetecting(true);
     try {
@@ -53,17 +53,12 @@ export default function AdminTemplates() {
         const dataUrl = await readDataUrl(f);
         const slots = await detectSlots(dataUrl);          // TỰ ĐO & TẠO KHUNG (sát mép)
         const small = await compressDataUrl(dataUrl);       // nén để nhẹ
-        let image = small;
-        try {
-          const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg")); // ảnh thật trên server
-          image = url;
-        } catch (err) {
-          // Backend upload lỗi (Failed to fetch / 401…) -> vẫn tạo template với ảnh nhúng dataURL
-          console.warn("Upload lỗi, dùng ảnh nhúng:", err);
-        }
-        setPages((p) => [...p, { image, slots }]);
+        const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg")); // ảnh thật trên server
+        setPages((p) => [...p, { image: url, slots }]);
       }
-    } catch (e: any) { alert("Lỗi xử lý ảnh: " + (e?.message || e)); }
+    } catch (e: any) {
+      alert("Upload ảnh lỗi: " + (e?.message || e) + "\n→ Kiểm tra đăng nhập admin + backend đang chạy. KHÔNG dùng ảnh nhúng để tránh làm nặng hệ thống.");
+    }
     finally { setDetecting(false); }
   };
 

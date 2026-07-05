@@ -15,7 +15,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
       {pg.slots.map((s: Slot & { g: number }) => {
         const img = assignments?.[s.g]; const round = false; /* chỉ dùng khung chữ nhật */
         return (
-          <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", border: img ? "none" : "2px dashed rgba(176,141,87,.9)", background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center" }}>
+          <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", border: img ? "none" : "2px dashed rgba(176,141,87,.9)", background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center", transform: `rotate(${(s as any).rot || 0}deg)` }}>
             {img ? <img src={img} draggable={false} style={imgStyle(edits?.[s.g])} /> : <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 10, color: BRASS }}>{sample ? "Ảnh mẫu" : "Ảnh"}</span>}
           </div>
         );

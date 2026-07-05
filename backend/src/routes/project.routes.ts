@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { computeAmount, canCustomerDelete } from "../lib/business";
+import { validate, projectCreateSchema, projectUpdateSchema, orderSchema, reviewSchema } from "../lib/validate";
 
 const router = Router();
 
@@ -35,7 +37,7 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Tạo dự án — chỉ gọi khi người dùng đã chèn ảnh / thiết kế thật.
-router.post("/", requireAuth, async (req: AuthRequest, res) => {
+router.post("/", requireAuth, validate(projectCreateSchema), async (req: AuthRequest, res) => {
   const { templateId, photos, title, layout } = req.body;
   const tpl = await prisma.template.findUnique({ where: { id: templateId } });
   if (!tpl) return res.status(404).json({ error: "Template không tồn tại" });
@@ -54,7 +56,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Cập nhật thiết kế / trạng thái
-router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
+router.put("/:id", requireAuth, validate(projectUpdateSchema), async (req: AuthRequest, res) => {
   const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
   const { photos, status, title, layout } = req.body;
@@ -68,13 +70,13 @@ router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Đặt hàng: tính giá theo option (giá CHỈ lộ ở bước này), set trạng thái.
-router.post("/:id/order", requireAuth, async (req: AuthRequest, res) => {
-  const { mode, option, address } = req.body; // mode: digital|physical; option: soft|hard|fan|digital
+router.post("/:id/order", requireAuth, validate(orderSchema), async (req: AuthRequest, res) => {
+  const { mode, option, address } = req.body;
   const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId }, include: { template: true } });
   if (!project) return res.status(404).json({ error: "Không tìm thấy dự án" });
 
-  const key = PRICE_KEY[mode === "digital" ? "digital" : option];
-  const amount = (project.template as any)[key] as number;
+  // TIỀN LUÔN TÍNH PHÍA SERVER từ bảng giá template (đã validate option)
+  const amount = computeAmount(mode, option, project.template as any);
   // Khách bấm "đã thanh toán" -> lưu đơn ở trạng thái ĐANG XỬ LÝ (PURCHASED).
   // Admin kiểm tra thanh toán rồi tự chuyển sang Đang giao / Đã giao.
   const status = "PURCHASED";
@@ -95,7 +97,7 @@ router.post("/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // Đánh giá đơn đã giao: sao (1-5) + nhận xét
-router.post("/:id/review", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/review", requireAuth, validate(reviewSchema), async (req: AuthRequest, res) => {
   const { rating, review } = req.body;
   const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
@@ -108,7 +110,7 @@ router.post("/:id/review", requireAuth, async (req: AuthRequest, res) => {
 router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
   const existing = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!existing) return res.status(404).json({ error: "Không tìm thấy dự án" });
-  if (["PURCHASED", "SHIPPING", "DELIVERED"].includes(existing.status)) {
+  if (!canCustomerDelete(existing.status)) {
     return res.status(400).json({ error: "Không thể xóa đơn đã thanh toán" });
   }
   await prisma.project.delete({ where: { id: req.params.id } });
