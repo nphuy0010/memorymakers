@@ -19,9 +19,12 @@ export const FILTERS: Record<string, string> = {
 };
 export const FILTER_LABELS: [string, string][] = [["none", "Gốc"], ["warm", "Ấm"], ["cool", "Lạnh"], ["bw", "Đen trắng"], ["vivid", "Rực"], ["fade", "Phai"]];
 
+export type StickerItem = { id: string; url: string; x: number; y: number; w: number; rot?: number }; // vị trí/tâm theo %, w = bề rộng %
+
 export type Edit = { scale?: number; ox?: number; oy?: number; rot?: number; filter?: string };
 export function imgStyle(e?: Edit): React.CSSProperties {
-  const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 50, rot = e?.rot ?? 0;
+  // oy mặc định 38%: lệch LÊN TRÊN (mặt người thường ở nửa trên) -> ảnh chưa dò mặt cũng không cắt mất mặt
+  const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 38, rot = e?.rot ?? 0;
   return { width: "100%", height: "100%", objectFit: "cover", objectPosition: `${ox}% ${oy}%`, transform: `scale(${sc}) rotate(${rot}deg)`, filter: FILTERS[e?.filter || "none"] || "none", display: "block" };
 }
 

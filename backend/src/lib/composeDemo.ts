@@ -19,6 +19,14 @@ export async function composeTemplateDemo(templateId: string, pool: string[]): P
   const pages: { image: string; slots: Slot[] }[] = JSON.parse(t.pages || "[]");
   if (!pages.length) return { ok: false, pages: 0 };
 
+  // XÁO thứ tự ảnh THEO TỪNG MẪU (seed = id mẫu): mỗi template một cách xếp khác nhau,
+  // nhưng chạy lại vẫn ra đúng thứ tự đó (idempotent).
+  let seed = 0;
+  for (let i = 0; i < templateId.length; i++) seed = (seed * 31 + templateId.charCodeAt(i)) >>> 0;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+
   const cache = new Map<string, Buffer>(); // ảnh kho tải 1 lần
   const composed: string[] = [];
   let g = 0;
@@ -30,7 +38,7 @@ export async function composeTemplateDemo(templateId: string, pool: string[]): P
     const overlays: { input: Buffer; left: number; top: number }[] = [];
 
     for (const s of pg.slots || []) {
-      const url = pool[g % pool.length]; g++;
+      const url = shuffled[g % shuffled.length]; g++;
       if (!cache.has(url)) cache.set(url, await fetchBuf(url));
       const dw = Math.max(2, Math.round((s.w / 100) * W));
       const dh = Math.max(2, Math.round((s.h / 100) * H));

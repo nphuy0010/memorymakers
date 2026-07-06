@@ -45,17 +45,17 @@ export default function AdminTemplates() {
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
 
-  // Tải nhiều trang: mỗi ảnh -> tự DÒ KHUNG + nén -> UPLOAD lấy URL. Upload lỗi = BÁO LỖI (không nhúng base64 vào DB).
+  // Tải nhiều trang SONG SONG (dò khung + nén + upload chạy cùng lúc) — nhanh hơn nhiều so với tuần tự
   const pickPages = async (files: FileList) => {
     setDetecting(true);
     try {
-      for (const f of Array.from(files)) {
+      const results = await Promise.all(Array.from(files).map(async (f) => {
         const dataUrl = await readDataUrl(f);
-        const slots = await detectSlots(dataUrl);          // TỰ ĐO & TẠO KHUNG (sát mép)
-        const small = await compressDataUrl(dataUrl);       // nén để nhẹ
-        const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg")); // ảnh thật trên server
-        setPages((p) => [...p, { image: url, slots }]);
-      }
+        const [slots, small] = await Promise.all([detectSlots(dataUrl), compressDataUrl(dataUrl)]);
+        const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg"));
+        return { image: url, slots };
+      }));
+      setPages((p) => [...p, ...results]); // giữ đúng thứ tự file
     } catch (e: any) {
       alert("Upload ảnh lỗi: " + (e?.message || e) + "\n→ Kiểm tra đăng nhập admin + backend đang chạy. KHÔNG dùng ảnh nhúng để tránh làm nặng hệ thống.");
     }

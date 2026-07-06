@@ -10,6 +10,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
   const assignments: (string | undefined)[] = L.assignments || [];
   const edits: Record<number, Edit> = L.edits || {};
   const texts: Record<number, TextItem[]> = L.texts || {};
+  const stickersMap: Record<number, any[]> = L.stickers || {};
   const hidden: Record<number, boolean> = L.hidden || {};
   const refs = useRef<(HTMLDivElement | null)[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -48,6 +49,16 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(tx.text, (tx.x / 100) * W, (tx.y / 100) * H);
       ctx.restore();
+    }
+    // sticker vẽ SAU chữ -> nằm trên (khớp thứ tự lớp trên màn hình)
+    for (const st of (stickersMap[pageIndex] || [])) {
+      try {
+        const im = await loadImg(st.url);
+        const dw = (st.w / 100) * W, dh = dw * ((im.naturalHeight || 1) / (im.naturalWidth || 1));
+        const cx = (st.x / 100) * W, cy = (st.y / 100) * H;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(((st.rot || 0) * Math.PI) / 180);
+        ctx.drawImage(im, -dw / 2, -dh / 2, dw, dh); ctx.restore();
+      } catch { /* bỏ sticker lỗi */ }
     }
     return cv;
   }
@@ -103,6 +114,9 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
                     </div>
                   );
                 })}
+                {(stickersMap[i] || []).map((st: any) => (
+                  <img key={st.id} src={st.url} crossOrigin="anonymous" style={{ position: "absolute", left: st.x + "%", top: st.y + "%", width: st.w + "%", transform: `translate(-50%,-50%) rotate(${st.rot || 0}deg)`, zIndex: 7 }} />
+                ))}
                 {(texts[i] || []).map((tx) => (
                   <div key={tx.id} className="absolute" style={{ left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: `${(tx.size || 20) * 0.5}px`, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>
                 ))}

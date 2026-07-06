@@ -38,4 +38,15 @@ router.put("/demo-pool", requireAuth, requireAdmin, validate(demoPoolSchema), as
   res.json(JSON.parse(value));
 });
 
+// KHO STICKER (admin quản lý, khách dùng để decor)
+router.get("/stickers", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "stickers" } });
+  res.json(row ? JSON.parse(row.value) : []);
+});
+router.put("/stickers", requireAuth, requireAdmin, validate(demoPoolSchema), async (req, res) => {
+  const value = JSON.stringify(req.body?.photos || []);
+  await prisma.setting.upsert({ where: { key: "stickers" }, update: { value }, create: { key: "stickers", value } });
+  res.json(JSON.parse(value));
+});
+
 export default router;

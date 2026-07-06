@@ -67,8 +67,8 @@ export const api = {
   me: () => req("/auth/me"),
   // templates (cache 60s để chuyển trang nhanh)
   templates: (q = "") => req(`/templates${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, 60_000),
-  template: (id: string) => req(`/templates/${id}`, {}, 60_000),
-  templateBySlug: (slug: string) => req(`/templates/slug/${slug}`, {}, 60_000),
+  template: (id: string) => req(`/templates/${id}`), // KHÔNG cache — khung phải luôn mới nhất
+  templateBySlug: (slug: string) => req(`/templates/slug/${slug}`),
   templateReviews: (id: string) => req(`/templates/${id}/reviews`, {}, 60_000),
   createTemplate: (b: any) => req("/templates", { method: "POST", body: JSON.stringify(b) }),
   updateTemplate: (id: string, b: any) => req(`/templates/${id}`, { method: "PUT", body: JSON.stringify(b) }),
@@ -106,6 +106,8 @@ export const api = {
   // settings
   about: () => req("/settings/about", {}, 60_000),
   getDemoPool: () => req("/settings/demo-pool"),
+  getStickers: () => req("/settings/stickers", {}, 60_000),
+  setStickers: (photos: string[]) => req("/settings/stickers", { method: "PUT", body: JSON.stringify({ photos }) }),
   setDemoPool: (photos: string[]) => req("/settings/demo-pool", { method: "PUT", body: JSON.stringify({ photos }) }),
   saveAbout: (b: any) => req("/settings/about", { method: "PUT", body: JSON.stringify(b) }),
 };

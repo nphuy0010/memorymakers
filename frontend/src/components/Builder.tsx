@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
-import { buildPages, imgStyle, FILTER_LABELS, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
+import { buildPages, imgStyle, FILTER_LABELS, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
 import { api } from "@/lib/api";
 
@@ -30,11 +30,12 @@ function compressImage(file: File, max = 1400, quality = 0.82): Promise<string> 
 }
 
 /* Trang tương tác: nền ảnh thật + khung (chèn/kéo ra) + text di chuyển được */
-function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAdjust, texts, onTextMove, onTextSelect, selText, onPhotoDragStart, onPhotoDragEnd }: {
+function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAdjust, texts, onTextMove, onTextSelect, selText, onPhotoDragStart, onPhotoDragEnd, stickers, onStickerMove, onStickerSelect, selStk }: {
   page: BuiltPage; assignments: (string | undefined)[]; edits: Record<number, Edit>;
   onSlot?: (g: number, payload?: any) => void; selected?: number | null; editSlot?: number | null;
   onAdjust?: (g: number, patch: Edit) => void; texts?: TextItem[]; onTextMove?: (id: string, patch: any) => void;
   onTextSelect?: (id: string) => void; selText?: string | null;
+  stickers?: StickerItem[]; onStickerMove?: (id: string, patch: any) => void; onStickerSelect?: (id: string) => void; selStk?: string | null;
   onPhotoDragStart?: (g: number) => void; onPhotoDragEnd?: (g: number) => void;
 }) {
   const draggedRef = useRef(0);
@@ -45,6 +46,14 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
     const cur = edits?.[s.g] || {}; const sx = ev.clientX, sy = ev.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 50; let moved = false;
     const move = (e: PointerEvent) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; onAdjust(s.g, { ox: Math.min(100, Math.max(0, ox - dx * 0.25)), oy: Math.min(100, Math.max(0, oy - dy * 0.25)) }); };
     const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); if (moved) draggedRef.current = Date.now(); };
+    document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
+  };
+  const startStickerDrag = (st: StickerItem, ev: React.PointerEvent) => {
+    if (!onStickerMove) return; ev.stopPropagation(); ev.preventDefault();
+    onStickerSelect && onStickerSelect(st.id);
+    const rect = rootRef.current!.getBoundingClientRect();
+    const move = (e: PointerEvent) => { const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; onStickerMove(st.id, { x: Math.max(2, Math.min(98, x)), y: Math.max(2, Math.min(98, y)) }); };
+    const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); };
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
   };
   const startTextDrag = (tx: TextItem, ev: React.PointerEvent) => {
@@ -59,11 +68,13 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
       {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />}
       {page.slots.map((s) => {
         const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = false; /* chỉ dùng khung chữ nhật */
+        const onWheel = editable ? (ev: React.WheelEvent) => { ev.preventDefault(); const cur = edits?.[s.g]?.scale ?? 1; onAdjust!(s.g, { scale: Math.min(2.5, Math.max(1, +(cur + (ev.deltaY < 0 ? 0.06 : -0.06)).toFixed(2))) }); } : undefined;
         const canDragOut = !!onSlot && !!img && !sel;
         return (
           <div key={s.g}
             onClick={onSlot ? () => { if (Date.now() - draggedRef.current < 200) return; onSlot(s.g); } : undefined}
             onPointerDown={editable ? (e) => startPan(s, e) : undefined}
+            onWheel={onWheel}
             onDragOver={onSlot ? (e) => e.preventDefault() : undefined}
             onDrop={onSlot ? (e) => { e.preventDefault(); const u = e.dataTransfer.getData("text/mm"); const fr = e.dataTransfer.getData("text/mm-from"); if (u) onSlot(s.g, u); else if (fr !== "") onSlot(s.g, { move: +fr }); } : undefined}
             style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", cursor: editable ? "move" : (onSlot ? "pointer" : "default"), border: sel ? `3px solid ${C.brass}` : img ? "none" : `2px dashed rgba(176,141,87,.9)`, background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 0 3px rgba(176,141,87,.3)" : "none", zIndex: 3, transform: `rotate(${(s as any).rot || 0}deg)` }}>
@@ -76,6 +87,13 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
       {(texts || []).map((tx) => (
         <div key={tx.id} onPointerDown={onTextMove ? (e) => startTextDrag(tx, e) : undefined} onClick={onTextSelect ? (e) => { e.stopPropagation(); onTextSelect(tx.id); } : undefined}
           style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || C.ink, fontWeight: 600, whiteSpace: "pre", textAlign: "center", cursor: onTextMove ? "move" : "default", userSelect: "none", zIndex: 6, padding: "2px 6px", borderRadius: 5, border: selText === tx.id ? `1.5px dashed ${C.brass}` : "1.5px solid transparent", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text || "Nhập chữ"}</div>
+      ))}
+      {/* STICKER: khách decor tự do — kéo di chuyển, chọn để đổi cỡ/xoay/xóa */}
+      {(stickers || []).map((st) => (
+        <img key={st.id} src={st.url} draggable={false}
+          onPointerDown={onStickerMove ? (e) => startStickerDrag(st, e) : undefined}
+          onClick={onStickerSelect ? (e) => { e.stopPropagation(); onStickerSelect(st.id); } : undefined}
+          style={{ position: "absolute", left: st.x + "%", top: st.y + "%", width: st.w + "%", transform: `translate(-50%,-50%) rotate(${st.rot || 0}deg)`, zIndex: 7, cursor: onStickerMove ? "move" : "default", userSelect: "none", outline: selStk === st.id ? `2px dashed ${C.brass}` : "none", outlineOffset: 2, borderRadius: 4 }} />
       ))}
     </div>
   );
@@ -102,12 +120,13 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
   a.page.slots.every((s) => JSON.stringify(a.edits[s.g]) === JSON.stringify(b.edits[s.g]))
 );
 
-export default function Builder({ t, photos, setPhotos, assignments, setAssignments, edits, setEdits, hidden, setHidden, texts, setTexts }: {
+export default function Builder({ t, photos, setPhotos, assignments, setAssignments, edits, setEdits, hidden, setHidden, texts, setTexts, stickers, setStickers }: {
   t: Template; photos: string[]; setPhotos: (f: (p: string[]) => string[]) => void;
   assignments: (string | undefined)[]; setAssignments: (f: (a: (string | undefined)[]) => (string | undefined)[]) => void;
   edits: Record<number, Edit>; setEdits: (f: (e: Record<number, Edit>) => Record<number, Edit>) => void;
   hidden: Record<number, boolean>; setHidden: (f: (h: Record<number, boolean>) => Record<number, boolean>) => void;
   texts: Record<number, TextItem[]>; setTexts: (f: (x: Record<number, TextItem[]>) => Record<number, TextItem[]>) => void;
+  stickers: Record<number, StickerItem[]>; setStickers: (f: (x: Record<number, StickerItem[]>) => Record<number, StickerItem[]>) => void;
 }) {
   const pages = useMemo(() => buildPages(t), [t]);
   const [pageIdx, setPageIdx] = useState(0);
@@ -131,7 +150,12 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         const { url } = await api.uploadFile(new File([arr], "photo.jpg", { type: mime }));
         setPhotos((p) => [...p, url]);
       } catch (err: any) {
-        alert("Tải ảnh lỗi: " + (err?.message || "") + "\nVui lòng thử lại (cần đăng nhập & có mạng).");
+        const hint = err?.status === 403
+          ? "\n→ Backend đang chạy BẢN CŨ (chưa cho khách upload). Hãy deploy lại backend (push code + chờ Render build)."
+          : err?.status === 401
+            ? "\n→ Phiên đăng nhập hết hạn — hãy đăng nhập lại."
+            : "\n→ Kiểm tra mạng/backend rồi thử lại.";
+        alert("Tải ảnh lỗi: " + (err?.message || "") + hint);
       }
     });
   };
@@ -159,15 +183,27 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
     if (!photos.length) return;
     setFilling(true);
     try {
+      // XÁO ảnh (Fisher–Yates) — không điền theo thứ tự upload; bấm lại để đổi cách xếp
+      const shuffled = [...photos];
+      for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
       const plan: Record<number, string> = {};
       let pi = 0;
-      for (const g of visibleGs) { if (!assignments[g]) { plan[g] = photos[pi % photos.length]; pi++; } }
+      for (const g of visibleGs) { if (!assignments[g]) { plan[g] = shuffled[pi % shuffled.length]; pi++; } }
       const focus: Record<number, { ox: number; oy: number }> = {};
       await Promise.all(Object.entries(plan).map(async ([g, url]) => { try { focus[+g] = await detectFocus(url); } catch {} }));
       setAssignments((a) => { const n = [...a]; for (const g in plan) n[+g] = plan[+g]; return n; });
       setEdits((e) => { const n = { ...e }; for (const g in focus) { if (n[+g]?.ox === undefined) n[+g] = { ...n[+g], ...focus[+g] }; } return n; });
     } finally { setFilling(false); }
   };
+
+  const [selStk, setSelStk] = useState<string | null>(null);
+  const [stkLib, setStkLib] = useState<string[]>([]);
+  useEffect(() => { api.getStickers().then(setStkLib).catch(() => {}); }, []);
+  const pageStickers = (stickers && stickers[pageIdx]) || [];
+  const addSticker = (url: string) => { const id = "st" + Date.now(); setStickers((x) => ({ ...x, [pageIdx]: [...((x && x[pageIdx]) || []), { id, url, x: 50, y: 50, w: 16, rot: 0 }] })); setSelStk(id); setSelText(null); setSelSlot(null); };
+  const updateSticker = (id: string, patch: any) => setStickers((x) => ({ ...x, [pageIdx]: ((x && x[pageIdx]) || []).map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
+  const removeSticker = (id: string) => { setStickers((x) => ({ ...x, [pageIdx]: ((x && x[pageIdx]) || []).filter((i) => i.id !== id) })); setSelStk(null); };
+  const curStk = pageStickers.find((x) => x.id === selStk);
 
   const addText = () => { const id = "tx" + Date.now(); setTexts((x) => ({ ...x, [pageIdx]: [...((x && x[pageIdx]) || []), { id, text: "Nhập chữ", x: 50, y: 50, size: 24, color: "#2A2520", font: "serif" }] })); setSelText(id); setSelSlot(null); };
   const updateText = (id: string, patch: any) => setTexts((x) => ({ ...x, [pageIdx]: ((x && x[pageIdx]) || []).map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
@@ -178,7 +214,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName || ""; if (/INPUT|TEXTAREA/.test(tag)) return;
-      if (e.key === "Delete" || e.key === "Backspace") { if (selText != null) { removeText(selText); e.preventDefault(); } else if (selSlot != null && assignments[selSlot]) { clearSlot(selSlot); e.preventDefault(); } }
+      if (e.key === "Delete" || e.key === "Backspace") { if (selStk != null) { removeSticker(selStk); e.preventDefault(); } else if (selText != null) { removeText(selText); e.preventDefault(); } else if (selSlot != null && assignments[selSlot]) { clearSlot(selSlot); e.preventDefault(); } }
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,7 +260,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 16 }}>
           {filling
             ? <div style={{ aspectRatio: "2000/1300", display: "grid", placeItems: "center" }}><div style={{ width: 44, height: 44, border: `4px solid ${C.cream}`, borderTopColor: C.brass, borderRadius: "50%", animation: "mmspin 1s linear infinite" }} /></div>
-            : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); }} selText={selText} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
+            : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); setSelStk(null); }} selText={selText} stickers={pageStickers} onStickerMove={updateSticker} onStickerSelect={(id) => { setSelStk(id); setSelText(null); setSelSlot(null); }} selStk={selStk} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
         </div>
         <p style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} color={C.brass} /> Bấm khung để chọn ảnh/chỉnh sửa · kéo ảnh ra ngoài khung hoặc nhấn <b>Delete</b> để gỡ ảnh.</p>
         {/* TEXT */}
@@ -245,6 +281,27 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
             </div>
           ) : <div style={{ fontSize: 12.5, color: C.sub, marginTop: 8 }}>Bấm “Thêm text” rồi kéo để đặt vị trí. Bấm vào chữ để sửa nội dung/cỡ/màu.</div>}
         </div>
+
+        {/* STICKER: kho do admin cung cấp — bấm để thêm, kéo đặt vị trí, chọn để đổi cỡ/xoay */}
+        {stkLib.length > 0 && (
+          <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 12, marginTop: 12 }}>
+            <span style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12, fontWeight: 700, color: C.ink }}>✨ Sticker decor</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 6, marginTop: 10, maxHeight: 130, overflowY: "auto" }}>
+              {stkLib.map((u, i) => (
+                <button key={i} onClick={() => addSticker(u)} title="Thêm vào trang" style={{ background: C.cream, border: `1px solid ${C.line}`, borderRadius: 8, padding: 4, cursor: "pointer", aspectRatio: "1" }}>
+                  <img src={u} style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
+                </button>
+              ))}
+            </div>
+            {curStk && (
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 12, color: C.sub }}>Cỡ</span><input type="range" min={5} max={50} value={curStk.w} onChange={(e) => updateSticker(curStk.id, { w: +e.target.value })} style={{ accentColor: C.brass }} /></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 12, color: C.sub }}>Xoay</span><input type="range" min={-180} max={180} value={curStk.rot || 0} onChange={(e) => updateSticker(curStk.id, { rot: +e.target.value })} style={{ accentColor: C.brass }} /></div>
+                <button onClick={() => removeSticker(curStk.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#B05A4A", fontSize: 12.5, display: "flex", gap: 4, alignItems: "center" }}><Trash2 size={13} /> Xoá</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* RIGHT */}

@@ -20,6 +20,9 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
           </div>
         );
       })}
+      {(((pg as any).stickers) || []).map((st: any) => (
+        <img key={st.id} src={st.url} draggable={false} style={{ position: "absolute", left: st.x + "%", top: st.y + "%", width: st.w + "%", transform: `translate(-50%,-50%) rotate(${st.rot || 0}deg)`, zIndex: 7, userSelect: "none" }} />
+      ))}
       {(pg.texts || []).map((tx) => (
         <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans, sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
       ))}
@@ -27,9 +30,9 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
   );
 }
 
-function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
+function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big }: {
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
-  texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; sample?: boolean; big?: boolean;
+  texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; sample?: boolean; big?: boolean;
 }) {
   // Dãy "leaf": bìa trước đứng một mình (phải, trái trống), trang trong ghép đôi,
   // bìa sau chỉ có khi tổng trang hiển thị CHẴN. Lật trang cong 3D có bóng.
@@ -41,6 +44,7 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
       image: useComposed && dpg[i] ? dpg[i] : p.image,
       slots: useComposed ? [] : p.slots,
       texts: (texts && texts[i]) || [],
+      stickers: (stickers && stickers[i]) || [],
     }));
     const vis = all.filter((_, i) => !(hidden && hidden[i]));
     const n = vis.length;
@@ -61,8 +65,14 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
     if (assignments) return assignments; // đang thiết kế: dùng ảnh thật của khách
     const dp = ((t as any).demoPhotos || []) as string[];
     if (!dp.length) return undefined;
+    // xáo theo seed id mẫu -> mỗi mẫu một thứ tự ảnh khác nhau (ổn định)
+    let seed = 0; const idStr = String((t as any).id || "");
+    for (let i = 0; i < idStr.length; i++) seed = (seed * 31 + idStr.charCodeAt(i)) >>> 0;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const sh = [...dp];
+    for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [sh[i], sh[j]] = [sh[j], sh[i]]; }
     const total = buildPages(t).reduce((n, p) => n + p.slots.length, 0);
-    return Array.from({ length: total }, (_, g) => dp[g % dp.length]);
+    return Array.from({ length: total }, (_, g) => sh[g % sh.length]);
   }, [t, assignments]);
   const [spread, setSpread] = useState(0);
   const [anim, setAnim] = useState<{ dir: "next" | "prev"; started: boolean } | null>(null);
@@ -114,9 +124,9 @@ function BookCore({ t, assignments, edits, texts, hidden, sample, big }: {
 }
 const navBtn = (dis: boolean): React.CSSProperties => ({ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${LINE}`, display: "grid", placeItems: "center", cursor: dis ? "default" : "pointer", opacity: dis ? .35 : 1 });
 
-export default function Flipbook({ t, assignments, edits, texts, hidden, watermark, paid }: {
+export default function Flipbook({ t, assignments, edits, texts, hidden, stickers, watermark, paid }: {
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
-  texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; watermark?: boolean; paid?: boolean;
+  texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; watermark?: boolean; paid?: boolean;
 }) {
   const [full, setFull] = useState(false);
   const [blurGuard, setBlurGuard] = useState(false);
@@ -141,7 +151,7 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, waterma
     <div style={{ position: "absolute", top: 12, right: 12, background: SAGE, color: "#fff", borderRadius: 999, padding: "6px 12px", fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, display: "flex", gap: 6, alignItems: "center", zIndex: 8 }}><CheckCircle2 size={14} /> Đã mở khoá</div>
   );
 
-  const Book = ({ big }: { big?: boolean }) => <BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} sample={!assignments} big={big} />;
+  const Book = ({ big }: { big?: boolean }) => <BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big={big} />;
 
   return (
     <div>

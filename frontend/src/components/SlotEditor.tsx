@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save, RotateCw } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, clearApiCache } from "@/lib/api";
 
 type Slot = { x: number; y: number; w: number; h: number; shape: "rect" | "circle"; rot?: number };
 type Page = { image: string; slots: Slot[] };
@@ -58,6 +58,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
     setSaving(true);
     try {
       const updated = await api.updateTemplate(template.id, { pages });
+      clearApiCache(); // khung mới có hiệu lực NGAY ở mọi trang (kho mẫu, thiết kế, preview)
       onSaved(updated); onClose();
     } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "")); }
     finally { setSaving(false); }

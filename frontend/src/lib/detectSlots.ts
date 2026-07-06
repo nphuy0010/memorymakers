@@ -8,19 +8,23 @@ import type { Slot } from "./types";
       -> cắt tại khe rồi QUÉT LẠI từng phần (đệ quy) tới khi 2 chiều khớp.
    3) Ô nghiêng: đo góc bằng moment (PCA) + kích thước theo trục nghiêng. */
 
+// morph TÁCH 2 CHIỀU (ngang rồi dọc) — nhanh ~1.5x so với quét 3x3
 function morph(arr: Uint8Array, w: number, h: number, dilate: boolean): Uint8Array {
-  const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++)
+  const mid = new Uint8Array(w * h), out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
     for (let x = 0; x < w; x++) {
-      let v = dilate ? 0 : 1;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx, ny = y + dy;
-          const s = nx >= 0 && ny >= 0 && nx < w && ny < h ? arr[ny * w + nx] : 0;
-          if (dilate) { if (s) v = 1; } else { if (!s) v = 0; }
-        }
-      out[y * w + x] = v;
+      const a = x > 0 ? arr[row + x - 1] : 0, b = arr[row + x], c = x < w - 1 ? arr[row + x + 1] : 0;
+      mid[row + x] = dilate ? (a | b | c) : (a & b & c);
     }
+  }
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      const a = y > 0 ? mid[row - w + x] : 0, b = mid[row + x], c = y < h - 1 ? mid[row + w + x] : 0;
+      out[row + x] = dilate ? (a | b | c) : (a & b & c);
+    }
+  }
   return out;
 }
 
@@ -52,7 +56,7 @@ export function detectSlots(src: string): Promise<Slot[]> {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
-        const MAX = 300, scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const MAX = 240, scale = Math.min(1, MAX / Math.max(img.width, img.height));
         const w = Math.max(1, Math.round(img.width * scale));
         const h = Math.max(1, Math.round(img.height * scale));
         const cv = document.createElement("canvas");
@@ -94,7 +98,7 @@ export function detectSlots(src: string): Promise<Slot[]> {
           let deg = 0.5 * Math.atan2(2 * mxy, mxx - myy) * 180 / Math.PI;
           if (deg > 45) deg -= 90; else if (deg < -45) deg += 90;
 
-          if (Math.abs(deg) < 3) {
+          if (Math.abs(deg) < 0.7) { // <0.7° coi là nhiễu -> thẳng; nghiêng nhẹ (vd 1.05°) vẫn giữ đúng góc
             let minx = w, maxx = 0, miny = h, maxy = 0;
             for (let k = 0; k < area; k++) { if (px[k] < minx) minx = px[k]; if (px[k] > maxx) maxx = px[k]; if (py[k] < miny) miny = py[k]; if (py[k] > maxy) maxy = py[k]; }
             slots.push({ x: +((minx / w) * 100).toFixed(1), y: +((miny / h) * 100).toFixed(1), w: +(((maxx - minx + 1) / w) * 100).toFixed(1), h: +(((maxy - miny + 1) / h) * 100).toFixed(1), shape: "rect" });
@@ -108,7 +112,7 @@ export function detectSlots(src: string): Promise<Slot[]> {
               if (v < minV) minV = v; if (v > maxV) maxV = v;
             }
             const wPct = ((maxU - minU + 1) / w) * 100, hPct = ((maxV - minV + 1) / h) * 100;
-            slots.push({ x: +(((cx / w) * 100) - wPct / 2).toFixed(1), y: +(((cy / h) * 100) - hPct / 2).toFixed(1), w: +wPct.toFixed(1), h: +hPct.toFixed(1), shape: "rect", rot: +deg.toFixed(1) });
+            slots.push({ x: +(((cx / w) * 100) - wPct / 2).toFixed(1), y: +(((cy / h) * 100) - hPct / 2).toFixed(1), w: +wPct.toFixed(1), h: +hPct.toFixed(1), shape: "rect", rot: Math.round(deg * 20) / 20 }); // làm tròn 0.05° — đủ mượt, không cần chính xác từng độ
           }
         };
 

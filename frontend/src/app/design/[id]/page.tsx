@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
 import Builder from "@/components/Builder";
 import Flipbook from "@/components/Flipbook";
-import type { Edit, TextItem } from "@/lib/pages";
+import type { Edit, TextItem, StickerItem } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
 import { CATS, vnd, type Template } from "@/lib/types";
 
@@ -27,6 +27,7 @@ export default function DesignPage() {
   const [edits, setEdits] = useState<Record<number, Edit>>({});
   const [hidden, setHidden] = useState<Record<number, boolean>>({});
   const [texts, setTexts] = useState<Record<number, TextItem[]>>({});
+  const [stickers, setStickers] = useState<Record<number, StickerItem[]>>({});
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<"digital" | "physical" | null>(null);
   const [option, setOption] = useState("hard");
@@ -47,13 +48,14 @@ export default function DesignPage() {
       if (Array.isArray(p.photos) && p.photos.length) setPhotos(p.photos);
       const L = p.layout || {};
       if (L.assignments) setAssignments(L.assignments);
+      if (L.stickers) setStickers(L.stickers);
       if (L.edits) setEdits(L.edits);
       if (L.texts) setTexts(L.texts);
       if (L.hidden) setHidden(L.hidden);
     }).catch(() => {});
   }, [t, projectParam]);
 
-  const layoutObj = () => ({ assignments, edits, texts, hidden });
+  const layoutObj = () => ({ assignments, edits, texts, hidden, stickers });
 
   // LƯU DỰ ÁN 1 LẦN (single-flight) — dùng chung cho auto-lưu, xem trước, thanh toán (tránh tạo trùng/đua).
   const draftRef = useRef<Promise<string> | null>(null);
@@ -175,7 +177,7 @@ export default function DesignPage() {
             </div>
             <button onClick={goPreview} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2 shrink-0">Xem trước <ChevronRight size={16} /></button>
           </div>
-          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} texts={texts} setTexts={setTexts} />
+          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} texts={texts} setTexts={setTexts} stickers={stickers} setStickers={setStickers} />
         </div>
       )}
 
@@ -184,7 +186,7 @@ export default function DesignPage() {
         <div className="max-w-[980px] mx-auto">
           <h2 className="font-serif text-2xl text-ink font-bold mb-1.5">Xem trước cuốn sách</h2>
           <p className="font-sans text-sm text-sub mb-4">Bản nháp có watermark bảo vệ tới khi thanh toán. Lật trang để xem toàn bộ.</p>
-          <Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} watermark />
+          <Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} watermark />
           <div className="mt-5 flex justify-between">
             <button onClick={() => setStep(0)} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><ChevronLeft size={16} /> Chỉnh tiếp</button>
             <button onClick={() => setStep(2)} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2">Chọn sản phẩm <ChevronRight size={16} /></button>
@@ -274,7 +276,7 @@ export default function DesignPage() {
           <div className="w-16 h-16 rounded-full bg-sage grid place-items-center mx-auto mb-4"><CheckCircle2 size={34} className="text-white" /></div>
           <h2 className="font-serif text-3xl text-ink font-bold">Đặt hàng thành công!</h2>
           <p className="font-sans text-sm text-sub mt-2.5 mb-5">{mode === "digital" ? "Bản digital đã mở khoá để tải." : "Memory Makers sẽ in và giao tới bạn sớm."}</p>
-          <div className="mb-4.5"><Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} watermark paid /></div>
+          <div className="mb-4.5"><Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} watermark paid /></div>
           {mode === "digital"
             ? <button onClick={() => router.push("/account")} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Download size={16} /> Tải &amp; về dự án</button>
             : <button onClick={() => router.push("/account")} className="border border-ink text-ink rounded-full px-6 py-3 font-sans font-semibold">Xem trong dự án của tôi</button>}
