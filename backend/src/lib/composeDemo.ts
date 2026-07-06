@@ -12,10 +12,16 @@ async function fetchBuf(url: string): Promise<Buffer> {
 }
 
 type Slot = { x: number; y: number; w: number; h: number; rot?: number };
+// Admin tinh chỉnh preview: gán ảnh theo ô (assignments[g]) + vị trí/zoom (edits[g])
+export type DemoOverrides = {
+  assignments?: Record<number, string | undefined> | (string | undefined)[];
+  edits?: Record<number, { ox?: number; oy?: number; scale?: number }>;
+};
+const clampN = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-export async function composeTemplateDemo(templateId: string, pool: string[]): Promise<{ ok: boolean; pages: number }> {
+export async function composeTemplateDemo(templateId: string, pool: string[], overrides?: DemoOverrides): Promise<{ ok: boolean; pages: number }> {
   const t = await prisma.template.findUnique({ where: { id: templateId } });
-  if (!t || !pool.length) return { ok: false, pages: 0 };
+  if (!t || (!pool.length && !overrides?.assignments)) return { ok: false, pages: 0 };
   const pages: { image: string; slots: Slot[] }[] = JSON.parse(t.pages || "[]");
   if (!pages.length) return { ok: false, pages: 0 };
 
@@ -38,12 +44,29 @@ export async function composeTemplateDemo(templateId: string, pool: string[]): P
     const overlays: { input: Buffer; left: number; top: number }[] = [];
 
     for (const s of pg.slots || []) {
-      const url = shuffled[g % shuffled.length]; g++;
+      const ov: any = overrides?.assignments;
+      const gIdx = g; g++;
+      const url: string | undefined = (ov && ov[gIdx]) || (shuffled.length ? shuffled[gIdx % shuffled.length] : undefined);
+      if (!url) continue;
       if (!cache.has(url)) cache.set(url, await fetchBuf(url));
       const dw = Math.max(2, Math.round((s.w / 100) * W));
       const dh = Math.max(2, Math.round((s.h / 100) * H));
-      // cover-crop thông minh: 'attention' ưu tiên vùng nổi bật (mặt người) -> không cắt mất mặt
-      let img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
+      const e = overrides?.edits?.[gIdx];
+      let img: any;
+      if (e && (e.ox !== undefined || e.oy !== undefined || (e.scale && e.scale > 1))) {
+        // ADMIN đã chỉnh tay -> crop theo đúng điểm nhìn + zoom admin đặt
+        const m = await sharp(cache.get(url)!).metadata();
+        const iw = m.width || 1000, ih = m.height || 1000;
+        const zoom = Math.max(1, e.scale || 1);
+        const sc = Math.max(dw / iw, dh / ih) * zoom;
+        const rw = Math.max(dw, Math.round(iw * sc)), rh = Math.max(dh, Math.round(ih * sc));
+        const left = clampN(Math.round(((e.ox ?? 50) / 100) * rw - dw / 2), 0, rw - dw);
+        const top = clampN(Math.round(((e.oy ?? 38) / 100) * rh - dh / 2), 0, rh - dh);
+        img = sharp(cache.get(url)!).resize(rw, rh).extract({ left, top, width: dw, height: dh });
+      } else {
+        // mặc định: cover-crop 'attention' (smart-crop né cắt mặt)
+        img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
+      }
       let left = Math.round((s.x / 100) * W), top = Math.round((s.y / 100) * H);
       if (s.rot) {
         const buf = await img.png().toBuffer();

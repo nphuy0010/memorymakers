@@ -101,6 +101,7 @@ export const api = {
   setRole: (id: string, role: string) => req(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   adminOrders: (page = 1, limit = 50) => req(`/admin/orders?page=${page}&limit=${limit}`),
   applyDemo: () => req("/admin/apply-demo", { method: "POST" }),
+  applyDemoOne: (id: string, b: any) => req(`/admin/templates/${id}/apply-demo`, { method: "POST", body: JSON.stringify(b) }),
   adminUpdateOrder: (id: string, body: { status?: string; tracking?: string }) => req(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   adminStats: () => req("/admin/stats"),
   // settings

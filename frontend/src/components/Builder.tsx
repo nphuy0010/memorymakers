@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
-import { buildPages, imgStyle, FILTER_LABELS, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
+import { buildPages, imgStyle, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
 import { api } from "@/lib/api";
 
@@ -328,16 +328,6 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
                 <button onClick={() => clearSlot(selSlot!)} style={{ background: "none", border: "none", cursor: "pointer", color: "#B05A4A", fontSize: 11.5, display: "flex", gap: 3, alignItems: "center" }}><Trash2 size={12} /> Gỡ</button>
                 <button onClick={() => resetEdit(selSlot!)} style={{ background: "none", border: "none", cursor: "pointer", color: C.sub, fontSize: 11.5 }}>Đặt lại</button>
               </div>
-            </div>
-            <div style={{ fontSize: 11.5, color: C.sub, marginBottom: 4 }}>Phóng to (zoom)</div>
-            <input type="range" min={1} max={2.5} step={0.05} value={cur!.scale ?? 1} onChange={(e) => setEdit(selSlot!, { scale: +e.target.value })} style={{ width: "100%", accentColor: C.brass }} />
-            <div style={{ display: "flex", gap: 6, margin: "8px 0" }}>
-              <button onClick={() => setEdit(selSlot!, { rot: (cur!.rot ?? 0) - 90 })} style={{ flex: 1, padding: "8px 0", fontSize: 12, background: C.cream, border: "none", borderRadius: 999, cursor: "pointer" }}>⟲ 90°</button>
-              <button onClick={() => setEdit(selSlot!, { rot: (cur!.rot ?? 0) + 90 })} style={{ flex: 1, padding: "8px 0", fontSize: 12, background: C.cream, border: "none", borderRadius: 999, cursor: "pointer" }}>⟳ 90°</button>
-            </div>
-            <div style={{ fontSize: 11.5, color: C.sub, margin: "8px 0 6px" }}>Bộ lọc màu</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {FILTER_LABELS.map(([k, l]) => <button key={k} onClick={() => setEdit(selSlot!, { filter: k })} style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 999, cursor: "pointer", border: `1px solid ${(cur!.filter || "none") === k ? C.brass : C.line}`, background: (cur!.filter || "none") === k ? C.cream : "#fff", color: C.ink }}>{l}</button>)}
             </div>
           </div>
         )}

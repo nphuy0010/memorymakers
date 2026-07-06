@@ -140,6 +140,16 @@ router.post("/messages", async (req, res) => {
   res.json(m);
 });
 
+// ADMIN CHỈNH PREVIEW 1 mẫu: nhận ảnh gán từng ô + vị trí/zoom -> ghép lại đúng như admin xếp
+router.post("/templates/:id/apply-demo", async (req, res) => {
+  const pool = await getDemoPool();
+  try {
+    const r = await composeTemplateDemo(req.params.id, pool, { assignments: req.body?.assignments, edits: req.body?.edits });
+    if (!r.ok) return res.status(400).json({ error: "Không ghép được (mẫu chưa có trang hoặc chưa có ảnh)" });
+    res.json(r);
+  } catch (e: any) { res.status(500).json({ error: e?.message || "Ghép lỗi" }); }
+});
+
 // Ghép ảnh demo (server-side, sharp) cho TẤT CẢ template từ kho ảnh chung
 router.post("/apply-demo", async (_req, res) => {
   const pool = await getDemoPool();

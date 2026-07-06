@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, Loader2, Images, Sparkles } from "lucide-react";
+import { Plus, X, Loader2, Images, Sparkles, Wand2, Save } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 import Loading from "@/components/Loading";
+import Builder from "@/components/Builder";
+import type { Edit, TextItem, StickerItem } from "@/lib/pages";
 import type { Template } from "@/lib/types";
 
 const readDataUrl = (f: File) => new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(f); });
@@ -36,6 +38,36 @@ export default function AdminDemoPool() {
   const [progress, setProgress] = useState("");
   const [poolMsg, setPoolMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // CHỈNH PREVIEW TỪNG MẪU: admin tự xếp ảnh (kéo/zoom bằng chuột) -> server ghép đúng như đã xếp
+  const [editT, setEditT] = useState<any>(null);
+  const [eLoading, setELoading] = useState(false);
+  const [eSaving, setESaving] = useState(false);
+  const [ePhotos, setEPhotos] = useState<string[]>([]);
+  const [eAssign, setEAssign] = useState<(string | undefined)[]>([]);
+  const [eEdits, setEEdits] = useState<Record<number, Edit>>({});
+  const [eHidden, setEHidden] = useState<Record<number, boolean>>({});
+  const [eTexts, setETexts] = useState<Record<number, TextItem[]>>({});
+  const [eStickers, setEStickers] = useState<Record<number, StickerItem[]>>({});
+
+  const openEditor = async (id: string) => {
+    setELoading(true);
+    try {
+      const full: any = await api.template(id);
+      setEditT(full); setEPhotos(pool); setEAssign([]); setEEdits({}); setEHidden({}); setETexts({}); setEStickers({});
+    } catch (e: any) { alert("Không tải được mẫu: " + (e?.message || "")); }
+    finally { setELoading(false); }
+  };
+  const savePreview = async () => {
+    if (!editT) return;
+    setESaving(true);
+    try {
+      await api.applyDemoOne(editT.id, { assignments: eAssign, edits: eEdits });
+      alert("Đã lưu preview cho “" + editT.title + "” ✓");
+      setEditT(null);
+    } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route apply-demo từng mẫu)."); }
+    finally { setESaving(false); }
+  };
 
   useEffect(() => {
     Promise.all([api.getDemoPool().then(setPool).catch(() => {}), api.templates().then(setTemplates).catch(() => {})]).finally(() => setLoading(false));
@@ -119,9 +151,47 @@ export default function AdminDemoPool() {
                 ))}
               </div>
             )}
+
+            {/* CHỈNH PREVIEW TỪNG MẪU: admin tự xếp/kéo/zoom ảnh bằng chuột rồi Lưu */}
+            <div className="mt-6 border-t border-line pt-4">
+              <div className="font-serif text-base text-ink font-bold mb-1">Tinh chỉnh preview từng mẫu</div>
+              <p className="font-sans text-[12.5px] text-sub mb-3">Không ưng bản ghép tự động? Bấm “Chỉnh preview” — tự chọn ảnh vào từng ô, lăn chuột phóng to, kéo chỉnh vị trí, rồi Lưu.</p>
+              <div className="grid md:grid-cols-3 gap-2">
+                {templates.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between border border-line rounded-xl px-3 py-2">
+                    <span className="font-sans text-sm text-ink truncate">{t.title}</span>
+                    <button onClick={() => openEditor(t.id)} disabled={eLoading} className="font-sans text-[12.5px] text-ink bg-cream rounded-full px-3 py-1.5 flex items-center gap-1.5 shrink-0 disabled:opacity-60"><Wand2 size={13} /> Chỉnh preview</button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </>
         )}
       </div>
+
+      {/* Modal chỉnh preview: dùng chính trình thiết kế (thuần chuột) */}
+      {editT && (
+        <div className="fixed inset-0 z-[96] overflow-y-auto" style={{ background: "rgba(42,37,32,.65)" }}>
+          <div className="bg-paper rounded-2xl max-w-[1280px] mx-auto my-6 border border-line overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-white sticky top-0 z-10">
+              <div>
+                <div className="font-serif text-lg text-ink font-bold">Chỉnh preview — {editT.title}</div>
+                <div className="font-sans text-xs text-sub">Bấm ô để chọn ảnh · lăn chuột phóng to · giữ chuột trái kéo để chỉnh vị trí</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={savePreview} disabled={eSaving} className="mm-btn flex items-center gap-2 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">
+                  {eSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Lưu preview
+                </button>
+                <button onClick={() => setEditT(null)} className="w-9 h-9 grid place-items-center rounded-full bg-cream"><X size={16} className="text-ink" /></button>
+              </div>
+            </div>
+            <div className="p-4">
+              <Builder t={editT} photos={ePhotos} setPhotos={setEPhotos} assignments={eAssign} setAssignments={setEAssign} edits={eEdits} setEdits={setEEdits} hidden={eHidden} setHidden={setEHidden} texts={eTexts} setTexts={setETexts} stickers={eStickers} setStickers={setEStickers} />
+              <p className="font-sans text-[12px] text-sub mt-2">Lưu ý: preview chỉ ghép ẢNH (chữ/sticker thêm ở đây không vào ảnh preview).</p>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }
