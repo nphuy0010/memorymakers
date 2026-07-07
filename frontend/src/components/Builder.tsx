@@ -40,8 +40,22 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
 }) {
   const draggedRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  // CTRL + LĂN CHUỘT trên ô đang chọn -> phóng to/thu nhỏ (listener non-passive để chặn zoom trang)
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || !onAdjust) return;
+    const h = (e: WheelEvent) => {
+      if (!e.ctrlKey || editSlot == null || !assignments?.[editSlot]) return;
+      e.preventDefault();
+      const cur = edits?.[editSlot]?.scale ?? 1;
+      onAdjust(editSlot, { scale: Math.min(2.5, Math.max(1, +(cur + (e.deltaY < 0 ? 0.06 : -0.06)).toFixed(2))) });
+    };
+    el.addEventListener("wheel", h, { passive: false });
+    return () => el.removeEventListener("wheel", h);
+  }, [editSlot, edits, onAdjust, assignments]);
+
   const startPan = (s: Slot & { g: number }, ev: React.PointerEvent) => {
-    if (editSlot !== s.g || !onAdjust || !assignments?.[s.g]) return;
+    if (!ev.ctrlKey || editSlot !== s.g || !onAdjust || !assignments?.[s.g]) return; // cần GIỮ CTRL để kéo ảnh
     ev.stopPropagation(); ev.preventDefault();
     const cur = edits?.[s.g] || {}; const sx = ev.clientX, sy = ev.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 50; let moved = false;
     const move = (e: PointerEvent) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; onAdjust(s.g, { ox: Math.min(100, Math.max(0, ox - dx * 0.25)), oy: Math.min(100, Math.max(0, oy - dy * 0.25)) }); };
@@ -68,13 +82,12 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
       {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />}
       {page.slots.map((s) => {
         const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = false; /* chỉ dùng khung chữ nhật */
-        const onWheel = editable ? (ev: React.WheelEvent) => { ev.preventDefault(); const cur = edits?.[s.g]?.scale ?? 1; onAdjust!(s.g, { scale: Math.min(2.5, Math.max(1, +(cur + (ev.deltaY < 0 ? 0.06 : -0.06)).toFixed(2))) }); } : undefined;
         const canDragOut = !!onSlot && !!img && !sel;
         return (
           <div key={s.g}
             onClick={onSlot ? () => { if (Date.now() - draggedRef.current < 200) return; onSlot(s.g); } : undefined}
             onPointerDown={editable ? (e) => startPan(s, e) : undefined}
-            onWheel={onWheel}
+            title={editable ? "Giữ Ctrl + lăn chuột: phóng to · Giữ Ctrl + kéo: di chuyển ảnh" : undefined}
             onDragOver={onSlot ? (e) => e.preventDefault() : undefined}
             onDrop={onSlot ? (e) => { e.preventDefault(); const u = e.dataTransfer.getData("text/mm"); const fr = e.dataTransfer.getData("text/mm-from"); if (u) onSlot(s.g, u); else if (fr !== "") onSlot(s.g, { move: +fr }); } : undefined}
             style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: round ? "50%" : 3, overflow: "hidden", cursor: editable ? "move" : (onSlot ? "pointer" : "default"), border: sel ? `3px solid ${C.brass}` : img ? "none" : `2px dashed rgba(176,141,87,.9)`, background: img ? "transparent" : "rgba(255,255,255,.14)", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 0 3px rgba(176,141,87,.3)" : "none", zIndex: 3, transform: `rotate(${(s as any).rot || 0}deg)` }}>

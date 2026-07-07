@@ -155,7 +155,7 @@ export default function AdminDemoPool() {
             {/* CHỈNH PREVIEW TỪNG MẪU: admin tự xếp/kéo/zoom ảnh bằng chuột rồi Lưu */}
             <div className="mt-6 border-t border-line pt-4">
               <div className="font-serif text-base text-ink font-bold mb-1">Tinh chỉnh preview từng mẫu</div>
-              <p className="font-sans text-[12.5px] text-sub mb-3">Không ưng bản ghép tự động? Bấm “Chỉnh preview” — tự chọn ảnh vào từng ô, lăn chuột phóng to, kéo chỉnh vị trí, rồi Lưu.</p>
+              <p className="font-sans text-[12.5px] text-sub mb-3">Không ưng bản ghép tự động? Bấm “Chỉnh preview” — tự chọn ảnh vào từng ô, Ctrl + lăn chuột phóng to, Ctrl + kéo chỉnh vị trí, rồi Lưu.</p>
               <div className="grid md:grid-cols-3 gap-2">
                 {templates.map((t) => (
                   <div key={t.id} className="flex items-center justify-between border border-line rounded-xl px-3 py-2">
@@ -176,7 +176,7 @@ export default function AdminDemoPool() {
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-white sticky top-0 z-10">
               <div>
                 <div className="font-serif text-lg text-ink font-bold">Chỉnh preview — {editT.title}</div>
-                <div className="font-sans text-xs text-sub">Bấm ô để chọn ảnh · lăn chuột phóng to · giữ chuột trái kéo để chỉnh vị trí</div>
+                <div className="font-sans text-xs text-sub">Bấm ô để chọn ảnh · Ctrl + lăn chuột: phóng to · Ctrl + kéo: chỉnh vị trí</div>
               </div>
               <div className="flex gap-2">
                 <button onClick={savePreview} disabled={eSaving} className="mm-btn flex items-center gap-2 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">
