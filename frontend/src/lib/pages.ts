@@ -25,12 +25,16 @@ export type Edit = { scale?: number; ox?: number; oy?: number; rot?: number; fil
 export function imgStyle(e?: Edit): React.CSSProperties {
   // oy mặc định 38%: lệch LÊN TRÊN (mặt người thường ở nửa trên) -> ảnh chưa dò mặt cũng không cắt mất mặt
   const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 38, rot = e?.rot ?? 0;
+  // PAN THẬT bằng translate theo mức zoom:
+  //  - sc = 1: objectPosition pan theo chiều ảnh tràn (crop chuẩn, không hở mép)
+  //  - sc > 1: translate dịch ảnh CẢ NGANG LẪN DỌC. ox=0 -> nhìn mép trái nhất; ox=100 -> mép phải nhất.
+  //    (đã kiểm chứng: tx = (50-ox)*(sc-1)% khớp đúng biên ảnh sau khi scale quanh tâm)
+  const tx = (50 - ox) * (sc - 1), ty = (50 - oy) * (sc - 1);
   return {
     width: "100%", height: "100%", objectFit: "cover",
     objectPosition: `${ox}% ${oy}%`,
-    // PHÓNG TO QUANH ĐIỂM NHÌN (ox,oy): kéo đổi ox/oy sẽ dịch vùng nhìn CẢ NGANG LẪN DỌC khi zoom
-    transformOrigin: `${ox}% ${oy}%`,
-    transform: `scale(${sc}) rotate(${rot}deg)`,
+    transformOrigin: "center",
+    transform: `translate(${tx}%, ${ty}%) scale(${sc}) rotate(${rot}deg)`,
     filter: FILTERS[e?.filter || "none"] || "none", display: "block",
   };
 }

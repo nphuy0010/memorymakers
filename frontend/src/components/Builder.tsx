@@ -57,7 +57,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
   const startPan = (s: Slot & { g: number }, ev: React.PointerEvent) => {
     if (!ev.ctrlKey || editSlot !== s.g || !onAdjust || !assignments?.[s.g]) return; // cần GIỮ CTRL để kéo ảnh
     ev.stopPropagation(); ev.preventDefault();
-    const cur = edits?.[s.g] || {}; const sx = ev.clientX, sy = ev.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 50; let moved = false;
+    const cur = edits?.[s.g] || {}; const sx = ev.clientX, sy = ev.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 38; let moved = false;
     const move = (e: PointerEvent) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; onAdjust(s.g, { ox: Math.min(100, Math.max(0, ox - dx * 0.25)), oy: Math.min(100, Math.max(0, oy - dy * 0.25)) }); };
     const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); if (moved) draggedRef.current = Date.now(); };
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
