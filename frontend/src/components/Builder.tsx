@@ -40,28 +40,43 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
 }) {
   const draggedRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  // CTRL + LĂN CHUỘT trên ô đang chọn -> phóng to/thu nhỏ (listener non-passive để chặn zoom trang)
+  // CTRL + CHUỘT trên trang -> LUÔN tác động Ô ĐANG CHỌN (cùng cơ chế cho cả zoom lẫn kéo,
+  // không phụ thuộc chuột trúng div nào -> hết lỗi kéo nhầm ô khi khung chồng/xoay)
   useEffect(() => {
     const el = rootRef.current;
     if (!el || !onAdjust) return;
-    const h = (e: WheelEvent) => {
+    const wheel = (e: WheelEvent) => {
       if (!e.ctrlKey || editSlot == null || !assignments?.[editSlot]) return;
       e.preventDefault();
       const cur = edits?.[editSlot]?.scale ?? 1;
       onAdjust(editSlot, { scale: Math.min(2.5, Math.max(1, +(cur + (e.deltaY < 0 ? 0.06 : -0.06)).toFixed(2))) });
     };
-    el.addEventListener("wheel", h, { passive: false });
-    return () => el.removeEventListener("wheel", h);
-  }, [editSlot, edits, onAdjust, assignments]);
+    const down = (e: PointerEvent) => {
+      if (!e.ctrlKey || e.button !== 0 || editSlot == null || !assignments?.[editSlot]) return;
+      e.preventDefault(); e.stopPropagation();
+      const g = editSlot;
+      const cur = edits?.[g] || {};
+      const sx = e.clientX, sy = e.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 38;
+      let moved = false;
+      const slot: any = page.slots.find((x: any) => x.g === g);
+      const rect = el.getBoundingClientRect();
+      const sw = slot ? (rect.width * slot.w) / 100 : 300, sh = slot ? (rect.height * slot.h) / 100 : 200;
+      const sc = Math.max(1, cur.scale ?? 1);
+      const kx = sc > 1.02 ? Math.min(2, 100 / (sw * (sc - 1))) : 0.25;
+      const ky = sc > 1.02 ? Math.min(2, 100 / (sh * (sc - 1))) : 0.25;
+      const move = (ev: PointerEvent) => {
+        const dx = ev.clientX - sx, dy = ev.clientY - sy;
+        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+        onAdjust(g, { ox: Math.min(100, Math.max(0, ox - dx * kx)), oy: Math.min(100, Math.max(0, oy - dy * ky)) });
+      };
+      const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); if (moved) draggedRef.current = Date.now(); };
+      document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    el.addEventListener("pointerdown", down);
+    return () => { el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); };
+  }, [editSlot, edits, onAdjust, assignments, page]);
 
-  const startPan = (s: Slot & { g: number }, ev: React.PointerEvent) => {
-    if (!ev.ctrlKey || editSlot !== s.g || !onAdjust || !assignments?.[s.g]) return; // cần GIỮ CTRL để kéo ảnh
-    ev.stopPropagation(); ev.preventDefault();
-    const cur = edits?.[s.g] || {}; const sx = ev.clientX, sy = ev.clientY, ox = cur.ox ?? 50, oy = cur.oy ?? 38; let moved = false;
-    const move = (e: PointerEvent) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; onAdjust(s.g, { ox: Math.min(100, Math.max(0, ox - dx * 0.25)), oy: Math.min(100, Math.max(0, oy - dy * 0.25)) }); };
-    const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); if (moved) draggedRef.current = Date.now(); };
-    document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
-  };
   const startStickerDrag = (st: StickerItem, ev: React.PointerEvent) => {
     if (!onStickerMove) return; ev.stopPropagation(); ev.preventDefault();
     onStickerSelect && onStickerSelect(st.id);
@@ -86,7 +101,6 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
         return (
           <div key={s.g}
             onClick={onSlot ? () => { if (Date.now() - draggedRef.current < 200) return; onSlot(s.g); } : undefined}
-            onPointerDown={editable ? (e) => startPan(s, e) : undefined}
             title={editable ? "Giữ Ctrl + lăn chuột: phóng to · Giữ Ctrl + kéo: di chuyển ảnh" : undefined}
             onDragOver={onSlot ? (e) => e.preventDefault() : undefined}
             onDrop={onSlot ? (e) => { e.preventDefault(); const u = e.dataTransfer.getData("text/mm"); const fr = e.dataTransfer.getData("text/mm-from"); if (u) onSlot(s.g, u); else if (fr !== "") onSlot(s.g, { move: +fr }); } : undefined}
