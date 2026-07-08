@@ -25,7 +25,14 @@ export type Edit = { scale?: number; ox?: number; oy?: number; rot?: number; fil
 export function imgStyle(e?: Edit): React.CSSProperties {
   // oy mặc định 38%: lệch LÊN TRÊN (mặt người thường ở nửa trên) -> ảnh chưa dò mặt cũng không cắt mất mặt
   const sc = e?.scale ?? 1, ox = e?.ox ?? 50, oy = e?.oy ?? 38, rot = e?.rot ?? 0;
-  return { width: "100%", height: "100%", objectFit: "cover", objectPosition: `${ox}% ${oy}%`, transform: `scale(${sc}) rotate(${rot}deg)`, filter: FILTERS[e?.filter || "none"] || "none", display: "block" };
+  return {
+    width: "100%", height: "100%", objectFit: "cover",
+    objectPosition: `${ox}% ${oy}%`,
+    // PHÓNG TO QUANH ĐIỂM NHÌN (ox,oy): kéo đổi ox/oy sẽ dịch vùng nhìn CẢ NGANG LẪN DỌC khi zoom
+    transformOrigin: `${ox}% ${oy}%`,
+    transform: `scale(${sc}) rotate(${rot}deg)`,
+    filter: FILTERS[e?.filter || "none"] || "none", display: "block",
+  };
 }
 
 export interface TextItem { id: string; text: string; x: number; y: number; size: number; color: string; font: string; }
