@@ -53,23 +53,32 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
       const dh = Math.max(2, Math.round((s.h / 100) * H));
       const e = overrides?.edits?.[gIdx];
       let img: any;
-      if (e) {
-        // KHỚP PIXEL với công thức hiển thị client (objectPosition + translate theo zoom):
-        //   crop cover theo (ox,oy), rồi phóng sc quanh tâm + dịch (50-ox)(sc-1)% -> WYSIWYG
-        const m = await sharp(cache.get(url)!).metadata();
-        const iw = m.width || 1000, ih = m.height || 1000;
-        const s0 = Math.max(dw / iw, dh / ih);
-        const cw = Math.max(dw, Math.round(iw * s0)), ch = Math.max(dh, Math.round(ih * s0));
-        const sc = Math.max(1, e.scale || 1);
-        const ox = e.ox ?? 50, oy = e.oy ?? 38;
-        const cropX = ((cw - dw) * ox) / 100, cropY = ((ch - dh) * oy) / 100;
-        const tx = (((50 - ox) * (sc - 1)) / 100) * dw, ty = (((50 - oy) * (sc - 1)) / 100) * dh;
-        const srcW = Math.max(1, Math.round(dw / sc)), srcH = Math.max(1, Math.round(dh / sc));
-        const left = clampN(Math.round(cropX + dw / 2 - (dw / 2 + tx) / sc), 0, cw - srcW);
-        const top = clampN(Math.round(cropY + dh / 2 - (dh / 2 + ty) / sc), 0, ch - srcH);
-        img = sharp(cache.get(url)!).resize(cw, ch, { fit: "fill" }).extract({ left, top, width: srcW, height: srcH }).resize(dw, dh);
-      } else {
-        // mặc định: cover-crop 'attention' (smart-crop né cắt mặt)
+      try {
+        if (e) {
+          // KHỚP PIXEL với công thức hiển thị client (objectPosition + translate theo zoom) -> WYSIWYG
+          const m = await sharp(cache.get(url)!).metadata();
+          const iw = m.width || 1000, ih = m.height || 1000;
+          const s0 = Math.max(dw / iw, dh / ih);
+          const cw = Math.max(dw, Math.round(iw * s0)), ch = Math.max(dh, Math.round(ih * s0));
+          const sc = Math.max(1, Math.min(4, e.scale || 1));
+          const ox = clampN(e.ox ?? 50, 0, 100), oy = clampN(e.oy ?? 38, 0, 100);
+          const cropX = ((cw - dw) * ox) / 100, cropY = ((ch - dh) * oy) / 100;
+          const tx = (((50 - ox) * (sc - 1)) / 100) * dw, ty = (((50 - oy) * (sc - 1)) / 100) * dh;
+          // PHÒNG THỦ extract: resize ra buffer thật rồi mới cắt; mọi biên đều min/clamp theo kích thước thật
+          const rbuf = await sharp(cache.get(url)!).resize(cw, ch, { fit: "fill" }).toBuffer();
+          const rm = await sharp(rbuf).metadata();
+          const RW = rm.width || cw, RH = rm.height || ch;
+          const srcW = clampN(Math.round(dw / sc), 1, RW), srcH = clampN(Math.round(dh / sc), 1, RH);
+          const left = clampN(Math.round(cropX + dw / 2 - (dw / 2 + tx) / sc), 0, RW - srcW);
+          const top = clampN(Math.round(cropY + dh / 2 - (dh / 2 + ty) / sc), 0, RH - srcH);
+          img = sharp(rbuf).extract({ left, top, width: srcW, height: srcH }).resize(dw, dh);
+        } else {
+          // mặc định: cover-crop 'attention' (smart-crop né cắt mặt)
+          img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
+        }
+      } catch (err: any) {
+        // 1 ô lỗi -> KHÔNG đánh sập cả mẫu: rơi về crop mặc định
+        console.warn(`compose slot ${gIdx} lỗi (${err?.message}) -> dùng crop mặc định`);
         img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
       }
       let left = Math.round((s.x / 100) * W), top = Math.round((s.y / 100) * H);

@@ -339,7 +339,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={addPhotos} style={{ display: "none" }} />
         </div>
         <button onClick={autoFill} disabled={!photos.length} style={{ width: "100%", marginTop: 10, background: C.brass, color: "#fff", border: "none", borderRadius: 999, padding: "11px", fontWeight: 600, cursor: photos.length ? "pointer" : "not-allowed", opacity: photos.length ? 1 : .5, display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center" }}><Wand2 size={16} /> Tự động điền (AI)</button>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
           {photos.map((p, i) => (
             <div key={i} draggable onDragStart={(e) => e.dataTransfer.setData("text/mm", p)} onClick={() => clickPhoto(p)} style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: selSlot != null ? "copy" : "grab", border: `1px solid ${C.line}` }}>
               <img src={p} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
