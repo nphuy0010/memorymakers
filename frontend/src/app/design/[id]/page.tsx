@@ -28,6 +28,7 @@ export default function DesignPage() {
   const [hidden, setHidden] = useState<Record<number, boolean>>({});
   const [texts, setTexts] = useState<Record<number, TextItem[]>>({});
   const [stickers, setStickers] = useState<Record<number, StickerItem[]>>({});
+  const [locked, setLocked] = useState<Record<number, boolean>>({});
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<"digital" | "physical" | null>(null);
   const [option, setOption] = useState("hard");
@@ -49,13 +50,14 @@ export default function DesignPage() {
       const L = p.layout || {};
       if (L.assignments) setAssignments(L.assignments);
       if (L.stickers) setStickers(L.stickers);
+      if (L.locked) setLocked(L.locked);
       if (L.edits) setEdits(L.edits);
       if (L.texts) setTexts(L.texts);
       if (L.hidden) setHidden(L.hidden);
     }).catch(() => {});
   }, [t, projectParam]);
 
-  const layoutObj = () => ({ assignments, edits, texts, hidden, stickers });
+  const layoutObj = () => ({ assignments, edits, texts, hidden, stickers, locked });
 
   // LƯU DỰ ÁN 1 LẦN (single-flight) — dùng chung cho auto-lưu, xem trước, thanh toán (tránh tạo trùng/đua).
   const draftRef = useRef<Promise<string> | null>(null);
@@ -177,7 +179,7 @@ export default function DesignPage() {
             </div>
             <button onClick={goPreview} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2 shrink-0">Xem trước <ChevronRight size={16} /></button>
           </div>
-          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} texts={texts} setTexts={setTexts} stickers={stickers} setStickers={setStickers} />
+          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} locked={locked} setLocked={setLocked} texts={texts} setTexts={setTexts} stickers={stickers} setStickers={setStickers} />
         </div>
       )}
 

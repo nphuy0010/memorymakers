@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, ShieldCheck, Image as ImageIcon } from "lucide-react";
+import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, ShieldCheck, Image as ImageIcon, Lock, Unlock } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
@@ -147,11 +147,12 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
   a.page.slots.every((s) => JSON.stringify(a.edits[s.g]) === JSON.stringify(b.edits[s.g]))
 );
 
-export default function Builder({ t, photos, setPhotos, assignments, setAssignments, edits, setEdits, hidden, setHidden, texts, setTexts, stickers, setStickers }: {
+export default function Builder({ t, photos, setPhotos, assignments, setAssignments, edits, setEdits, hidden, setHidden, locked, setLocked, texts, setTexts, stickers, setStickers }: {
   t: Template; photos: string[]; setPhotos: (f: (p: string[]) => string[]) => void;
   assignments: (string | undefined)[]; setAssignments: (f: (a: (string | undefined)[]) => (string | undefined)[]) => void;
   edits: Record<number, Edit>; setEdits: (f: (e: Record<number, Edit>) => Record<number, Edit>) => void;
   hidden: Record<number, boolean>; setHidden: (f: (h: Record<number, boolean>) => Record<number, boolean>) => void;
+  locked?: Record<number, boolean>; setLocked?: (f: (h: Record<number, boolean>) => Record<number, boolean>) => void;
   texts: Record<number, TextItem[]>; setTexts: (f: (x: Record<number, TextItem[]>) => Record<number, TextItem[]>) => void;
   stickers: Record<number, StickerItem[]>; setStickers: (f: (x: Record<number, StickerItem[]>) => Record<number, StickerItem[]>) => void;
 }) {
@@ -205,21 +206,24 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const onPhotoDragEnd = () => { if (dragInfo.current && !dragInfo.current.landed) clearSlot(dragInfo.current.from); dragInfo.current = null; };
 
   const visibleGs = useMemo(() => pages.filter((_, i) => !(hidden && hidden[i])).flatMap((p) => p.slots.map((s) => s.g)), [pages, hidden]);
-  // Tự động điền: DÒ KHUÔN MẶT TẤT CẢ ảnh xong -> điền ảnh + điểm crop CÙNG LÚC (không nhảy)
+  // Tự động điền: mỗi lần bấm XÁO + ĐIỀN LẠI TẤT CẢ Ô (kể cả ô đã có ảnh) — bấm lại để đổi cách xếp
   const autoFill = async () => {
     if (!photos.length) return;
     setFilling(true);
     try {
-      // XÁO ảnh (Fisher–Yates) — không điền theo thứ tự upload; bấm lại để đổi cách xếp
+      // XÁO ảnh (Fisher–Yates) — không điền theo thứ tự upload
       const shuffled = [...photos];
       for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
       const plan: Record<number, string> = {};
       let pi = 0;
-      for (const g of visibleGs) { if (!assignments[g]) { plan[g] = shuffled[pi % shuffled.length]; pi++; } }
+      // KHÔNG xáo trang bị KHÓA (và trang ẩn) — trang admin/khách đã chỉnh ưng ý giữ nguyên
+      const fillableGs = pages.filter((_, i) => !(hidden && hidden[i]) && !(locked && locked[i])).flatMap((p) => p.slots.map((x) => x.g));
+      for (const g of fillableGs) { plan[g] = shuffled[pi % shuffled.length]; pi++; }
       const focus: Record<number, { ox: number; oy: number }> = {};
       await Promise.all(Object.entries(plan).map(async ([g, url]) => { try { focus[+g] = await detectFocus(url); } catch {} }));
       setAssignments((a) => { const n = [...a]; for (const g in plan) n[+g] = plan[+g]; return n; });
-      setEdits((e) => { const n = { ...e }; for (const g in focus) { if (n[+g]?.ox === undefined) n[+g] = { ...n[+g], ...focus[+g] }; } return n; });
+      // ảnh MỚI -> đặt lại điểm nhìn theo khuôn mặt + reset zoom (edit cũ của ảnh cũ không còn phù hợp)
+      setEdits((e) => { const n = { ...e }; for (const g in plan) n[+g] = { ...(focus[+g] || { ox: 50, oy: 38 }), scale: 1 }; return n; });
     } finally { setFilling(false); }
   };
 
@@ -237,6 +241,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const removeText = (id: string) => { setTexts((x) => ({ ...x, [pageIdx]: ((x && x[pageIdx]) || []).filter((i) => i.id !== id) })); setSelText(null); };
   const curText = pageTexts.find((x) => x.id === selText);
   const toggleHide = (idx: number) => setHidden((h) => ({ ...h, [idx]: !(h && h[idx]) }));
+  const toggleLock = (idx: number) => setLocked && setLocked((h) => ({ ...h, [idx]: !(h && h[idx]) }));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -262,13 +267,15 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 560, overflowY: "auto" }}>
           {pages.map((pg, idx) => {
             const hid = !!(hidden && hidden[idx]);
+            const lck = !!(locked && locked[idx]);
             return (
               <div key={idx} style={{ position: "relative" }}>
                 <button onClick={() => { setPageIdx(idx); setSelSlot(null); setSelText(null); }} style={{ width: "100%", border: `2px solid ${idx === pageIdx ? C.brass : C.line}`, borderRadius: 10, padding: 4, background: "none", cursor: "pointer", opacity: hid ? 0.45 : 1 }}>
                   <div><MiniPage page={pg} urls={pg.slots.map((s) => assignments[s.g])} edits={edits} texts={(texts && texts[idx]) || []} /></div>
                   <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 10.5, color: C.sub, marginTop: 4 }}>{idx === 0 ? "Bìa trước" : idx === pages.length - 1 ? "Bìa sau" : `Trang ${idx + 1}`}</div>
                 </button>
-                <button onClick={() => toggleHide(idx)} title={hid ? "Hiện trang" : "Ẩn trang"} style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", border: "none", cursor: "pointer", background: hid ? "#B05A4A" : "rgba(42,37,32,.6)", display: "grid", placeItems: "center" }}>{hid ? <EyeOff size={13} color="#fff" /> : <Eye size={13} color="#fff" />}</button>
+                <button onClick={() => toggleHide(idx)} title={hid ? "Hiện trang (trang ẩn sẽ KHÔNG in)" : "Ẩn trang này khi in"} style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", border: "none", cursor: "pointer", background: hid ? "#B05A4A" : "rgba(42,37,32,.6)", display: "grid", placeItems: "center" }}>{hid ? <EyeOff size={13} color="#fff" /> : <Eye size={13} color="#fff" />}</button>
+                {setLocked && <button onClick={() => toggleLock(idx)} title={lck ? "Mở khóa (AI được xáo lại trang này)" : "Khóa trang — AI tự điền sẽ KHÔNG xáo lại"} style={{ position: "absolute", top: 6, right: 34, width: 24, height: 24, borderRadius: "50%", border: "none", cursor: "pointer", background: lck ? "#B08D57" : "rgba(42,37,32,.6)", display: "grid", placeItems: "center" }}>{lck ? <Lock size={12} color="#fff" /> : <Unlock size={12} color="#fff" />}</button>}
               </div>
             );
           })}

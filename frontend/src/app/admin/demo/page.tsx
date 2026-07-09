@@ -49,6 +49,7 @@ export default function AdminDemoPool() {
   const [eHidden, setEHidden] = useState<Record<number, boolean>>({});
   const [eTexts, setETexts] = useState<Record<number, TextItem[]>>({});
   const [eStickers, setEStickers] = useState<Record<number, StickerItem[]>>({});
+  const [eLocked, setELocked] = useState<Record<number, boolean>>({});
 
   const openEditor = async (id: string) => {
     setELoading(true);
@@ -62,7 +63,7 @@ export default function AdminDemoPool() {
       const sh = [...pool];
       for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [sh[i], sh[j]] = [sh[j], sh[i]]; }
       const prefill = sh.length ? Array.from({ length: total }, (_, g) => sh[g % sh.length]) : [];
-      setEditT(full); setEPhotos(pool); setEAssign(prefill); setEEdits({}); setEHidden({}); setETexts({}); setEStickers({});
+      setEditT(full); setEPhotos(pool); setEAssign(prefill); setEEdits({}); setEHidden({}); setETexts({}); setEStickers({}); setELocked({});
     } catch (e: any) { alert("Không tải được mẫu: " + (e?.message || "")); }
     finally { setELoading(false); }
   };
@@ -198,7 +199,7 @@ export default function AdminDemoPool() {
               </div>
             </div>
             <div className="p-4">
-              <Builder t={editT} photos={ePhotos} setPhotos={setEPhotos} assignments={eAssign} setAssignments={setEAssign} edits={eEdits} setEdits={setEEdits} hidden={eHidden} setHidden={setEHidden} texts={eTexts} setTexts={setETexts} stickers={eStickers} setStickers={setEStickers} />
+              <Builder t={editT} photos={ePhotos} setPhotos={setEPhotos} assignments={eAssign} setAssignments={setEAssign} edits={eEdits} setEdits={setEEdits} hidden={eHidden} setHidden={setEHidden} locked={eLocked} setLocked={setELocked} texts={eTexts} setTexts={setETexts} stickers={eStickers} setStickers={setEStickers} />
               <p className="font-sans text-[12px] text-sub mt-2">Lưu ý: preview chỉ ghép ẢNH (chữ/sticker thêm ở đây không vào ảnh preview).</p>
             </div>
           </div>
