@@ -54,7 +54,15 @@ export default function AdminDemoPool() {
     setELoading(true);
     try {
       const full: any = await api.template(id);
-      setEditT(full); setEPhotos(pool); setEAssign([]); setEEdits({}); setEHidden({}); setETexts({}); setEStickers({});
+      // ĐIỀN SẴN ảnh như bản AI đã ghép: xáo kho theo seed = id mẫu (cùng thuật toán với server)
+      const total = (full.pages || []).reduce((n: number, p: any) => n + ((p.slots || []).length), 0);
+      let seed = 0; const idStr = String(full.id || "");
+      for (let i = 0; i < idStr.length; i++) seed = (seed * 31 + idStr.charCodeAt(i)) >>> 0;
+      const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+      const sh = [...pool];
+      for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [sh[i], sh[j]] = [sh[j], sh[i]]; }
+      const prefill = sh.length ? Array.from({ length: total }, (_, g) => sh[g % sh.length]) : [];
+      setEditT(full); setEPhotos(pool); setEAssign(prefill); setEEdits({}); setEHidden({}); setETexts({}); setEStickers({});
     } catch (e: any) { alert("Không tải được mẫu: " + (e?.message || "")); }
     finally { setELoading(false); }
   };
@@ -62,7 +70,11 @@ export default function AdminDemoPool() {
     if (!editT) return;
     setESaving(true);
     try {
-      await api.applyDemoOne(editT.id, { assignments: eAssign, edits: eEdits });
+      // Gửi edits ĐẦY ĐỦ cho mọi ô có ảnh (kể cả ô chưa chỉnh -> mặc định 50/38/1)
+      // => server ghép đúng 100% những gì admin đang thấy trong modal (WYSIWYG)
+      const editsFull: Record<number, any> = {};
+      eAssign.forEach((u, g) => { if (u) editsFull[g] = { ox: 50, oy: 38, scale: 1, ...(eEdits[g] || {}) }; });
+      await api.applyDemoOne(editT.id, { assignments: eAssign, edits: editsFull });
       alert("Đã lưu preview cho “" + editT.title + "” ✓");
       setEditT(null);
     } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route apply-demo từng mẫu)."); }

@@ -53,16 +53,21 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
       const dh = Math.max(2, Math.round((s.h / 100) * H));
       const e = overrides?.edits?.[gIdx];
       let img: any;
-      if (e && (e.ox !== undefined || e.oy !== undefined || (e.scale && e.scale > 1))) {
-        // ADMIN đã chỉnh tay -> crop theo đúng điểm nhìn + zoom admin đặt
+      if (e) {
+        // KHỚP PIXEL với công thức hiển thị client (objectPosition + translate theo zoom):
+        //   crop cover theo (ox,oy), rồi phóng sc quanh tâm + dịch (50-ox)(sc-1)% -> WYSIWYG
         const m = await sharp(cache.get(url)!).metadata();
         const iw = m.width || 1000, ih = m.height || 1000;
-        const zoom = Math.max(1, e.scale || 1);
-        const sc = Math.max(dw / iw, dh / ih) * zoom;
-        const rw = Math.max(dw, Math.round(iw * sc)), rh = Math.max(dh, Math.round(ih * sc));
-        const left = clampN(Math.round(((e.ox ?? 50) / 100) * rw - dw / 2), 0, rw - dw);
-        const top = clampN(Math.round(((e.oy ?? 38) / 100) * rh - dh / 2), 0, rh - dh);
-        img = sharp(cache.get(url)!).resize(rw, rh).extract({ left, top, width: dw, height: dh });
+        const s0 = Math.max(dw / iw, dh / ih);
+        const cw = Math.max(dw, Math.round(iw * s0)), ch = Math.max(dh, Math.round(ih * s0));
+        const sc = Math.max(1, e.scale || 1);
+        const ox = e.ox ?? 50, oy = e.oy ?? 38;
+        const cropX = ((cw - dw) * ox) / 100, cropY = ((ch - dh) * oy) / 100;
+        const tx = (((50 - ox) * (sc - 1)) / 100) * dw, ty = (((50 - oy) * (sc - 1)) / 100) * dh;
+        const srcW = Math.max(1, Math.round(dw / sc)), srcH = Math.max(1, Math.round(dh / sc));
+        const left = clampN(Math.round(cropX + dw / 2 - (dw / 2 + tx) / sc), 0, cw - srcW);
+        const top = clampN(Math.round(cropY + dh / 2 - (dh / 2 + ty) / sc), 0, ch - srcH);
+        img = sharp(cache.get(url)!).resize(cw, ch, { fit: "fill" }).extract({ left, top, width: srcW, height: srcH }).resize(dw, dh);
       } else {
         // mặc định: cover-crop 'attention' (smart-crop né cắt mặt)
         img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
