@@ -33,16 +33,16 @@ export default function Header() {
     <>
       <header className="sticky top-0 z-40 bg-paper/90 backdrop-blur border-b border-line">
         <div className="max-w-[1200px] mx-auto px-5 py-3 flex items-center gap-5">
-          <Link href="/" className="flex items-center gap-2.5"><Logo size={40} /></Link>
+          <Link href="/" className="flex items-center gap-2.5"><span className="hidden sm:block"><Logo size={40} /></span><span className="sm:hidden"><Logo size={32} /></span></Link>
           <div className="flex-1" />
-          <nav className="flex items-center gap-3 md:gap-[18px] font-sans text-sm">
-            <Link href="/templates" className="mm-nav text-ink hidden md:inline">Mẫu thiết kế</Link>
-            <Link href="/about" className="mm-nav text-ink hidden md:inline">Về chúng tôi</Link>
+          <nav className="flex items-center gap-2.5 md:gap-[18px] font-sans text-sm">
+            <Link href="/templates" className="mm-nav text-ink whitespace-nowrap text-[12.5px] md:text-sm">Mẫu thiết kế</Link>
+            <Link href="/about" className="mm-nav text-ink whitespace-nowrap text-[12.5px] md:text-sm">Về chúng tôi</Link>
             {user?.role === "ADMIN" && (
-              <Link href="/admin" className="mm-nav flex items-center gap-1.5 text-ink"><Lock size={15} /> Admin</Link>
+              <Link href="/admin" className="mm-nav flex items-center gap-1 text-ink text-[12.5px] md:text-sm"><Lock size={14} /> Admin</Link>
             )}
-            <button onClick={() => setAi(true)} className="mm-btn flex items-center gap-2 bg-brass text-white rounded-full px-5 py-2.5 font-sans font-semibold">
-              <Wand2 size={16} /> Thiết kế với AI
+            <button onClick={() => setAi(true)} className="mm-btn flex items-center gap-2 bg-brass text-white rounded-full px-3.5 py-2 md:px-5 md:py-2.5 font-sans font-semibold whitespace-nowrap">
+              <Wand2 size={16} /> <span className="hidden sm:inline">Thiết kế với AI</span><span className="sm:hidden">AI</span>
             </button>
             {user ? (
               <div className="flex items-center gap-3">

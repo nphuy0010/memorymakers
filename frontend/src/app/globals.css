@@ -78,3 +78,10 @@ p { text-wrap: pretty; }
   .mm-pages { flex-direction: column; overflow-x: visible; max-height: 560px; overflow-y: auto; padding-bottom: 0; }
   .mm-pages > div { flex: none; }
 }
+
+/* ===== CHỐNG TRÀN NGANG trên mobile (trang bị lệch trái = có phần tử rộng hơn màn hình) ===== */
+html, body { overflow-x: hidden; max-width: 100vw; }
+img, video { max-width: 100%; }
+@media (max-width: 767px) {
+  .mm-page { overflow-x: hidden; }
+}
