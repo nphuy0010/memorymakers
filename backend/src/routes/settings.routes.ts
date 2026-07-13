@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
 import { validate, demoPoolSchema } from "../lib/validate";
+import { z } from "zod";
 
 const router = Router();
 
@@ -47,6 +48,18 @@ router.put("/stickers", requireAuth, requireAdmin, validate(demoPoolSchema), asy
   const value = JSON.stringify(req.body?.photos || []);
   await prisma.setting.upsert({ where: { key: "stickers" }, update: { value }, create: { key: "stickers", value } });
   res.json(JSON.parse(value));
+});
+
+// VIDEO TRANG CHỦ (hero): admin upload -> hiển thị thay cụm bìa mẫu; null -> hiển thị bìa như cũ
+const heroSchema = z.object({ url: z.string().max(2000).refine((u) => !u.startsWith("data:"), "Không nhận base64").nullable() });
+router.get("/hero-video", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "heroVideo" } });
+  res.json({ url: row ? JSON.parse(row.value) : null });
+});
+router.put("/hero-video", requireAuth, requireAdmin, validate(heroSchema), async (req, res) => {
+  const value = JSON.stringify(req.body.url || null);
+  await prisma.setting.upsert({ where: { key: "heroVideo" }, update: { value }, create: { key: "heroVideo", value } });
+  res.json({ url: req.body.url || null });
 });
 
 export default router;

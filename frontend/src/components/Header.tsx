@@ -35,9 +35,9 @@ export default function Header() {
         <div className="max-w-[1200px] mx-auto px-5 py-3 flex items-center gap-5">
           <Link href="/" className="flex items-center gap-2.5"><Logo size={40} /></Link>
           <div className="flex-1" />
-          <nav className="flex items-center gap-[18px] font-sans text-sm">
-            <Link href="/templates" className="mm-nav text-ink">Mẫu thiết kế</Link>
-            <Link href="/about" className="mm-nav text-ink">Về chúng tôi</Link>
+          <nav className="flex items-center gap-3 md:gap-[18px] font-sans text-sm">
+            <Link href="/templates" className="mm-nav text-ink hidden md:inline">Mẫu thiết kế</Link>
+            <Link href="/about" className="mm-nav text-ink hidden md:inline">Về chúng tôi</Link>
             {user?.role === "ADMIN" && (
               <Link href="/admin" className="mm-nav flex items-center gap-1.5 text-ink"><Lock size={15} /> Admin</Link>
             )}

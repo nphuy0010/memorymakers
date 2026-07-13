@@ -68,3 +68,13 @@ p { text-wrap: pretty; }
   .mm-page, .mm-rise, .mm-pop, .mm-float, .mm-twinkle, .mm-swash, .mm-marquee-track { animation: none !important; }
   .mm-cover:hover, .mm-card:hover, .mm-btn:hover { transform: none !important; }
 }
+
+/* ===== RESPONSIVE trình thiết kế: mobile 1 cột, desktop 3 cột ===== */
+.mm-builder { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.mm-pages { display: flex; flex-direction: row; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.mm-pages > div { flex: 0 0 116px; }
+@media (min-width: 900px) {
+  .mm-builder { grid-template-columns: 170px 1fr 280px; }
+  .mm-pages { flex-direction: column; overflow-x: visible; max-height: 560px; overflow-y: auto; padding-bottom: 0; }
+  .mm-pages > div { flex: none; }
+}

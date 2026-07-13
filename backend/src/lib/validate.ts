@@ -19,7 +19,11 @@ export const registerSchema = z.object({
   phone: z.string().trim().min(8).max(20).regex(/^[0-9+ ]+$/, "SĐT chỉ gồm số"),
 });
 export const loginSchema = z.object({ email: z.string().trim().email().max(200), password: z.string().min(1).max(100) });
-export const verifySchema = z.object({ email: z.string().trim().email(), code: z.string().length(6) });
+export const verifySchema = z.object({
+  userId: z.string().min(1).optional(),
+  email: z.string().trim().email().optional(),
+  code: z.string().trim().length(6, "Mã OTP gồm 6 số"),
+}).refine((v) => v.userId || v.email, { message: "Thiếu userId hoặc email" });
 
 export const projectCreateSchema = z.object({
   templateId: z.string().min(1),

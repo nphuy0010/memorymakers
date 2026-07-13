@@ -12,11 +12,13 @@ export default function HomePage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [about, setAbout] = useState<any>(null);
   const [hero, setHero] = useState("");
+  const [heroVideo, setHeroVideo] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.templates().then(setTemplates).catch(() => {});
     api.about().then(setAbout).catch(() => {});
+    api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {});
   }, []);
 
   const featured = useMemo(() => {
@@ -54,13 +56,19 @@ export default function HomePage() {
           <button onClick={() => router.push("/templates")} className="mm-nav mt-3.5 font-sans text-sm text-sub">hoặc xem toàn bộ mẫu có sẵn →</button>
         </div>
 
-        {/* hai bìa nghiêng */}
+        {/* CÓ VIDEO (admin upload) -> hiển thị video; KHÔNG có -> hai bìa mẫu như cũ */}
+        {heroVideo ? (
+          <div className="relative">
+            <video src={heroVideo} autoPlay muted loop playsInline className="w-full rounded-2xl border border-line shadow-[0_18px_50px_rgba(42,37,32,.18)]" />
+          </div>
+        ) : (
         <div className="relative min-h-[320px]">
           {featured[0]
             ? <div className="rotate-3"><TemplateCover t={featured[0]} big kind="cover" /></div>
             : <div className="rotate-3 rounded-2xl bg-cream animate-pulse" style={{ aspectRatio: "4/5" }} />}
           {featured[1] && <div className="absolute -bottom-6 -left-7 w-[62%] -rotate-6"><TemplateCover t={featured[1]} big kind="cover" /></div>}
         </div>
+        )}
       </section>
 
       <FanMotif />

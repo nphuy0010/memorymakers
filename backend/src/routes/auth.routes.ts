@@ -24,11 +24,14 @@ router.post("/register", validate(registerSchema), async (req, res) => {
   }
   if (!isValidEmail(email)) return res.status(400).json({ error: "Email không hợp lệ" });
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return res.status(409).json({ error: "Email đã được đăng ký" });
+  if (existing && existing.phoneVerified) return res.status(409).json({ error: "Email đã được đăng ký" });
 
-  const user = await prisma.user.create({
-    data: { name, email, password: await bcrypt.hash(password, 10), phone, phoneVerified: false, role: "CUSTOMER" },
-  });
+  // Email tồn tại nhưng CHƯA xác thực (đăng ký dở dang) -> cho đăng ký lại: cập nhật thông tin + cấp OTP mới
+  const user = existing
+    ? await prisma.user.update({ where: { id: existing.id }, data: { name, password: await bcrypt.hash(password, 10), phone } })
+    : await prisma.user.create({
+        data: { name, email, password: await bcrypt.hash(password, 10), phone, phoneVerified: false, role: "CUSTOMER" },
+      });
   const code = await createOtp(user.id, "PHONE_VERIFY");
   await sendOtpSms(phone, code);
 

@@ -1,14 +1,28 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { CheckCircle2, Film, Trash2, Loader2 } from "lucide-react";
+import { api, clearApiCache } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 
 export default function AdminAbout() {
   const [a, setA] = useState<any>(null);
   const [saved, setSaved] = useState(false);
+  const [heroVideo, setHeroVideo] = useState<string | null>(null);
+  const [vUp, setVUp] = useState(false);
 
-  useEffect(() => { api.about().then(setA).catch(() => {}); }, []);
+  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); }, []);
+
+  const uploadHero = async (file: File) => {
+    setVUp(true);
+    try {
+      if (!file.type.startsWith("video")) { alert("Hãy chọn file VIDEO (mp4/webm)."); return; }
+      const { url } = await api.uploadFile(file); // admin được upload video (giới hạn 15MB)
+      await api.setHeroVideo(url);
+      clearApiCache(); setHeroVideo(url);
+    } catch (e: any) { alert("Upload video lỗi: " + (e?.message || "") + "\n→ Video ≤ 15MB; backend cần bản mới (route hero-video)."); }
+    finally { setVUp(false); }
+  };
+  const removeHero = async () => { try { await api.setHeroVideo(null); clearApiCache(); setHeroVideo(null); } catch (e: any) { alert("Lỗi: " + (e?.message || "")); } };
   if (!a) return <AdminShell><div className="p-6 text-sub">Đang tải…</div></AdminShell>;
 
   const set = (k: string, v: string) => { setA((s: any) => ({ ...s, [k]: v })); setSaved(false); };
@@ -39,6 +53,23 @@ export default function AdminAbout() {
           {field("tiktok", "TikTok")}
           {field("hotline", "Hotline")}
         </div>
+      </div>
+
+      {/* VIDEO TRANG CHỦ: có video -> hero hiển thị video thay cụm bìa mẫu; gỡ -> hiển thị bìa như cũ */}
+      <div className="bg-white rounded-2xl border border-line p-5 mt-5">
+        <div className="flex items-center gap-2 mb-1"><Film size={18} className="text-brass" /><h3 className="font-serif text-lg text-ink font-bold">Video trang chủ</h3></div>
+        <p className="font-sans text-[13px] text-sub mb-3">Upload video (mp4/webm, ≤15MB) — trang chủ sẽ hiển thị video này thay cụm bìa mẫu, cập nhật ngay sau khi tải xong. Không có video thì trang chủ vẫn hiển thị các template như bình thường.</p>
+        {heroVideo ? (
+          <div>
+            <video src={heroVideo} autoPlay muted loop playsInline className="w-full max-w-md rounded-xl border border-line" />
+            <button onClick={removeHero} className="mt-3 font-sans text-[13px] text-[#B05A4A] flex items-center gap-1.5"><Trash2 size={14} /> Gỡ video (quay lại hiển thị bìa mẫu)</button>
+          </div>
+        ) : (
+          <label className="mm-btn inline-flex items-center gap-2 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold cursor-pointer">
+            {vUp ? <><Loader2 size={15} className="animate-spin" /> Đang tải video…</> : <><Film size={15} /> Tải video lên</>}
+            <input type="file" accept="video/mp4,video/webm,video/*" className="hidden" disabled={vUp} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHero(f); e.currentTarget.value = ""; }} />
+          </label>
+        )}
       </div>
     </AdminShell>
   );

@@ -259,12 +259,12 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const arrow = (dis: boolean): React.CSSProperties => ({ width: 34, height: 34, borderRadius: "50%", background: "#fff", border: `1px solid ${C.line}`, display: "grid", placeItems: "center", cursor: dis ? "default" : "pointer", opacity: dis ? .4 : 1 });
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 260px", gap: 16, alignItems: "start" }}>
+    <div className="mm-builder" style={{ alignItems: "start" }}>
       <style>{`@keyframes mmspin{to{transform:rotate(360deg)}}`}</style>
       {/* LEFT: trang + ẩn/hiện */}
       <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 10 }}>
         <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: C.sub, fontWeight: 700, marginBottom: 10 }}>Các trang</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 560, overflowY: "auto" }}>
+        <div className="mm-pages">
           {pages.map((pg, idx) => {
             const hid = !!(hidden && hidden[idx]);
             const lck = !!(locked && locked[idx]);
