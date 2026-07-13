@@ -65,6 +65,13 @@ export const templateSchema = z.object({
 export const messageSchema = z.object({ content: z.string().trim().min(1).max(3000) });
 export const demoPoolSchema = z.object({ photos: z.array(noDataUrl).max(100) });
 
+export const meSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  phone: z.string().trim().min(8).max(20).regex(/^[0-9+ ]+$/, "SĐT chỉ gồm số").optional(),
+  avatar: noDataUrl.nullable().optional(),
+  password: z.string().min(6).max(100).optional(),
+});
+
 /** Middleware: validate req.body theo schema; sai -> 400 kèm lý do rõ. */
 export function validate(schema: z.ZodTypeAny) {
   return (req: Request, res: Response, next: NextFunction) => {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, ImageIcon, X, Loader2, Wand2 } from "lucide-react";
+import { Plus, Trash2, ImageIcon, X, Loader2, Wand2, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 import SlotEditor from "@/components/SlotEditor";
@@ -39,6 +39,20 @@ export default function AdminTemplates() {
   const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
   const [pages, setPages] = useState<PageDef[]>([]);
   const [detecting, setDetecting] = useState(false);
+  const [editInfo, setEditInfo] = useState<any>(null); // sửa tên/mô tả/giá
+  const [savingInfo, setSavingInfo] = useState(false);
+  const saveInfo = async () => {
+    if (!editInfo) return;
+    setSavingInfo(true);
+    try {
+      const b = { title: editInfo.title, description: editInfo.description || "", priceDigital: +editInfo.priceDigital || 0, priceSoft: +editInfo.priceSoft || 0, priceHard: +editInfo.priceHard || 0, priceFan: +editInfo.priceFan || 0 };
+      const u = await api.updateTemplate(editInfo.id, b);
+      clearApiCache();
+      setTemplates(ts => ts.map(x => x.id === editInfo.id ? { ...x, ...u } : x));
+      setEditInfo(null);
+    } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "")); }
+    finally { setSavingInfo(false); }
+  };
   const [saving, setSaving] = useState(false);
   const pagesRef = useRef<HTMLInputElement>(null);
 
@@ -167,13 +181,42 @@ export default function AdminTemplates() {
               </div>
               <div className="font-serif text-sm text-ink font-semibold mt-2">{t.title}</div>
               <div className="font-sans text-[11px] text-sub">{t.category || "—"} · {t.pageCount ?? t.pages?.length ?? 0} trang</div>
-              <button onClick={async () => { try { setEditSlots(await api.template(t.id)); } catch { setEditSlots(t); } }} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
+              <button onClick={() => setEditInfo({ id: t.id, title: t.title, description: (t as any).description || "", priceDigital: (t as any).priceDigital ?? 150000, priceSoft: (t as any).priceSoft ?? 290000, priceHard: (t as any).priceHard ?? 450000, priceFan: (t as any).priceFan ?? 520000 })} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Pencil size={13} /> Sửa thông tin</button>
+              <button onClick={async () => { try { setEditSlots(await api.template(t.id)); } catch { setEditSlots(t); } }} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
               <button onClick={() => del(t.id)} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
             </div>
           ))}
         </div>
       </div>
       {editSlots && <SlotEditor template={editSlots} onClose={() => setEditSlots(null)} onSaved={(u: any) => { setTemplates(ts => ts.map(x => x.id === u.id ? u : x)); }} />}
+
+      {/* MODAL SỬA THÔNG TIN: tên, mô tả, 4 mức giá */}
+      {editInfo && (
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setEditInfo(null)}>
+          <div className="bg-paper rounded-2xl border border-line w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-serif text-lg text-ink font-bold">Sửa thông tin template</h3>
+              <button onClick={() => setEditInfo(null)} className="w-8 h-8 grid place-items-center rounded-full bg-cream"><X size={15} className="text-ink" /></button>
+            </div>
+            <div className="font-sans text-sm text-sub mb-1.5">Tên template</div>
+            <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.title} onChange={(e) => setEditInfo((s: any) => ({ ...s, title: e.target.value }))} />
+            <div className="font-sans text-sm text-sub mb-1.5">Mô tả</div>
+            <textarea rows={3} className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.description} onChange={(e) => setEditInfo((s: any) => ({ ...s, description: e.target.value }))} />
+            <div className="font-sans text-sm text-sub mb-1.5">Giá theo từng loại (₫)</div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {[["priceDigital", "Bản digital"], ["priceSoft", "Bìa thường"], ["priceHard", "Bìa cứng"], ["priceFan", "Gấp quạt"]].map(([k, l]) => (
+                <div key={k}>
+                  <div className="font-sans text-[12px] text-sub mb-1">{l}</div>
+                  <input type="number" className="w-full p-2 rounded-lg border border-line font-sans text-sm outline-none" value={editInfo[k]} onChange={(e) => setEditInfo((s: any) => ({ ...s, [k]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
+            <button onClick={saveInfo} disabled={savingInfo || !editInfo.title?.trim()} className="mm-btn w-full bg-brass text-white rounded-full py-2.5 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+              {savingInfo ? <Loader2 size={15} className="animate-spin" /> : null} Lưu thay đổi
+            </button>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }

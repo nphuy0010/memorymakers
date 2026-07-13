@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
-import { validate, registerSchema, loginSchema, verifySchema } from "../lib/validate";
+import { validate, registerSchema, loginSchema, verifySchema, meSchema } from "../lib/validate";
 import { signToken } from "../lib/jwt";
 import { createOtp, sendOtpSms, verifyOtp, isDev } from "../lib/otp";
 import { requireAuth, AuthRequest } from "../middleware/auth";
@@ -9,7 +9,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 const router = Router();
 
 function publicUser(u: any) {
-  return { id: u.id, name: u.name, email: u.email, phone: u.phone, phoneVerified: u.phoneVerified, role: u.role };
+  return { id: u.id, name: u.name, email: u.email, phone: u.phone, phoneVerified: u.phoneVerified, role: u.role, avatar: u.avatar || null };
 }
 // Kiểm tra email hợp lệ
 function isValidEmail(e: string) {
@@ -116,6 +116,18 @@ router.post("/reset-password", async (req, res) => {
   });
   const token = signToken({ userId: user.id, role: user.role });
   return res.json({ token, user: publicUser(user) });
+});
+
+// Cập nhật hồ sơ cá nhân: tên, SĐT, ảnh đại diện, mật khẩu mới (tùy chọn)
+router.put("/me", requireAuth, validate(meSchema), async (req: AuthRequest, res) => {
+  const { name, phone, avatar, password } = req.body;
+  const data: any = {};
+  if (name !== undefined) data.name = name;
+  if (phone !== undefined) data.phone = phone;
+  if (avatar !== undefined) data.avatar = avatar;
+  if (password) data.password = await bcrypt.hash(password, 10);
+  const user = await prisma.user.update({ where: { id: req.userId! }, data });
+  res.json(publicUser(user));
 });
 
 export default router;

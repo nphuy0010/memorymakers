@@ -18,6 +18,7 @@ model User {
   password      String
   phone         String?
   phoneVerified Boolean    @default(false)
+  avatar        String?
   role          String     @default("CUSTOMER") // "ADMIN" | "CUSTOMER"
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt

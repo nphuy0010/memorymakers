@@ -60,6 +60,7 @@ export const api = {
   // auth
   register: (b: any) => req("/auth/register", { method: "POST", body: JSON.stringify(b) }),
   verifyPhone: (b: any) => req("/auth/verify-phone", { method: "POST", body: JSON.stringify(b) }),
+  updateMe: (b: any) => req("/auth/me", { method: "PUT", body: JSON.stringify(b) }),
   resendOtp: (b: any) => req("/auth/resend-otp", { method: "POST", body: JSON.stringify(b) }),
   login: (b: any) => req("/auth/login", { method: "POST", body: JSON.stringify(b) }),
   forgotPassword: (b: any) => req("/auth/forgot-password", { method: "POST", body: JSON.stringify(b) }),
