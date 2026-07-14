@@ -69,8 +69,11 @@ export const meSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   phone: z.string().trim().min(8).max(20).regex(/^[0-9+ ]+$/, "SĐT chỉ gồm số").optional(),
   avatar: noDataUrl.nullable().optional(),
-  password: z.string().min(6).max(100).optional(),
+  password: z.string().min(6).max(100).optional(),   // mật khẩu MỚI
+  oldPassword: z.string().min(1).max(100).optional(), // bắt buộc khi đổi mật khẩu
 });
+export const forgotSchema = z.object({ identifier: z.string().trim().min(3, "Nhập email hoặc SĐT") });
+export const resetSchema = z.object({ userId: z.string().min(1), code: z.string().trim().length(6), newPassword: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự").max(100) });
 
 /** Middleware: validate req.body theo schema; sai -> 400 kèm lý do rõ. */
 export function validate(schema: z.ZodTypeAny) {

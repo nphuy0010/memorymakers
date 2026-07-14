@@ -45,7 +45,7 @@ export default function AdminTemplates() {
     if (!editInfo) return;
     setSavingInfo(true);
     try {
-      const b = { title: editInfo.title, description: editInfo.description || "", priceDigital: +editInfo.priceDigital || 0, priceSoft: +editInfo.priceSoft || 0, priceHard: +editInfo.priceHard || 0, priceFan: +editInfo.priceFan || 0 };
+      const b = { title: editInfo.title, description: editInfo.description || "", category: editInfo.category || "", priceDigital: +editInfo.priceDigital || 0, priceSoft: +editInfo.priceSoft || 0, priceHard: +editInfo.priceHard || 0, priceFan: +editInfo.priceFan || 0 };
       const u = await api.updateTemplate(editInfo.id, b);
       clearApiCache();
       setTemplates(ts => ts.map(x => x.id === editInfo.id ? { ...x, ...u } : x));
@@ -181,7 +181,7 @@ export default function AdminTemplates() {
               </div>
               <div className="font-serif text-sm text-ink font-semibold mt-2">{t.title}</div>
               <div className="font-sans text-[11px] text-sub">{t.category || "—"} · {t.pageCount ?? t.pages?.length ?? 0} trang</div>
-              <button onClick={() => setEditInfo({ id: t.id, title: t.title, description: (t as any).description || "", priceDigital: (t as any).priceDigital ?? 150000, priceSoft: (t as any).priceSoft ?? 290000, priceHard: (t as any).priceHard ?? 450000, priceFan: (t as any).priceFan ?? 520000 })} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Pencil size={13} /> Sửa thông tin</button>
+              <button onClick={() => setEditInfo({ id: t.id, title: t.title, description: (t as any).description || "", category: (t as any).category || "", category: (t as any).category || "", priceDigital: (t as any).priceDigital ?? 150000, priceSoft: (t as any).priceSoft ?? 290000, priceHard: (t as any).priceHard ?? 450000, priceFan: (t as any).priceFan ?? 520000 })} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Pencil size={13} /> Sửa thông tin</button>
               <button onClick={async () => { try { setEditSlots(await api.template(t.id)); } catch { setEditSlots(t); } }} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
               <button onClick={() => del(t.id)} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
             </div>
@@ -202,6 +202,10 @@ export default function AdminTemplates() {
             <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.title} onChange={(e) => setEditInfo((s: any) => ({ ...s, title: e.target.value }))} />
             <div className="font-sans text-sm text-sub mb-1.5">Mô tả</div>
             <textarea rows={3} className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.description} onChange={(e) => setEditInfo((s: any) => ({ ...s, description: e.target.value }))} />
+            <div className="font-sans text-sm text-sub mb-1.5">Danh mục</div>
+            <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" placeholder="vd: cưới, du lịch, sinh nhật…" value={editInfo.category} onChange={(e) => setEditInfo((s: any) => ({ ...s, category: e.target.value }))} />
+            <div className="font-sans text-sm text-sub mb-1.5">Danh mục</div>
+            <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" placeholder="vd: du lịch, cưới, gia đình…" value={editInfo.category} onChange={(e) => setEditInfo((s: any) => ({ ...s, category: e.target.value }))} />
             <div className="font-sans text-sm text-sub mb-1.5">Giá theo từng loại (₫)</div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[["priceDigital", "Bản digital"], ["priceSoft", "Bìa thường"], ["priceHard", "Bìa cứng"], ["priceFan", "Gấp quạt"]].map(([k, l]) => (

@@ -11,7 +11,9 @@ export default function ProfilePage() {
   const { user, token, setAuth, hydrated, hydrate } = useAuth() as any;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [oldPwd, setOldPwd] = useState("");
   const [password, setPassword] = useState("");
+  const [pwd2, setPwd2] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [upAv, setUpAv] = useState(false);
@@ -40,10 +42,15 @@ export default function ProfilePage() {
     setSaving(true); setMsg("");
     try {
       const body: any = { name: name.trim(), phone: phone.trim(), avatar };
-      if (password.trim()) body.password = password.trim();
+      if (password.trim()) {
+        if (!oldPwd.trim()) { alert("Nhập mật khẩu CŨ để đổi mật khẩu."); setSaving(false); return; }
+        if (password.trim().length < 6) { alert("Mật khẩu mới tối thiểu 6 ký tự."); setSaving(false); return; }
+        if (password.trim() !== pwd2.trim()) { alert("Mật khẩu mới nhập lại không khớp."); setSaving(false); return; }
+        body.password = password.trim(); body.oldPassword = oldPwd.trim();
+      }
       const u = await api.updateMe(body);
       setAuth(token, u); // cập nhật ngay avatar/tên trên Header
-      setPassword(""); setMsg("Đã lưu ✓");
+      setPassword(""); setPwd2(""); setOldPwd(""); setMsg("Đã lưu ✓");
       setTimeout(() => setMsg(""), 2000);
     } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route /auth/me PUT)."); }
     finally { setSaving(false); }
@@ -73,7 +80,15 @@ export default function ProfilePage() {
       <div className="space-y-4">
         <div><div className="font-sans text-sm text-sub mb-1.5">Họ và tên</div><input className={inp} value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div><div className="font-sans text-sm text-sub mb-1.5">Số điện thoại</div><input className={inp} value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-        <div><div className="font-sans text-sm text-sub mb-1.5">Mật khẩu mới (bỏ trống nếu không đổi)</div><input type="password" className={inp} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" /></div>
+        <div className="border border-line rounded-xl p-3.5 bg-cream/40">
+          <div className="font-sans text-sm text-ink font-semibold mb-2.5">Đổi mật khẩu (bỏ trống nếu không đổi)</div>
+          <div className="font-sans text-[12.5px] text-sub mb-1">Mật khẩu cũ</div>
+          <input type="password" className={inp + " mb-2.5"} value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} placeholder="••••••" />
+          <div className="font-sans text-[12.5px] text-sub mb-1">Mật khẩu mới</div>
+          <input type="password" className={inp + " mb-2.5"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+          <div className="font-sans text-[12.5px] text-sub mb-1">Nhập lại mật khẩu mới</div>
+          <input type="password" className={inp} value={pwd2} onChange={(e) => setPwd2(e.target.value)} placeholder="••••••" />
+        </div>
         <div><div className="font-sans text-sm text-sub mb-1.5">Email (không đổi được)</div><input className={inp + " bg-cream/60 text-sub"} value={user.email} disabled /></div>
       </div>
 

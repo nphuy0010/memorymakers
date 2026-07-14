@@ -11,6 +11,7 @@ export default function LoginPage() {
   const { setAuth } = useAuth();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [phase, setPhase] = useState<Phase>("form");
+  const [pwd2, setPwd2] = useState(""); // nhập lại mật khẩu khi đăng ký
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [otp, setOtp] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -27,6 +28,7 @@ export default function LoginPage() {
     setErr(""); setBusy(true);
     try {
       if (tab === "register") {
+        if (form.password !== pwd2) { setErr("Mật khẩu nhập lại không khớp."); setBusy(false); return; }
         const r = await api.register(form);
         setUserId(r.userId); setDevOtp(r.devOtp || ""); setPhase("otp");
       } else {
@@ -50,7 +52,7 @@ export default function LoginPage() {
   const sendForgot = async () => {
     setErr(""); setBusy(true);
     try {
-      const r = await api.forgotPassword({ email: form.email });
+      const r = await api.forgotPassword({ identifier: form.email.trim() });
       setUserId(r.userId); setDevOtp(r.devOtp || ""); setPhoneHint(r.phoneHint || "");
       setOtp(""); setNewPwd(""); setNewPwd2(""); setPhase("reset");
     } catch (e: any) { setErr(e.message || "Không gửi được OTP"); } finally { setBusy(false); }
@@ -82,6 +84,7 @@ export default function LoginPage() {
           <input className={inp} placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           {tab === "register" && <input className={inp} placeholder="Số điện thoại" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />}
           <input className={inp} type="password" placeholder="Mật khẩu" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+          {tab === "register" && <input className={inp} type="password" placeholder="Nhập lại mật khẩu" value={pwd2} onChange={e => setPwd2(e.target.value)} />}
           {tab === "login" && <div className="text-right -mt-1 mb-3"><button onClick={() => { setErr(""); setPhase("forgot"); }} className="text-brass font-sans text-sm font-semibold">Quên mật khẩu?</button></div>}
           {err && <div className="font-sans text-sm text-[#B05A4A] mb-3">{err}</div>}
           <button disabled={busy} onClick={submit} className="w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-50">{busy ? "Đang xử lý…" : tab === "login" ? "Đăng nhập" : "Đăng ký & gửi OTP"}</button>
@@ -103,8 +106,8 @@ export default function LoginPage() {
       {phase === "forgot" && (
         <>
           <h1 className="font-serif text-2xl text-ink font-bold mb-1">Quên mật khẩu</h1>
-          <p className="font-sans text-sm text-sub mb-4">Nhập email tài khoản. Mã OTP sẽ được gửi về số điện thoại đã đăng ký để đặt lại mật khẩu.</p>
-          <input className={inp} placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          <p className="font-sans text-sm text-sub mb-4">Nhập <b>email hoặc số điện thoại</b> tài khoản. Hệ thống kiểm tra và gửi mã OTP về SĐT đã đăng ký để đặt lại mật khẩu.</p>
+          <input className={inp} placeholder="Email hoặc số điện thoại" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           {err && <div className="font-sans text-sm text-[#B05A4A] mb-3">{err}</div>}
           <button disabled={busy} onClick={sendForgot} className="w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-50">{busy ? "Đang gửi…" : "Gửi OTP về SĐT"}</button>
           <button onClick={() => { setErr(""); setPhase("form"); }} className="w-full mt-2 text-sub font-sans text-sm">← Về đăng nhập</button>
@@ -121,7 +124,7 @@ export default function LoginPage() {
           <input className={inp} type="password" placeholder="Nhập lại mật khẩu mới" value={newPwd2} onChange={e => setNewPwd2(e.target.value)} />
           {err && <div className="font-sans text-sm text-[#B05A4A] mb-3">{err}</div>}
           <button disabled={busy} onClick={doReset} className="w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-50">{busy ? "Đang đổi…" : "Đổi mật khẩu & đăng nhập"}</button>
-          <button onClick={() => api.forgotPassword({ email: form.email }).then((r: any) => setDevOtp(r.devOtp || "")).catch(() => {})} className="w-full mt-2 text-sub font-sans text-sm">Gửi lại OTP</button>
+          <button onClick={() => api.forgotPassword({ identifier: form.email.trim() }).then((r: any) => setDevOtp(r.devOtp || "")).catch(() => {})} className="w-full mt-2 text-sub font-sans text-sm">Gửi lại OTP</button>
         </>
       )}
     </div>

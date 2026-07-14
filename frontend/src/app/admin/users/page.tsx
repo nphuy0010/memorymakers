@@ -13,6 +13,14 @@ export default function AdminUsers() {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", email: "", phone: "", password: "", role: "CUSTOMER" as "CUSTOMER" | "ADMIN" });
   const [err, setErr] = useState("");
+  const [grantEmail, setGrantEmail] = useState("");
+  const [granting, setGranting] = useState(false);
+  const doGrant = async () => {
+    setGranting(true);
+    try { const u = await api.grantAdmin(grantEmail.trim()); setUsers(us => [u, ...us]); setGrantEmail(""); alert("Đã cấp quyền Admin cho " + u.email + " ✓"); }
+    catch (e: any) { alert(e?.message || "Không cấp được quyền"); }
+    finally { setGranting(false); }
+  };
   const [saving, setSaving] = useState(false);
 
   const load = () => api.adminUsers().then(setUsers).catch(() => {});
@@ -21,6 +29,8 @@ export default function AdminUsers() {
   const add = async () => {
     setErr("");
     if (!f.name || !f.email || !f.phone || !f.password) return setErr("Nhập đủ tên, email, SĐT, mật khẩu.");
+    if (f.password !== (f.password2 || "")) return setErr("Mật khẩu nhập lại không khớp.");
+    if (f.password !== (f.password2 || "")) return setErr("Mật khẩu nhập lại không khớp.");
     setSaving(true);
     try {
       await api.adminCreateUser(f);
@@ -38,7 +48,12 @@ export default function AdminUsers() {
           <h3 className="font-serif text-lg text-ink font-bold">Tài khoản</h3>
           <button onClick={() => { setOpen(o => !o); setErr(""); }} className="bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold flex items-center gap-1.5"><Plus size={15} /> Thêm account</button>
         </div>
-        <p className="font-sans text-sm text-sub mb-4">Danh sách tài khoản hệ thống. Dùng nút “Thêm account” để tạo tài khoản mới.</p>
+        <p className="font-sans text-sm text-sub mb-2">Chỉ hiển thị các tài khoản <b>Admin</b>. Tài khoản khách hàng không hiển thị ở đây để bảo vệ dữ liệu cá nhân — mật khẩu luôn được băm (bcrypt), dữ liệu lưu trong database được mã hoá khi lưu trữ.</p>
+        {/* CẤP QUYỀN ADMIN bằng email chính xác — không cần lộ danh sách khách */}
+        <div className="flex gap-2 mb-4 flex-wrap items-center">
+          <input className="p-2.5 rounded-lg border border-line font-sans text-sm outline-none flex-1 min-w-[220px]" placeholder="Nhập email tài khoản cần cấp quyền Admin" value={grantEmail} onChange={e => setGrantEmail(e.target.value)} />
+          <button onClick={doGrant} disabled={granting || !grantEmail.trim()} className="bg-ink text-paper rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-50">{granting ? "Đang cấp…" : "Cấp quyền Admin"}</button>
+        </div>
 
         {open && (
           <div className="bg-cream border border-line rounded-xl p-4 mb-4">
@@ -47,6 +62,7 @@ export default function AdminUsers() {
               <input className="p-2.5 rounded-lg border border-line font-sans text-sm outline-none" placeholder="Số điện thoại" value={f.phone} onChange={e => setF(s => ({ ...s, phone: e.target.value }))} />
               <input className="p-2.5 rounded-lg border border-line font-sans text-sm outline-none" placeholder="Email" value={f.email} onChange={e => setF(s => ({ ...s, email: e.target.value }))} />
               <input className="p-2.5 rounded-lg border border-line font-sans text-sm outline-none" type="password" placeholder="Mật khẩu" value={f.password} onChange={e => setF(s => ({ ...s, password: e.target.value }))} />
+              <input className="p-2.5 rounded-lg border border-line font-sans text-sm outline-none" type="password" placeholder="Nhập lại mật khẩu" value={f.password2 || ""} onChange={e => setF(s => ({ ...s, password2: e.target.value }))} />
             </div>
             <div className="flex items-center gap-4 flex-wrap mt-3">
               <div className="flex items-center gap-2">

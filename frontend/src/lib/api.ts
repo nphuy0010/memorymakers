@@ -101,6 +101,7 @@ export const api = {
   adminDeleteUser: (id: string) => req(`/admin/users/${id}`, { method: "DELETE" }),
   setRole: (id: string, role: string) => req(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   adminOrders: (page = 1, limit = 50) => req(`/admin/orders?page=${page}&limit=${limit}`),
+  grantAdmin: (email: string) => req("/admin/users/grant-admin", { method: "POST", body: JSON.stringify({ email }) }),
   applyDemo: () => req("/admin/apply-demo", { method: "POST" }),
   applyDemoOne: (id: string, b: any) => req(`/admin/templates/${id}/apply-demo`, { method: "POST", body: JSON.stringify(b) }),
   adminUpdateOrder: (id: string, body: { status?: string; tracking?: string }) => req(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),

@@ -12,9 +12,22 @@ router.use(requireAuth, requireAdmin);
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
 
 // Danh sách user
+// CHỈ liệt kê tài khoản ADMIN — dữ liệu khách hàng không hiển thị ra giao diện quản trị
+// (mật khẩu luôn băm bcrypt; dữ liệu trong database được mã hoá khi lưu trữ bởi nhà cung cấp DB)
 router.get("/users", async (_req, res) => {
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+  const users = await prisma.user.findMany({ where: { role: "ADMIN" }, orderBy: { createdAt: "desc" } });
   res.json(users.map((u: any) => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, phoneVerified: u.phoneVerified })));
+});
+
+// Cấp quyền Admin bằng EMAIL chính xác (không cần lộ danh sách khách)
+router.post("/users/grant-admin", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return res.status(400).json({ error: "Nhập email hợp lệ" });
+  const u = await prisma.user.findUnique({ where: { email } });
+  if (!u) return res.status(404).json({ error: "Không tìm thấy tài khoản với email này" });
+  if (u.role === "ADMIN") return res.status(400).json({ error: "Tài khoản này đã là Admin" });
+  const up = await prisma.user.update({ where: { id: u.id }, data: { role: "ADMIN" } });
+  res.json({ id: up.id, name: up.name, email: up.email, phone: up.phone, role: up.role, phoneVerified: up.phoneVerified });
 });
 
 // Tạo tài khoản mới (admin thêm account — Customer hoặc Admin)

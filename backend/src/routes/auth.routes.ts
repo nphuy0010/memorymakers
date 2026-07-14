@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
-import { validate, registerSchema, loginSchema, verifySchema, meSchema } from "../lib/validate";
+import { validate, registerSchema, loginSchema, verifySchema, meSchema, forgotSchema, resetSchema } from "../lib/validate";
 import { signToken } from "../lib/jwt";
 import { createOtp, sendOtpSms, verifyOtp, isDev } from "../lib/otp";
 import { requireAuth, AuthRequest } from "../middleware/auth";
@@ -87,47 +87,47 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   return res.json({ user: publicUser(user) });
 });
 
-// 5) Quên mật khẩu — gửi OTP về SĐT đã đăng ký
-router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-  if (!isValidEmail(email)) return res.status(400).json({ error: "Email không hợp lệ" });
-  const user = await prisma.user.findUnique({ where: { email: email || "" } });
-  if (!user) return res.status(404).json({ error: "Không tìm thấy tài khoản với email này" });
-  if (!user.phone) return res.status(400).json({ error: "Tài khoản chưa có số điện thoại" });
-  const code = await createOtp(user.id, "PASSWORD_RESET");
-  await sendOtpSms(user.phone, code);
-  return res.json({
-    userId: user.id,
-    phoneHint: user.phone.replace(/\d(?=\d{3})/g, "•"),
-    message: "Đã gửi mã OTP tới số điện thoại đã đăng ký",
-    ...(isDev() ? { devOtp: code } : {}),
-  });
-});
-
-// 6) Đặt lại mật khẩu bằng OTP -> trả JWT (đăng nhập luôn)
-router.post("/reset-password", async (req, res) => {
-  const { userId, code, newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Mật khẩu mới tối thiểu 6 ký tự" });
-  const ok = await verifyOtp(userId, code, "PASSWORD_RESET");
-  if (!ok) return res.status(400).json({ error: "OTP sai hoặc đã hết hạn" });
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: { password: await bcrypt.hash(newPassword, 10), phoneVerified: true },
-  });
-  const token = signToken({ userId: user.id, role: user.role });
-  return res.json({ token, user: publicUser(user) });
-});
-
 // Cập nhật hồ sơ cá nhân: tên, SĐT, ảnh đại diện, mật khẩu mới (tùy chọn)
 router.put("/me", requireAuth, validate(meSchema), async (req: AuthRequest, res) => {
-  const { name, phone, avatar, password } = req.body;
+  const { name, phone, avatar, password, oldPassword } = req.body;
   const data: any = {};
   if (name !== undefined) data.name = name;
   if (phone !== undefined) data.phone = phone;
   if (avatar !== undefined) data.avatar = avatar;
-  if (password) data.password = await bcrypt.hash(password, 10);
+  if (password) {
+    // ĐỔI MẬT KHẨU: bắt buộc xác minh mật khẩu CŨ trước
+    if (!oldPassword) return res.status(400).json({ error: "Nhập mật khẩu cũ để đổi mật khẩu" });
+    const cur = await prisma.user.findUnique({ where: { id: req.userId! } });
+    if (!cur || !(await bcrypt.compare(oldPassword, cur.password))) return res.status(400).json({ error: "Mật khẩu cũ không đúng" });
+    data.password = await bcrypt.hash(password, 10);
+  }
   const user = await prisma.user.update({ where: { id: req.userId! }, data });
   res.json(publicUser(user));
+});
+
+// QUÊN MẬT KHẨU: nhập EMAIL hoặc SĐT — kiểm tra tồn tại rồi gửi OTP về SĐT
+router.post("/forgot-password", validate(forgotSchema), async (req, res) => {
+  const id = String(req.body.identifier).trim();
+  const byEmail = id.includes("@");
+  const user = byEmail
+    ? await prisma.user.findUnique({ where: { email: id.toLowerCase() } })
+    : await prisma.user.findFirst({ where: { phone: id.replace(/\s+/g, "") } });
+  if (!user) return res.status(404).json({ error: byEmail ? "Không tìm thấy tài khoản với email này" : "Không tìm thấy tài khoản với số điện thoại này" });
+  if (!user.phone) return res.status(400).json({ error: "Tài khoản chưa có SĐT để nhận OTP" });
+  const code = await createOtp(user.id, "RESET");
+  await sendOtpSms(user.phone, code);
+  const phoneHint = user.phone.slice(0, 3) + "****" + user.phone.slice(-3);
+  return res.json({ userId: user.id, phoneHint, ...(isDev() ? { devOtp: code } : {}) });
+});
+
+// ĐẶT LẠI MẬT KHẨU bằng OTP -> đăng nhập luôn
+router.post("/reset-password", validate(resetSchema), async (req, res) => {
+  const { userId, code, newPassword } = req.body;
+  const ok = await verifyOtp(userId, code, "RESET");
+  if (!ok) return res.status(400).json({ error: "OTP sai hoặc đã hết hạn" });
+  const user = await prisma.user.update({ where: { id: userId }, data: { password: await bcrypt.hash(newPassword, 10), phoneVerified: true } });
+  const token = signToken({ userId: user.id, role: user.role });
+  return res.json({ token, user: publicUser(user) });
 });
 
 export default router;
