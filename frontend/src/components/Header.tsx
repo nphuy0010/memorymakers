@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Wand2, User, LogOut, Lock, ShoppingBag, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
+import { useCart } from "@/store/useCart";
 import { Logo } from "@/components/Brand";
 import AIDesignModal from "@/components/AIDesignModal";
 import type { Template } from "@/lib/types";
@@ -16,6 +17,8 @@ export default function Header() {
   const [menu, setMenu] = useState(false);
   const [ai, setAi] = useState(false);
   const [cart, setCart] = useState(0);
+  const { items: cartItems } = useCart();
+  const cartCount = cartItems.length;
 
   useEffect(() => { api.templates().then(setAll).catch(() => {}); }, []);
   // Đếm đơn ĐANG THIẾT KẾ / CHƯA THANH TOÁN (DESIGNING + DESIGNED) -> nốt đỏ trên giỏ
@@ -43,9 +46,9 @@ export default function Header() {
             </button>
             {user ? (
               <div className="flex items-center gap-3">
-                <Link href="/account" className="relative mm-btn grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-full border border-line bg-white" title="Đơn & dự án của tôi">
+                <Link href="/cart" className="relative mm-btn grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-full border border-line bg-white" title="Giỏ hàng">
                   <ShoppingBag size={18} className="text-ink" />
-                  {cart > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D9534F] text-white text-[11px] font-bold grid place-items-center">{cart > 99 ? "99+" : cart}</span>}
+                  {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D9534F] text-white text-[11px] font-bold grid place-items-center">{cartCount > 99 ? "99+" : cartCount}</span>}
                 </Link>
                 <div className="relative">
                   <button onClick={() => setMenu(m => !m)} className="flex items-center gap-2">

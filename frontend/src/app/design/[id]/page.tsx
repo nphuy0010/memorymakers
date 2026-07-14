@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, QrCode, CheckCircle2, Download } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
+import { useCart } from "@/store/useCart";
 import Builder from "@/components/Builder";
 import Flipbook from "@/components/Flipbook";
 import type { Edit, TextItem, StickerItem } from "@/lib/pages";
@@ -18,6 +19,7 @@ export default function DesignPage() {
   const router = useRouter();
   const projectParam = useSearchParams().get("project"); // tiếp tục dự án đã lưu
   const { user, hydrate, hydrated } = useAuth();
+  const { markDone } = useCart();
   const [saving, setSaving] = useState(false);
 
   const [t, setT] = useState<Template | null>(null);
@@ -69,6 +71,7 @@ export default function DesignPage() {
         if (!p?.id) throw new Error("Máy chủ không trả về dự án");
         setProjectId(p.id);
         await api.updateProject(p.id, { status: "DESIGNED" });
+        try { markDone(t!.id, p.id); } catch {} // đồng bộ trạng thái giỏ hàng: item của template này chuyển pending -> done
         return p.id as string;
       })();
       draftRef.current.catch(() => { draftRef.current = null; }); // lỗi -> cho thử lại

@@ -1,11 +1,25 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Sparkles, Eye, Star } from "lucide-react";
+import { Sparkles, Eye, Star, ShoppingBag, Check } from "lucide-react";
+import { useState } from "react";
 import TemplateCover from "./TemplateCover";
 import type { Template } from "@/lib/types";
+import { useCart } from "@/store/useCart";
 
 export default function TemplateCard({ t }: { t: Template }) {
   const router = useRouter();
+  const { add } = useCart();
+  const [added, setAdded] = useState(false);
+  // Thêm vào giỏ NGAY cả khi chưa thiết kế — item ở trạng thái 'pending', mặc định phiên bản bìa thường
+  const addToCart = () => {
+    add({
+      templateId: t.id, title: t.title,
+      cover: (t as any).coverImage || (t as any).demoImage || (t as any).blankImage || null,
+      option: "soft",
+      price: (t as any).priceSoft ?? 290000,
+    });
+    setAdded(true); setTimeout(() => setAdded(false), 1500);
+  };
   return (
     <div className="mm-card mm-rise bg-white rounded-2xl p-3 border border-line flex flex-col h-full">
       <TemplateCover t={t} kind="cover" />
@@ -32,6 +46,11 @@ export default function TemplateCard({ t }: { t: Template }) {
             <Eye size={15} className="shrink-0" /> Preview
           </button>
         </div>
+        {/* THÊM VÀO GIỎ ngay cả khi chưa thiết kế — item vào giỏ ở trạng thái 'pending' */}
+        <button onClick={addToCart}
+          className="mm-btn mt-2 w-full flex items-center justify-center gap-1.5 border border-line bg-cream/60 hover:bg-cream text-ink rounded-full py-2 font-sans text-[13px] font-medium">
+          {added ? <><Check size={14} className="text-sage" /> Đã thêm vào giỏ</> : <><ShoppingBag size={14} /> Thêm vào giỏ hàng</>}
+        </button>
       </div>
     </div>
   );
