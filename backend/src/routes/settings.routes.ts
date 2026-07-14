@@ -64,11 +64,11 @@ router.put("/hero-video", requireAuth, requireAdmin, validate(heroSchema), async
 
 // CHÍNH SÁCH (5 mục như bản gốc) — admin chỉnh nội dung, khách bấm xem popup
 const DEFAULT_POLICIES = [
-  { id: "muahang", title: "Chính sách mua hàng", content: "Khách chọn mẫu, thiết kế và thanh toán trực tuyến. Đơn hàng được xác nhận ngay sau khi thanh toán thành công." },
-  { id: "thanhtoan", title: "Chính sách thanh toán", content: "Hỗ trợ thanh toán qua MoMo. Số tiền hiển thị rõ trước khi xác nhận, không phát sinh phụ phí." },
-  { id: "doitra", title: "Chính sách đổi trả", content: "Sản phẩm in lỗi do Memory Makers được in lại miễn phí trong 7 ngày. Vui lòng giữ ảnh/video sản phẩm khi nhận hàng." },
-  { id: "vanchuyen", title: "Chính sách vận chuyển", content: "Giao hàng toàn quốc 3–5 ngày làm việc sau khi in xong. Phí vận chuyển báo trước khi đặt." },
-  { id: "baomat", title: "Chính sách bảo mật", content: "Ảnh và thông tin cá nhân của khách chỉ dùng để sản xuất photobook, không chia sẻ cho bên thứ ba. Mật khẩu được băm, dữ liệu mã hoá khi lưu trữ." },
+  { id: "muahang", title: "Mua hàng & thiết kế", content: "Chọn mẫu → tải ảnh → AI điền vào khung → xem trước flipbook → đặt hàng. Bạn có thể lưu nháp và quay lại chỉnh sửa bất cứ lúc nào trong \"Dự án của tôi\"." },
+  { id: "thanhtoan", title: "Thanh toán", content: "Hỗ trợ MoMo (quét QR) và COD (thanh toán khi nhận hàng, áp dụng cho bản in). Bản digital cần thanh toán online để mở khoá tải về ngay." },
+  { id: "doitra", title: "Đổi trả & bảo hành in lỗi", content: "Nếu sản phẩm in bị lỗi do nhà in (lệch màu nặng, rách, sai nội dung đã duyệt), chúng tôi in lại miễn phí trong vòng 7 ngày kể từ khi nhận. Vui lòng quay video mở hộp để đối chiếu." },
+  { id: "vanchuyen", title: "Vận chuyển", content: "Giao toàn quốc 2–5 ngày tuỳ khu vực. Miễn phí ship cho đơn từ 500.000₫. Đơn có mã vận đơn để theo dõi." },
+  { id: "baomat", title: "Bảo mật hình ảnh", content: "Ảnh của bạn chỉ dùng để in đơn của bạn. Bản xem trước có watermark và cơ chế chống chụp màn hình trước khi thanh toán." },
 ];
 const policiesSchema = z.object({ policies: z.array(z.object({ id: z.string().min(1).max(40), title: z.string().trim().min(1).max(120), content: z.string().max(5000) })).max(12) });
 router.get("/policies", async (_req, res) => {
