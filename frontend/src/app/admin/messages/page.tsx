@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Send, User, Loader2 } from "lucide-react";
+import { Send, User, Loader2, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 
@@ -62,8 +62,14 @@ export default function AdminMessages() {
               </div>
               <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2.5 bg-paper/40">
                 {cur.messages.map(m => (
-                  <div key={m.id} className={m.fromAdmin ? "self-end" : "self-start"}>
+                  <div key={m.id} className={(m.fromAdmin ? "self-end" : "self-start") + " group relative"}>
                     <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[420px] whitespace-pre-wrap ${m.fromAdmin ? "bg-brass text-white" : "bg-cream text-ink"}`}>{m.content}</div>
+                    {m.fromAdmin && (
+                      <button onClick={() => delMsg(m.id)} title="Xóa tin nhắn của shop"
+                        className="absolute top-1/2 -translate-y-1/2 -left-6 w-5 h-5 rounded-full bg-white border border-line hidden group-hover:grid place-items-center">
+                        <Trash2 size={11} className="text-[#B05A4A]" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

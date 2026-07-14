@@ -9,8 +9,11 @@ export default function AdminAbout() {
   const [saved, setSaved] = useState(false);
   const [heroVideo, setHeroVideo] = useState<string | null>(null);
   const [vUp, setVUp] = useState(false);
+  const [pols, setPols] = useState<any[]>([]);
+  const [pSaving, setPSaving] = useState(false);
+  const [pMsg, setPMsg] = useState("");
 
-  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); }, []);
+  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); }, []);
 
   const uploadHero = async (file: File) => {
     setVUp(true);
@@ -21,6 +24,12 @@ export default function AdminAbout() {
       clearApiCache(); setHeroVideo(url);
     } catch (e: any) { alert("Upload video lỗi: " + (e?.message || "") + "\n→ Video ≤ 15MB; backend cần bản mới (route hero-video)."); }
     finally { setVUp(false); }
+  };
+  const savePolicies = async () => {
+    setPSaving(true); setPMsg("");
+    try { await api.setPolicies(pols); clearApiCache(); setPMsg("Đã lưu ✓"); setTimeout(() => setPMsg(""), 2000); }
+    catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route /settings/policies)."); }
+    finally { setPSaving(false); }
   };
   const removeHero = async () => { try { await api.setHeroVideo(null); clearApiCache(); setHeroVideo(null); } catch (e: any) { alert("Lỗi: " + (e?.message || "")); } };
   if (!a) return <AdminShell><div className="p-6 text-sub">Đang tải…</div></AdminShell>;
@@ -70,6 +79,22 @@ export default function AdminAbout() {
             <input type="file" accept="video/mp4,video/webm,video/*" className="hidden" disabled={vUp} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHero(f); e.currentTarget.value = ""; }} />
           </label>
         )}
+      </div>
+      {/* CHÍNH SÁCH: admin chỉnh tiêu đề + nội dung; khách bấm ở footer -> popup */}
+      <div className="bg-white rounded-2xl border border-line p-5 mt-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-serif text-lg text-ink font-bold">Chính sách</h3>
+          <button onClick={savePolicies} disabled={pSaving} className="mm-btn bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">{pSaving ? "Đang lưu…" : pMsg || "Lưu chính sách"}</button>
+        </div>
+        <p className="font-sans text-[13px] text-sub mb-4">5 mục cố định giống bản gốc, hiển thị ở chân trang — khách bấm vào sẽ hiện popup. Bạn chỉ cần soạn nội dung.</p>
+        <div className="space-y-4">
+          {pols.map((p, i) => (
+            <div key={p.id} className="border border-line rounded-xl p-3.5">
+              <div className="font-sans text-sm font-semibold text-ink mb-2">{p.title}</div>
+              <textarea rows={3} className="w-full p-2.5 rounded-lg border border-line font-sans text-[13px] outline-none" placeholder="Nội dung chính sách…" value={p.content} onChange={(e) => setPols(ps => ps.map((x, j) => j === i ? { ...x, content: e.target.value } : x))} />
+            </div>
+          ))}
+        </div>
       </div>
     </AdminShell>
   );

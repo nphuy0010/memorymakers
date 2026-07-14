@@ -62,4 +62,23 @@ router.put("/hero-video", requireAuth, requireAdmin, validate(heroSchema), async
   res.json({ url: req.body.url || null });
 });
 
+// CHÍNH SÁCH (5 mục như bản gốc) — admin chỉnh nội dung, khách bấm xem popup
+const DEFAULT_POLICIES = [
+  { id: "muahang", title: "Chính sách mua hàng", content: "Khách chọn mẫu, thiết kế và thanh toán trực tuyến. Đơn hàng được xác nhận ngay sau khi thanh toán thành công." },
+  { id: "thanhtoan", title: "Chính sách thanh toán", content: "Hỗ trợ thanh toán qua MoMo. Số tiền hiển thị rõ trước khi xác nhận, không phát sinh phụ phí." },
+  { id: "doitra", title: "Chính sách đổi trả", content: "Sản phẩm in lỗi do Memory Makers được in lại miễn phí trong 7 ngày. Vui lòng giữ ảnh/video sản phẩm khi nhận hàng." },
+  { id: "vanchuyen", title: "Chính sách vận chuyển", content: "Giao hàng toàn quốc 3–5 ngày làm việc sau khi in xong. Phí vận chuyển báo trước khi đặt." },
+  { id: "baomat", title: "Chính sách bảo mật", content: "Ảnh và thông tin cá nhân của khách chỉ dùng để sản xuất photobook, không chia sẻ cho bên thứ ba. Mật khẩu được băm, dữ liệu mã hoá khi lưu trữ." },
+];
+const policiesSchema = z.object({ policies: z.array(z.object({ id: z.string().min(1).max(40), title: z.string().trim().min(1).max(120), content: z.string().max(5000) })).max(12) });
+router.get("/policies", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "policies" } });
+  res.json(row ? JSON.parse(row.value) : DEFAULT_POLICIES);
+});
+router.put("/policies", requireAuth, requireAdmin, validate(policiesSchema), async (req, res) => {
+  const value = JSON.stringify(req.body.policies);
+  await prisma.setting.upsert({ where: { key: "policies" }, update: { value }, create: { key: "policies", value } });
+  res.json(JSON.parse(value));
+});
+
 export default router;

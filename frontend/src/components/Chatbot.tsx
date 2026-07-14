@@ -27,6 +27,11 @@ export default function Chatbot() {
   }, [open, user]);
   useEffect(() => { bodyRef.current?.scrollTo({ top: 1e9 }); }, [msgs]);
 
+  const delMsg = async (id: string) => {
+    if (!confirm("Xóa tin nhắn này?")) return;
+    try { await api.deleteMessage(id); setMsgs((ms) => ms.filter((x) => x.id !== id)); }
+    catch (e: any) { alert(e?.message || "Không xóa được"); }
+  };
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -61,9 +66,15 @@ export default function Chatbot() {
               <div ref={bodyRef} className="p-3.5 h-[300px] overflow-y-auto flex flex-col gap-2.5">
                 <div className="self-start"><div className="px-3 py-2 rounded-xl font-sans text-[13px] max-w-[230px] bg-cream text-ink">Chào bạn 👋 Bạn cần hỗ trợ gì về photobook? Nhắn cho shop nhé, admin sẽ phản hồi sớm.</div></div>
                 {msgs.map((m) => (
-                  <div key={m.id} className={m.fromAdmin ? "self-start" : "self-end"}>
+                  <div key={m.id} className={m.fromAdmin ? "self-start" : "self-end group relative"}>
                     {m.fromAdmin && <div className="font-sans text-[10px] text-sub mb-0.5 ml-1">Shop</div>}
                     <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[230px] whitespace-pre-wrap ${m.fromAdmin ? "bg-cream text-ink" : "bg-brass text-white"}`}>{m.content}</div>
+                    {!m.fromAdmin && (
+                      <button onClick={() => delMsg(m.id)} title="Xóa tin nhắn"
+                        className="absolute -left-6 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-cream border border-line hidden group-hover:grid place-items-center">
+                        <X size={11} className="text-[#B05A4A]" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
