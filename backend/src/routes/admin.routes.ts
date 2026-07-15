@@ -206,8 +206,9 @@ router.post("/templates/resplit", async (_req, res) => {
   let processed = 0, skipped = 0; const errors: string[] = [];
   for (const t of all) {
     try {
-      const pages: any[] = Array.isArray(t.pages) ? (t.pages as any[]) : [];
-      if (!pages.length || pages.some((p) => p.type)) { skipped++; continue; } // đã split hoặc rỗng
+      let pages: any[] = [];
+      try { pages = JSON.parse((t.pages as any) || "[]"); } catch { pages = []; }
+      if (!Array.isArray(pages) || !pages.length || pages.some((p) => p?.type)) { skipped++; continue; } // đã split hoặc rỗng
       const front: any[] = [], middle: any[] = [], back: any[] = [];
       for (let pi = 0; pi < pages.length; pi++) {
         const pg = pages[pi];
@@ -238,9 +239,9 @@ router.post("/templates/resplit", async (_req, res) => {
       await prisma.template.update({
         where: { id: t.id },
         data: {
-          pages: newPages, pageCount: newPages.length, slots: totalSlots,
+          pages: JSON.stringify(newPages), pageCount: newPages.length, slots: totalSlots,
           coverImage: newPages[0]?.image || t.coverImage,
-          demoImage: null, demoPages: [], // bố cục đổi -> ảnh ghép cũ sai, cần áp kho demo lại
+          demoImage: null, demoPages: "[]", // bố cục đổi -> ảnh ghép cũ sai, cần áp kho demo lại
         },
       });
       processed++;
