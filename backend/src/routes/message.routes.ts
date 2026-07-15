@@ -5,34 +5,38 @@ import { validate, messageSchema } from "../lib/validate";
 
 const router = Router();
 
-// Lấy cuộc trò chuyện của khách (với admin) + đánh dấu đã đọc các tin admin gửi
+// Khách xem hội thoại của mình.
+// - Tin MÌNH gửi + deletedForSender -> ẨN (chỉ ẩn phía người gửi)
+// - Tin recalled -> vẫn trả về, content rỗng + cờ recalled (client hiện "Tin nhắn đã được thu hồi")
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
-  const list = await prisma.message.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "asc" } });
+  const msgs = await prisma.message.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "asc" } });
+  const visible = msgs.filter((m: any) => !(m.deletedForSender && !m.fromAdmin)); // ẩn tin user tự "xoá phía tôi"
   await prisma.message.updateMany({ where: { userId: req.userId, fromAdmin: true, readByUser: false }, data: { readByUser: true } });
-  res.json(list);
+  res.json(visible.map((m: any) => ({ id: m.id, content: m.recalled ? "" : m.content, fromAdmin: m.fromAdmin, recalled: m.recalled, createdAt: m.createdAt })));
 });
 
-// Khách gửi tin -> admin nhận được (readByAdmin = false)
 router.post("/", requireAuth, validate(messageSchema), async (req: AuthRequest, res) => {
-  const content = (req.body?.content || "").trim();
-  if (!content) return res.status(400).json({ error: "Nội dung trống" });
-  const m = await prisma.message.create({
-    data: { userId: req.userId!, content: content.slice(0, 2000), fromAdmin: false, readByAdmin: false, readByUser: true },
-  });
+  const m = await prisma.message.create({ data: { userId: req.userId!, content: req.body.content, fromAdmin: false, readByUser: true, readByAdmin: false } });
   res.json(m);
 });
 
-// XÓA TIN NHẮN: mỗi bên chỉ xóa tin CỦA MÌNH gửi
-// - Khách: chỉ xóa tin mình gửi (fromAdmin = false, đúng userId)
-// - Admin: chỉ xóa tin do admin gửi (fromAdmin = true) — KHÔNG xóa được tin của khách
+// XOÁ KIỂU MESSENGER — chỉ áp dụng cho tin CHÍNH MÌNH gửi:
+//   mode=recall : thu hồi cả 2 phía (content bị xoá vĩnh viễn, hiện "đã thu hồi")
+//   mode=self   : xoá ở phía tôi (đối phương vẫn thấy bình thường)
 router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  const mode = String(req.query.mode || "self");
   const m = await prisma.message.findUnique({ where: { id: req.params.id } });
   if (!m) return res.status(404).json({ error: "Không tìm thấy tin nhắn" });
   const isAdmin = (req as any).role === "ADMIN";
-  const canDelete = isAdmin ? m.fromAdmin : (m.userId === req.userId && !m.fromAdmin);
-  if (!canDelete) return res.status(403).json({ error: "Chỉ xóa được tin nhắn do chính mình gửi" });
-  await prisma.message.delete({ where: { id: m.id } });
-  res.json({ ok: true });
+  const isMine = isAdmin ? m.fromAdmin : (m.userId === req.userId && !m.fromAdmin);
+  if (!isMine) return res.status(403).json({ error: "Chỉ thao tác được với tin nhắn do chính mình gửi" });
+
+  if (mode === "recall") {
+    await prisma.message.update({ where: { id: m.id }, data: { recalled: true, content: "" } });
+    return res.json({ ok: true, recalled: true });
+  }
+  await prisma.message.update({ where: { id: m.id }, data: { deletedForSender: true } });
+  res.json({ ok: true, deletedForSender: true });
 });
 
 export default router;

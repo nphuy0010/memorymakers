@@ -121,8 +121,9 @@ router.get("/messages", async (_req, res) => {
     const msgs = await prisma.message.findMany({ include: { user: true }, orderBy: { createdAt: "asc" } });
     const byUser: Record<string, any> = {};
     for (const m of msgs) {
+      if (m.fromAdmin && m.deletedForSender) continue; // admin đã "xóa ở phía tôi" -> ẩn khỏi admin (khách vẫn thấy)
       const u = byUser[m.userId] || (byUser[m.userId] = { userId: m.userId, name: m.user?.name, email: m.user?.email, phone: m.user?.phone, messages: [], unread: 0, lastAt: m.createdAt });
-      u.messages.push({ id: m.id, content: m.content, fromAdmin: m.fromAdmin, createdAt: m.createdAt });
+      u.messages.push({ id: m.id, content: m.recalled ? "" : m.content, fromAdmin: m.fromAdmin, recalled: !!m.recalled, createdAt: m.createdAt });
       u.lastAt = m.createdAt;
       if (!m.fromAdmin && !m.readByAdmin) u.unread++;
     }

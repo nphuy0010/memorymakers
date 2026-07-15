@@ -24,12 +24,15 @@ export default function Footer() {
             <Link key={id} href={`/policies#${id}`} className="block font-sans text-sm text-[#C9C0B3] mb-2 hover:text-white">Chính sách {label.toLowerCase()}</Link>
           ))}
         </div>
-        <div>
-          <div className="font-sans text-xs tracking-[2px] text-brass uppercase mb-3">Kết nối</div>
-          <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about?.instagram || "@memorymakers"}</div>
-          <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about?.tiktok || "TikTok @memorymakers"}</div>
-          <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about?.hotline || "Hotline 09xx xxx xxx"}</div>
-        </div>
+        {/* KẾT NỐI: ô nào trống thì ẩn; cả 3 trống thì ẩn nguyên cột */}
+        {[about?.instagram, about?.tiktok, about?.hotline].some((v) => (v || "").trim()) && (
+          <div>
+            <div className="font-sans text-xs tracking-[2px] text-brass uppercase mb-3">Kết nối</div>
+            {(about?.instagram || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.instagram}</div>}
+            {(about?.tiktok || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.tiktok}</div>}
+            {(about?.hotline || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.hotline}</div>}
+          </div>
+        )}
       </div>
       <div className="max-w-[1200px] mx-auto mt-6 pt-4 border-t border-[#463F37] font-sans text-xs text-[#8C8377]">© {new Date().getFullYear()} Memory Makers.</div>
     </footer>

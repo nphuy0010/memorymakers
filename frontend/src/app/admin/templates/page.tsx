@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, ImageIcon, X, Loader2, Wand2, Pencil } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, clearApiCache } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 import SlotEditor from "@/components/SlotEditor";
 import { type Template, type PageDef } from "@/lib/types";
@@ -204,8 +204,6 @@ export default function AdminTemplates() {
             <textarea rows={3} className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.description} onChange={(e) => setEditInfo((s: any) => ({ ...s, description: e.target.value }))} />
             <div className="font-sans text-sm text-sub mb-1.5">Danh mục</div>
             <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" placeholder="vd: cưới, du lịch, sinh nhật…" value={editInfo.category} onChange={(e) => setEditInfo((s: any) => ({ ...s, category: e.target.value }))} />
-            <div className="font-sans text-sm text-sub mb-1.5">Danh mục</div>
-            <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" placeholder="vd: du lịch, cưới, gia đình…" value={editInfo.category} onChange={(e) => setEditInfo((s: any) => ({ ...s, category: e.target.value }))} />
             <div className="font-sans text-sm text-sub mb-1.5">Giá theo từng loại (₫)</div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[["priceDigital", "Bản digital"], ["priceSoft", "Bìa thường"], ["priceHard", "Bìa cứng"], ["priceFan", "Gấp quạt"]].map(([k, l]) => (

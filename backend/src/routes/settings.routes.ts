@@ -81,4 +81,16 @@ router.put("/policies", requireAuth, requireAdmin, validate(policiesSchema), asy
   res.json(JSON.parse(value));
 });
 
+// VIDEO HƯỚNG DẪN (nút ? nổi): admin dán URL YouTube/Vimeo/mp4; trống -> ẩn nút ? ở frontend
+const helpSchema = z.object({ url: z.string().max(2000).refine((u) => !u.startsWith("data:"), "Không nhận base64").nullable() });
+router.get("/help-video", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "helpVideo" } });
+  res.json({ url: row ? JSON.parse(row.value) : null });
+});
+router.put("/help-video", requireAuth, requireAdmin, validate(helpSchema), async (req, res) => {
+  const value = JSON.stringify(req.body.url || null);
+  await prisma.setting.upsert({ where: { key: "helpVideo" }, update: { value }, create: { key: "helpVideo", value } });
+  res.json({ url: req.body.url || null });
+});
+
 export default router;

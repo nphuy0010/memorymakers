@@ -16,21 +16,10 @@ export default function Header() {
   const [all, setAll] = useState<Template[]>([]);
   const [menu, setMenu] = useState(false);
   const [ai, setAi] = useState(false);
-  const [cart, setCart] = useState(0);
   const { items: cartItems } = useCart();
   const cartCount = cartItems.length;
 
   useEffect(() => { api.templates().then(setAll).catch(() => {}); }, []);
-  // Đếm đơn ĐANG THIẾT KẾ / CHƯA THANH TOÁN (DESIGNING + DESIGNED) -> nốt đỏ trên giỏ
-  useEffect(() => {
-    if (!user) { setCart(0); return; }
-    const refresh = () => api.projects().then((ps: any[]) => setCart(ps.filter(p => p.status === "DESIGNING" || p.status === "DESIGNED").length)).catch(() => {});
-    refresh();
-    const onFocus = () => refresh();
-    window.addEventListener("focus", onFocus);
-    const t = setInterval(() => { if (!document.hidden) refresh(); }, 30000);
-    return () => { window.removeEventListener("focus", onFocus); clearInterval(t); };
-  }, [user]);
 
   return (
     <>

@@ -27,10 +27,16 @@ export default function Chatbot() {
   }, [open, user]);
   useEffect(() => { bodyRef.current?.scrollTo({ top: 1e9 }); }, [msgs]);
 
-  const delMsg = async (id: string) => {
-    if (!confirm("Xóa tin nhắn này?")) return;
-    try { await api.deleteMessage(id); setMsgs((ms) => ms.filter((x) => x.id !== id)); }
-    catch (e: any) { alert(e?.message || "Không xóa được"); }
+  const [delTarget, setDelTarget] = useState<string | null>(null); // tin nhắn đang hỏi xóa
+  const pressTimer = useRef<any>(null);
+  const doDelete = async (mode: "recall" | "self") => {
+    const id = delTarget; setDelTarget(null);
+    if (!id) return;
+    try {
+      await api.deleteMessage(id, mode);
+      if (mode === "self") setMsgs((ms) => ms.filter((x) => x.id !== id)); // ẩn phía tôi
+      else setMsgs((ms) => ms.map((x) => x.id === id ? { ...x, recalled: true, content: "" } : x)); // thu hồi 2 phía
+    } catch (e: any) { alert(e?.message || "Không xóa được"); }
   };
   const send = async () => {
     const text = input.trim();
@@ -68,9 +74,17 @@ export default function Chatbot() {
                 {msgs.map((m) => (
                   <div key={m.id} className={m.fromAdmin ? "self-start" : "self-end group relative"}>
                     {m.fromAdmin && <div className="font-sans text-[10px] text-sub mb-0.5 ml-1">Shop</div>}
-                    <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[230px] whitespace-pre-wrap ${m.fromAdmin ? "bg-cream text-ink" : "bg-brass text-white"}`}>{m.content}</div>
-                    {!m.fromAdmin && (
-                      <button onClick={() => delMsg(m.id)} title="Xóa tin nhắn"
+                    {(m as any).recalled ? (
+                      <div className="px-3 py-2 rounded-xl font-sans text-[12px] italic text-sub border border-dashed border-line bg-transparent">Tin nhắn đã được thu hồi</div>
+                    ) : (
+                      <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[230px] whitespace-pre-wrap ${m.fromAdmin ? "bg-cream text-ink" : "bg-brass text-white"}`}
+                        onTouchStart={() => { if (!m.fromAdmin) pressTimer.current = setTimeout(() => setDelTarget(m.id), 500); }}
+                        onTouchEnd={() => clearTimeout(pressTimer.current)} onTouchMove={() => clearTimeout(pressTimer.current)}>
+                        {m.content}
+                      </div>
+                    )}
+                    {!m.fromAdmin && !(m as any).recalled && (
+                      <button onClick={() => setDelTarget(m.id)} title="Xóa tin nhắn"
                         className="absolute -left-6 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-cream border border-line hidden group-hover:grid place-items-center">
                         <X size={11} className="text-[#B05A4A]" />
                       </button>
@@ -90,6 +104,18 @@ export default function Chatbot() {
       <button onClick={() => setOpen(o => !o)} className="mm-float fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[60]">
         <MessageCircle size={24} className="text-white" />
       </button>
+      {/* CONFIRM XÓA kiểu Messenger: Thu hồi / Xoá ở phía tôi / Huỷ */}
+      {delTarget && (
+        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setDelTarget(null)}>
+          <div className="bg-paper rounded-2xl border border-line w-full max-w-[300px] p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá tin nhắn này?</div>
+            <p className="font-sans text-[12.5px] text-sub mb-4">Thu hồi sẽ xoá ở cả hai phía; Xoá ở phía tôi chỉ ẩn với bạn.</p>
+            <button onClick={() => doDelete("recall")} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Thu hồi</button>
+            <button onClick={() => doDelete("self")} className="w-full mb-2 bg-cream text-ink border border-line rounded-full py-2.5 font-sans text-sm font-semibold">Xoá ở phía tôi</button>
+            <button onClick={() => setDelTarget(null)} className="w-full text-sub font-sans text-sm py-1.5">Huỷ</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

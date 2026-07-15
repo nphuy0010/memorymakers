@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Chatbot from "@/components/Chatbot";
+import HelpWidget from "@/components/HelpWidget";
 import { useAuth } from "@/store/useAuth";
 import { CartProvider } from "@/store/useCart";
 import { api } from "@/lib/api";
@@ -26,6 +27,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
       <main className="min-h-[70vh]">{children}</main>
       <Footer />
       <Chatbot />
+      <HelpWidget />
     </CartProvider>
   );
 }

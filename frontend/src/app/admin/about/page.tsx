@@ -10,10 +10,12 @@ export default function AdminAbout() {
   const [heroVideo, setHeroVideo] = useState<string | null>(null);
   const [vUp, setVUp] = useState(false);
   const [pols, setPols] = useState<any[]>([]);
+  const [helpUrl, setHelpUrl] = useState("");
+  const [helpSaving, setHelpSaving] = useState(false);
   const [pSaving, setPSaving] = useState(false);
   const [pMsg, setPMsg] = useState("");
 
-  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); }, []);
+  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); api.getHelpVideo().then((r: any) => setHelpUrl(r?.url || "")).catch(() => {}); }, []);
 
   const uploadHero = async (file: File) => {
     setVUp(true);
@@ -24,6 +26,12 @@ export default function AdminAbout() {
       clearApiCache(); setHeroVideo(url);
     } catch (e: any) { alert("Upload video lỗi: " + (e?.message || "") + "\n→ Video ≤ 15MB; backend cần bản mới (route hero-video)."); }
     finally { setVUp(false); }
+  };
+  const saveHelp = async () => {
+    setHelpSaving(true);
+    try { await api.setHelpVideo(helpUrl.trim() || null); clearApiCache(); alert(helpUrl.trim() ? "Đã lưu video hướng dẫn ✓" : "Đã tắt nút Hướng dẫn ✓"); }
+    catch (e: any) { alert("Lưu lỗi: " + (e?.message || "")); }
+    finally { setHelpSaving(false); }
   };
   const savePolicies = async () => {
     setPSaving(true); setPMsg("");
@@ -80,6 +88,16 @@ export default function AdminAbout() {
           </label>
         )}
       </div>
+      {/* VIDEO HƯỚNG DẪN (nút ? nổi cạnh chat): dán URL YouTube/Vimeo/mp4; để trống -> ẩn nút */}
+      <div className="bg-white rounded-2xl border border-line p-5 mt-5">
+        <h3 className="font-serif text-lg text-ink font-bold mb-1">Video hướng dẫn (nút ?)</h3>
+        <p className="font-sans text-[13px] text-sub mb-3">Dán link YouTube / Vimeo / file mp4. Khách sẽ thấy nút <b>?</b> tròn phía trên nút chat — bấm mở popup video. Để trống và Lưu để ẩn nút.</p>
+        <div className="flex gap-2 flex-wrap">
+          <input className="flex-1 min-w-[240px] p-2.5 rounded-lg border border-line font-sans text-sm outline-none" placeholder="https://www.youtube.com/watch?v=…" value={helpUrl} onChange={(e) => setHelpUrl(e.target.value)} />
+          <button onClick={saveHelp} disabled={helpSaving} className="mm-btn bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">{helpSaving ? "Đang lưu…" : "Lưu"}</button>
+        </div>
+      </div>
+
       {/* CHÍNH SÁCH: admin chỉnh tiêu đề + nội dung; khách bấm ở footer -> popup */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
         <div className="flex items-center justify-between mb-1">

@@ -8,7 +8,7 @@ import TemplateCover from "@/components/TemplateCover";
 import Loading from "@/components/Loading";
 import { STATUS_LABEL, STATUS_COLOR, vnd, CATS, type Project, type ProjectStatus } from "@/lib/types";
 
-const TABS: (ProjectStatus | "ALL")[] = ["ALL", "DESIGNING", "DESIGNED", "PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"];
+const TABS: (ProjectStatus | "ALL")[] = ["ALL", "DESIGNING", "DESIGNED"]; // đơn đã đặt (đang xử lý/giao/đã giao/hủy) xem ở Giỏ hàng
 
 export default function AccountPage() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function AccountPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("mm_token")) { router.push("/login"); return; }
     setLoading(true);
-    api.projects().then(setProjects).catch(() => {}).finally(() => setLoading(false));
+    api.projects().then((ps: any[]) => setProjects(ps.filter((p: any) => p.status === "DESIGNING" || p.status === "DESIGNED"))).catch(() => {}).finally(() => setLoading(false));
   }, [router]);
 
   const list = tab === "ALL" ? projects : projects.filter(p => p.status === tab);
@@ -51,7 +51,8 @@ export default function AccountPage() {
   return (
     <div className="max-w-[1100px] mx-auto px-5 pt-9 pb-16">
       <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Tài khoản{user ? ` · ${user.name}` : ""}</span>
-      <h1 className="font-serif text-3xl text-ink font-bold mt-2.5 mb-5">Dự án của tôi</h1>
+      <h1 className="font-serif text-3xl text-ink font-bold mt-2.5 mb-1.5">Dự án của tôi</h1>
+      <p className="font-sans text-[13px] text-sub mb-5">Nơi chứa các mẫu đang thiết kế / đã thiết kế. Đơn đã đặt (đang xử lý, đang giao, đã giao, đã hủy) xem trong <a href="/cart" className="text-brass underline">Giỏ hàng</a>.</p>
 
       <div className="flex gap-2 flex-wrap mb-6">
         {TABS.map(k => {

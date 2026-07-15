@@ -1,20 +1,34 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Sparkles, Trash2, ShoppingBag } from "lucide-react";
+import { ShieldCheck, Sparkles, Trash2, ShoppingBag, Package } from "lucide-react";
 import { useCart } from "@/store/useCart";
+import { useAuth } from "@/store/useAuth";
+import { api } from "@/lib/api";
+import { STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
 
 const vnd = (n: number) => (n || 0).toLocaleString("vi-VN") + "₫";
 const OPTION_LABEL: Record<string, string> = { soft: "Bìa thường", hard: "Bìa cứng", fan: "Gấp quạt", digital: "Bản digital" };
+const ORDER_STATUSES = ["PURCHASED", "SHIPPING", "DELIVERED", "CANCELLED"]; // đơn đã đặt — hiển thị ở Giỏ hàng
 
 export default function CartPage() {
   const router = useRouter();
   const { items, remove, hydrated } = useCart();
+  const { user, hydrate } = useAuth() as any;
+  const [orders, setOrders] = useState<any[]>([]);
+  useEffect(() => { hydrate && hydrate(); }, [hydrate]);
+  // ĐƠN ĐÃ ĐẶT (đang xử lý / đang giao / đã giao / đã hủy) — lấy từ server, không xóa được, chỉ xem trạng thái
+  useEffect(() => {
+    if (!user) { setOrders([]); return; }
+    api.projects().then((ps: any[]) => setOrders(ps.filter((p) => ORDER_STATUSES.includes(p.status)))).catch(() => {});
+  }, [user]);
+
   const pending = items.filter((i) => i.designStatus === "pending");
   const total = items.reduce((s, i) => s + (i.price || 0), 0);
   const blocked = pending.length > 0;
 
-  if (hydrated && !items.length) {
+  if (hydrated && !items.length && !orders.length) {
     return (
       <div className="mm-page" style={{ background: "#F5EFE6" }}>
         <div className="max-w-[900px] mx-auto px-5 md:px-8 py-16 text-center">
@@ -34,6 +48,7 @@ export default function CartPage() {
         <div className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold mb-2">Giỏ hàng</div>
         <h1 className="font-serif text-3xl md:text-[38px] leading-tight text-ink font-bold mb-4">Giỏ hàng của bạn</h1>
 
+        {items.length > 0 && (<>
         {/* Banner cảnh báo: chỉ hiện khi còn item pending */}
         {blocked && (
           <div className="flex items-start gap-3 rounded-2xl px-4 py-3.5 mb-5 border" style={{ background: "#FEF3E7", borderColor: "#E9B384" }}>
@@ -98,6 +113,42 @@ export default function CartPage() {
             </button>
           )}
         </div>
+        </>)}
+
+        {/* ĐƠN HÀNG CỦA BẠN: đang xử lý / đang giao / đã giao / đã hủy — hiển thị TRẠNG THÁI thay nút xóa */}
+        {orders.length > 0 && (
+          <div className="mt-10">
+            <div className="flex items-center gap-2 mb-3">
+              <Package size={18} className="text-brass" />
+              <h2 className="font-serif text-xl md:text-2xl text-ink font-bold">Đơn hàng của bạn</h2>
+            </div>
+            <div className="space-y-3">
+              {orders.map((p) => (
+                <article key={p.id} className="bg-white rounded-2xl border border-line p-3.5 md:p-4 flex gap-3 md:gap-4 items-center">
+                  <div className="w-16 h-20 md:w-20 md:h-24 rounded-lg overflow-hidden bg-cream shrink-0 border border-line">
+                    {(p.template?.coverImage || p.template?.demoImage)
+                      ? <img src={p.template.coverImage || p.template.demoImage} alt={p.title} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full grid place-items-center text-brass"><Package size={18} /></div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-serif text-[16px] md:text-lg text-ink font-bold leading-tight truncate">{p.title}</div>
+                    <div className="font-sans text-[13px] text-sub mt-1">
+                      {OPTION_LABEL[p.option] || (p.mode === "digital" ? "Bản digital" : "Bản in")}
+                      {p.tracking && !p.tracking.startsWith("DEMO") ? <> <span className="opacity-60">·</span> Mã: {p.tracking}</> : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="font-serif text-[15px] md:text-base text-ink font-bold">{vnd(p.amount || 0)}</div>
+                    {/* TRẠNG THÁI ĐƠN thay cho nút xóa */}
+                    <span className="text-white rounded-full px-3 py-1 font-sans text-[12px] font-semibold whitespace-nowrap" style={{ background: STATUS_COLOR[p.status as keyof typeof STATUS_COLOR] }}>
+                      {STATUS_LABEL[p.status as keyof typeof STATUS_LABEL]}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
