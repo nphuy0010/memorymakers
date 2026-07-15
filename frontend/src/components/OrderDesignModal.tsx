@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { X, Download, Loader2 } from "lucide-react";
 import { buildPages, imgStyle, type Edit, type TextItem } from "@/lib/pages";
+import FontLoader, { fontCss } from "@/components/FontLoader";
 
 // Xem lại mẫu KHÁCH đã đặt (ảnh đã ghép vào khung) + xuất PDF để đem in
 export default function OrderDesignModal({ order, onClose }: { order: any; onClose: () => void }) {
@@ -45,7 +46,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
     for (const tx of (texts[pageIndex] || [])) {
       ctx.save();
       ctx.fillStyle = tx.color || "#2A2520";
-      ctx.font = `600 ${(tx.size || 20) * (W / 1000)}px ${tx.font === "sans" ? "sans-serif" : "Georgia, serif"}`;
+      ctx.font = `600 ${(tx.size || 20) * (W / 1000)}px ${tx.font === "sans" ? "sans-serif" : tx.font && tx.font !== "serif" ? `"${tx.font}", sans-serif` : "Georgia, serif"}`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(tx.text, (tx.x / 100) * W, (tx.y / 100) * H);
       ctx.restore();
@@ -85,6 +86,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.6)" }}>
+      <FontLoader />
       <div onClick={e => e.stopPropagation()} className="bg-paper rounded-2xl w-full max-w-[900px] max-h-[90vh] flex flex-col overflow-hidden border border-line">
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-line bg-white">
           <div>
@@ -118,7 +120,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
                   <img key={st.id} src={st.url} crossOrigin="anonymous" style={{ position: "absolute", left: st.x + "%", top: st.y + "%", width: st.w + "%", transform: `translate(-50%,-50%) rotate(${st.rot || 0}deg)`, zIndex: 7 }} />
                 ))}
                 {(texts[i] || []).map((tx) => (
-                  <div key={tx.id} className="absolute" style={{ left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: `${(tx.size || 20) * 0.5}px`, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>
+                  <div key={tx.id} className="absolute" style={{ left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: fontCss(tx.font), fontSize: `${(tx.size || 20) * 0.5}px`, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>
                 ))}
               </div>
             </div>

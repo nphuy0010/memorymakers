@@ -4,6 +4,7 @@ import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Tr
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
+import FontLoader, { FONT_GROUPS, fontCss } from "@/components/FontLoader";
 import { api } from "@/lib/api";
 
 const C = { ink: "#2A2520", sub: "#6B6258", brass: "#B08D57", line: "#E5DCCF", cream: "#EFE7DA", blushDeep: "#D9A99E" };
@@ -113,7 +114,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
       })}
       {(texts || []).map((tx) => (
         <div key={tx.id} onPointerDown={onTextMove ? (e) => startTextDrag(tx, e) : undefined} onClick={onTextSelect ? (e) => { e.stopPropagation(); onTextSelect(tx.id); } : undefined}
-          style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || C.ink, fontWeight: 600, whiteSpace: "pre", textAlign: "center", cursor: onTextMove ? "move" : "default", userSelect: "none", zIndex: 6, padding: "2px 6px", borderRadius: 5, border: selText === tx.id ? `1.5px dashed ${C.brass}` : "1.5px solid transparent", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text || "Nhập chữ"}</div>
+          style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: fontCss(tx.font), fontSize: tx.size || 20, color: tx.color || C.ink, fontWeight: 600, whiteSpace: "pre", textAlign: "center", cursor: onTextMove ? "move" : "default", userSelect: "none", zIndex: 6, padding: "2px 6px", borderRadius: 5, border: selText === tx.id ? `1.5px dashed ${C.brass}` : "1.5px solid transparent", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text || "Nhập chữ"}</div>
       ))}
       {/* STICKER: khách decor tự do — kéo di chuyển, chọn để đổi cỡ/xoay/xóa */}
       {(stickers || []).map((st) => (
@@ -137,7 +138,7 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
           {img && <img src={img} loading="lazy" decoding="async" style={imgStyle(edits?.[s.g])} />}
         </div>;
       })}
-      {texts.map((tx) => <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans,sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: (tx.size || 20) * 0.34, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>)}
+      {texts.map((tx) => <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: fontCss(tx.font), fontSize: (tx.size || 20) * 0.34, color: tx.color, fontWeight: 600, whiteSpace: "pre" }}>{tx.text}</div>)}
     </div>
   );
 }, (a, b) =>
@@ -260,6 +261,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
 
   return (
     <div className="mm-builder" style={{ alignItems: "start" }}>
+      <FontLoader />
       <style>{`@keyframes mmspin{to{transform:rotate(360deg)}}`}</style>
       {/* LEFT: trang + ẩn/hiện */}
       <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 10 }}>
@@ -309,7 +311,20 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 12, color: C.sub }}>Cỡ</span><input type="range" min={12} max={64} value={curText.size} onChange={(e) => updateText(curText.id, { size: +e.target.value })} style={{ accentColor: C.brass }} /></div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 12, color: C.sub }}>Màu</span><input type="color" value={curText.color} onChange={(e) => updateText(curText.id, { color: e.target.value })} style={{ width: 30, height: 26, border: "none", background: "none", cursor: "pointer" }} /></div>
-                <div style={{ display: "flex", gap: 6 }}>{[["serif", "Serif"], ["sans", "Sans"]].map(([k, l]) => <button key={k} onClick={() => updateText(curText.id, { font: k })} style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, cursor: "pointer", border: `1px solid ${curText.font === k ? C.brass : C.line}`, background: curText.font === k ? C.cream : "#fff", color: C.ink }}>{l}</button>)}</div>
+                <select value={curText.font || "serif"} onChange={(e) => updateText(curText.id, { font: e.target.value })}
+                  style={{ width: "100%", padding: "7px 10px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13, color: C.ink, background: "#fff", fontFamily: fontCss(curText.font), outline: "none" }}>
+                  <option value="serif" style={{ fontFamily: "Georgia, serif" }}>Mặc định (Serif)</option>
+                  <option value="sans" style={{ fontFamily: "sans-serif" }}>Mặc định (Sans)</option>
+                  {FONT_GROUPS.map((g) => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.fonts.map((fo) => (
+                        <option key={fo.name} value={fo.name} style={{ fontFamily: `"${fo.name}", sans-serif` }}>
+                          {fo.name}{fo.vi ? "" : " (không hỗ trợ tiếng Việt)"}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
                 <button onClick={() => removeText(curText.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#B05A4A", fontSize: 12.5, display: "flex", gap: 4, alignItems: "center" }}><Trash2 size={13} /> Xoá</button>
               </div>
             </div>

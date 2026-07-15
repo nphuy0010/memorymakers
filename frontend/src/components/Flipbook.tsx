@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, BookOpen, Layers, X, EyeOff, ShieldCheck, CheckCircle2 } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
+import FontLoader, { fontCss } from "@/components/FontLoader";
 
 const INK = "#2A2520", BRASS = "#B08D57", CREAM = "#EFE7DA", SUB = "#6B6258", LINE = "#E5DCCF", SAGE = "#9CA98C";
 type VP = (BuiltPage & { texts?: TextItem[] }) | null;
@@ -11,6 +12,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
   if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", opacity: .55 }}>Memory Makers</div>;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
+      <FontLoader />
       {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
       {pg.slots.map((s: Slot & { g: number }) => {
         const img = assignments?.[s.g]; const round = false; /* chỉ dùng khung chữ nhật */
@@ -24,7 +26,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
         <img key={st.id} src={st.url} draggable={false} style={{ position: "absolute", left: st.x + "%", top: st.y + "%", width: st.w + "%", transform: `translate(-50%,-50%) rotate(${st.rot || 0}deg)`, zIndex: 7, userSelect: "none" }} />
       ))}
       {(pg.texts || []).map((tx) => (
-        <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: tx.font === "sans" ? "var(--font-sans, sans-serif)" : "var(--font-serif), Georgia, serif", fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
+        <div key={tx.id} style={{ position: "absolute", left: tx.x + "%", top: tx.y + "%", transform: "translate(-50%,-50%)", fontFamily: fontCss(tx.font), fontSize: tx.size || 20, color: tx.color || INK, fontWeight: 600, whiteSpace: "pre", textAlign: "center", textShadow: "0 1px 3px rgba(255,255,255,.45)" }}>{tx.text}</div>
       ))}
     </div>
   );

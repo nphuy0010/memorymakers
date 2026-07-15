@@ -10,7 +10,7 @@ export const slotSchema = z.object({
   w: z.number().min(0.5).max(120), h: z.number().min(0.5).max(120),
   shape: z.enum(["rect", "circle"]).optional(), rot: z.number().min(-180).max(180).optional(),
 });
-export const pageSchema = z.object({ image: noDataUrl, slots: z.array(slotSchema).max(40) });
+export const pageSchema = z.object({ image: noDataUrl, slots: z.array(slotSchema).max(40), type: z.enum(["front_cover", "back_cover", "inner_page"]).optional() });
 
 export const registerSchema = z.object({
   name: z.string().trim().min(1).max(100),

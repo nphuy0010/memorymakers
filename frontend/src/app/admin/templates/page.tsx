@@ -59,17 +59,59 @@ export default function AdminTemplates() {
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
 
-  // Tải nhiều trang SONG SONG (dò khung + nén + upload chạy cùng lúc) — nhanh hơn nhiều so với tuần tự
+  // CẮT ĐÔI SLIDE theo trục dọc: 1 slide -> 2 trang (trái/phải), giữ nguyên chiều cao
+  const splitSlide = (dataUrl: string): Promise<[string, string]> => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const half = Math.floor(img.width / 2);
+      const cut = (sx: number, w: number) => {
+        const c = document.createElement("canvas");
+        c.width = w; c.height = img.height;
+        c.getContext("2d")!.drawImage(img, sx, 0, w, img.height, 0, 0, w, img.height);
+        return c.toDataURL("image/jpeg", 0.92);
+      };
+      resolve([cut(0, half), cut(half, img.width - half)]); // [nửa TRÁI, nửa PHẢI]
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  // Tải nhiều SLIDE song song. Mỗi slide cắt đôi -> 2 trang.
+  // Slide 1 = BÌA: trái = bìa SAU (cuối sách), phải = bìa TRƯỚC (đầu sách). Slide 2+ : trái -> phải liên tục.
   const pickPages = async (files: FileList) => {
     setDetecting(true);
     try {
-      const results = await Promise.all(Array.from(files).map(async (f) => {
-        const dataUrl = await readDataUrl(f);
-        const [slots, small] = await Promise.all([detectSlots(dataUrl), compressDataUrl(dataUrl)]);
+      const halfToPage = async (half: string, type: string) => {
+        const [slots, small] = await Promise.all([detectSlots(half), compressDataUrl(half)]);
         const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg"));
-        return { image: url, slots };
+        return { image: url, slots, type };
+      };
+      const isFirstBatch = pages.length === 0; // chỉ áp quy tắc bìa cho lô đầu tiên (slide 1)
+      const slides = await Promise.all(Array.from(files).map(async (f, i) => {
+        const dataUrl = await readDataUrl(f);
+        const [left, right] = await splitSlide(dataUrl);
+        const cover = isFirstBatch && i === 0;
+        const [pgL, pgR] = await Promise.all([
+          halfToPage(left, cover ? "back_cover" : "inner_page"),
+          halfToPage(right, cover ? "front_cover" : "inner_page"),
+        ]);
+        return { cover, pgL, pgR };
       }));
-      setPages((p) => [...p, ...results]); // giữ đúng thứ tự file
+      setPages((p) => {
+        let next = [...p];
+        let backCover: any = null;
+        for (const s of slides) {
+          if (s.cover) { next = [s.pgR, ...next]; backCover = s.pgL; } // bìa trước lên ĐẦU
+          else {
+            // chèn TRƯỚC bìa sau (nếu đã có) để trang mới luôn nằm trong ruột sách
+            const bi = next.findIndex((x: any) => x.type === "back_cover");
+            const ins = [s.pgL, s.pgR];
+            if (bi >= 0) next.splice(bi, 0, ...ins); else next.push(...ins);
+          }
+        }
+        if (backCover) next.push(backCover); // bìa sau xuống CUỐI
+        return next;
+      });
     } catch (e: any) {
       alert("Upload ảnh lỗi: " + (e?.message || e) + "\n→ Kiểm tra đăng nhập admin + backend đang chạy. KHÔNG dùng ảnh nhúng để tránh làm nặng hệ thống.");
     }
@@ -139,7 +181,7 @@ export default function AdminTemplates() {
                       <div key={k} className="absolute border-2 border-brass bg-brass/20" style={{ left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: s.shape === "circle" ? "50%" : 3 }} />
                     ))}
                   </div>
-                  <div className="font-sans text-[10.5px] text-sub text-center py-0.5">{i === 0 ? "Bìa trước" : i === pages.length - 1 ? "Bìa sau" : `Trang ${i + 1}`} · {p.slots.length} khung</div>
+                  <div className="font-sans text-[10.5px] text-sub text-center py-0.5">{(p as any).type === "front_cover" ? "Bìa trước" : (p as any).type === "back_cover" ? "Bìa sau" : i === 0 ? "Bìa trước" : i === pages.length - 1 ? "Bìa sau" : `Trang ${i + 1}`} · {p.slots.length} khung</div>
                   <button onClick={() => setPages((ps) => ps.filter((_, j) => j !== i))} className="absolute top-1 right-1 bg-ink/70 rounded-full w-5 h-5 grid place-items-center"><X size={11} color="#fff" /></button>
                 </div>
               ))}
