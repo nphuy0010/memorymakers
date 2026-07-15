@@ -39,6 +39,19 @@ export default function AdminTemplates() {
   const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
   const [pages, setPages] = useState<PageDef[]>([]);
   const [detecting, setDetecting] = useState(false);
+  const [clampWarn, setClampWarn] = useState(0);
+  const [resplitting, setResplitting] = useState(false);
+  // MIGRATION template cũ (chưa cắt đôi): cắt đôi slide server-side + remap khung + đặt lại bìa
+  const resplit = async () => {
+    if (!confirm("Xử lý lại toàn bộ template CŨ (chưa cắt đôi)?\n- Mỗi slide sẽ cắt thành 2 trang, slide 1 thành bìa trước/sau.\n- Ảnh demo đã ghép của các mẫu này sẽ bị xoá — vào Kho ảnh demo bấm áp dụng lại sau.")) return;
+    setResplitting(true);
+    try {
+      const r: any = await api.resplitTemplates();
+      clearApiCache(); load();
+      alert(`Đã xử lý ${r.processed} template, bỏ qua ${r.skipped} (đã cắt hoặc rỗng).` + (r.errors?.length ? `\nLỗi: ${r.errors.join("; ")}` : ""));
+    } catch (e: any) { alert("Lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route resplit) + Cloudinary."); }
+    finally { setResplitting(false); }
+  };
   const [editInfo, setEditInfo] = useState<any>(null); // sửa tên/mô tả/giá
   const [savingInfo, setSavingInfo] = useState(false);
   const saveInfo = async () => {
@@ -58,6 +71,23 @@ export default function AdminTemplates() {
 
   const load = () => api.templates().then(setTemplates).catch(() => {});
   useEffect(() => { load(); }, []);
+
+  // CLAMP slot vào giới hạn hợp lệ (x,y ∈ [-20,120), w,h ∈ (0.5,120], x+w ≤ 120) — khung nghiêng PCA có thể vượt biên
+  const clampSlot = (s: any) => {
+    let x = Math.max(-20, Math.min(119, s.x)), y = Math.max(-20, Math.min(119, s.y));
+    let w = Math.max(0.5, Math.min(120, s.w)), h = Math.max(0.5, Math.min(120, s.h));
+    if (x + w > 120) w = Math.max(0.5, 120 - x);
+    if (y + h > 120) h = Math.max(0.5, 120 - y);
+    const changed = Math.abs(x - s.x) + Math.abs(y - s.y) + Math.abs(w - s.w) + Math.abs(h - s.h) > 0.01;
+    return { slot: { ...s, x, y, w, h }, changed };
+  };
+  const sanitizeSlots = (slots: any[]) => {
+    let clamped = 0;
+    const out = slots
+      .filter((s) => s.x + s.w > 2 && s.x < 98 && s.y + s.h > 2 && s.y < 98) // bỏ khung rác nằm ngoài trang
+      .map((s) => { const r = clampSlot(s); if (r.changed) clamped++; return r.slot; });
+    return { out, clamped };
+  };
 
   // CẮT ĐÔI SLIDE theo trục dọc: 1 slide -> 2 trang (trái/phải), giữ nguyên chiều cao
   const splitSlide = (dataUrl: string): Promise<[string, string]> => new Promise((resolve, reject) => {
@@ -81,8 +111,11 @@ export default function AdminTemplates() {
   const pickPages = async (files: FileList) => {
     setDetecting(true);
     try {
+      let clampedTotal = 0;
       const halfToPage = async (half: string, type: string) => {
-        const [slots, small] = await Promise.all([detectSlots(half), compressDataUrl(half)]);
+        const [rawSlots, small] = await Promise.all([detectSlots(half), compressDataUrl(half)]);
+        const { out: slots, clamped } = sanitizeSlots(rawSlots); // tự điều chỉnh khung vượt biên thay vì để lỗi validate
+        clampedTotal += clamped;
         const { url } = await api.uploadFile(dataUrlToFile(small, "page.jpg"));
         return { image: url, slots, type };
       };
@@ -112,6 +145,7 @@ export default function AdminTemplates() {
         if (backCover) next.push(backCover); // bìa sau xuống CUỐI
         return next;
       });
+      if (clampedTotal > 0) setClampWarn(clampedTotal); // cảnh báo nhẹ, KHÔNG chặn
     } catch (e: any) {
       alert("Upload ảnh lỗi: " + (e?.message || e) + "\n→ Kiểm tra đăng nhập admin + backend đang chạy. KHÔNG dùng ảnh nhúng để tránh làm nặng hệ thống.");
     }
@@ -136,7 +170,15 @@ export default function AdminTemplates() {
       setForm({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
       setPages([]);
       load();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      // Dịch lỗi validate "pages.3.slots.0.w: ..." -> "Trang 4, khung 1: chiều rộng..."
+      const raw = String(e?.message || "");
+      const nice = raw.replace(/pages\.(\d+)\.slots\.(\d+)\.(x|y|w|h)/g, (_m, p, sl, f) => {
+        const fieldName = { x: "vị trí ngang", y: "vị trí dọc", w: "chiều rộng", h: "chiều cao" }[f as "x" | "y" | "w" | "h"];
+        return `Trang ${+p + 1}, khung ${+sl + 1} (${fieldName})`;
+      });
+      alert(nice !== raw ? nice + "\n→ Bấm “Chỉnh khung” để sửa các khung này rồi lưu lại." : raw);
+    }
     finally { setSaving(false); }
   };
 
@@ -171,6 +213,11 @@ export default function AdminTemplates() {
             </div>
             <input ref={pagesRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) pickPages(e.target.files); e.currentTarget.value = ""; }} />
           </div>
+          {clampWarn > 0 && (
+            <div className="mt-3 rounded-xl border px-3.5 py-2.5 font-sans text-[12.5px]" style={{ background: "#FEF3E7", borderColor: "#E9B384", color: "#7A4A18" }}>
+              ⚠ Có {clampWarn} khung ảnh vượt biên đã được <b>tự động điều chỉnh</b> vào vùng hợp lệ. Kiểm tra lại các trang bên dưới trước khi lưu (có thể tinh chỉnh bằng “Chỉnh khung” sau khi tạo).
+            </div>
+          )}
           {pages.length > 0 && (
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-3">
               {pages.map((p, i) => (
@@ -212,7 +259,12 @@ export default function AdminTemplates() {
       </div>
 
       <div className="bg-white rounded-2xl border border-line p-5">
-        <h3 className="font-serif text-lg text-ink font-bold mb-4">Template ({templates.length})</h3>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="font-serif text-lg text-ink font-bold">Template ({templates.length})</h3>
+          <button onClick={resplit} disabled={resplitting} className="mm-btn border border-line bg-cream/60 hover:bg-cream text-ink rounded-full px-4 py-2 font-sans text-[13px] font-semibold disabled:opacity-50">
+            {resplitting ? "Đang xử lý…" : "Xử lý lại template cũ (cắt đôi slide)"}
+          </button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {templates.map(t => (
             <div key={t.id} className="border border-line rounded-xl p-2.5">

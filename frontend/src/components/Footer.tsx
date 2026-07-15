@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { Instagram, Music2, Phone } from "lucide-react";
+import ContactLink, { hasContact } from "@/components/ContactLink";
 
 // 5 mục cố định giống bản gốc; click -> mở /policies (không còn popup)
 const POLICY_LABELS: [string, string][] = [
@@ -24,13 +26,13 @@ export default function Footer() {
             <Link key={id} href={`/policies#${id}`} className="block font-sans text-sm text-[#C9C0B3] mb-2 hover:text-white">Chính sách {label.toLowerCase()}</Link>
           ))}
         </div>
-        {/* KẾT NỐI: ô nào trống thì ẩn; cả 3 trống thì ẩn nguyên cột */}
-        {[about?.instagram, about?.tiktok, about?.hotline].some((v) => (v || "").trim()) && (
+        {/* KẾT NỐI: hiển thị TÊN, bấm mở LINK; kênh trống cả 2 ô thì ẩn; cả 3 trống thì ẩn nguyên cột */}
+        {(hasContact(about?.instagram, about?.instagramUrl) || hasContact(about?.tiktok, about?.tiktokUrl) || hasContact(about?.hotline, about?.hotlineUrl)) && (
           <div>
             <div className="font-sans text-xs tracking-[2px] text-brass uppercase mb-3">Kết nối</div>
-            {(about?.instagram || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.instagram}</div>}
-            {(about?.tiktok || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.tiktok}</div>}
-            {(about?.hotline || "").trim() && <div className="font-sans text-sm text-[#C9C0B3] mb-2">{about.hotline}</div>}
+            <ContactLink name={about?.instagram} url={about?.instagramUrl} icon={<Instagram size={14} className="inline mr-1.5 -mt-0.5" />} className="block font-sans text-sm text-[#C9C0B3] mb-2 hover:text-white" />
+            <ContactLink name={about?.tiktok} url={about?.tiktokUrl} icon={<Music2 size={14} className="inline mr-1.5 -mt-0.5" />} className="block font-sans text-sm text-[#C9C0B3] mb-2 hover:text-white" />
+            <ContactLink name={about?.hotline} url={about?.hotlineUrl} icon={<Phone size={14} className="inline mr-1.5 -mt-0.5" />} className="block font-sans text-sm text-[#C9C0B3] mb-2 hover:text-white" />
           </div>
         )}
       </div>

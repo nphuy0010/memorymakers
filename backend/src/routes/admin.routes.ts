@@ -177,4 +177,73 @@ router.post("/apply-demo", async (_req, res) => {
   res.json({ done: true, results });
 });
 
+// ============ XỬ LÝ LẠI TEMPLATE CŨ: cắt đôi slide + remap khung ============
+// Template cũ = pages chưa có `type` trên bất kỳ trang nào. Slide 1: trái=bìa SAU, phải=bìa TRƯỚC.
+function clampSlotSrv(s: any) {
+  let x = Math.max(-20, Math.min(119, s.x)), y = Math.max(-20, Math.min(119, s.y));
+  let w = Math.max(0.5, Math.min(120, s.w)), h = Math.max(0.5, Math.min(120, s.h));
+  if (x + w > 120) w = Math.max(0.5, 120 - x);
+  if (y + h > 120) h = Math.max(0.5, 120 - y);
+  return { ...s, x, y, w, h };
+}
+router.post("/templates/resplit", async (_req, res) => {
+  const sharp = require("sharp");
+  let cloud: any = null;
+  try { cloud = require("cloudinary").v2; } catch {}
+  if (!cloud || !process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME) {
+    return res.status(400).json({ error: "Cần cấu hình Cloudinary để xử lý lại template cũ" });
+  }
+  const fetchBuf = async (url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("fetch " + r.status); return Buffer.from(await r.arrayBuffer()); };
+  const upload = async (buf: Buffer) => {
+    const dataUri = "data:image/jpeg;base64," + buf.toString("base64");
+    const r = await cloud.uploader.upload(dataUri, { folder: "memory-makers/pages" });
+    return r.secure_url as string;
+  };
+  const all = await prisma.template.findMany({ where: { archived: false } });
+  let processed = 0, skipped = 0; const errors: string[] = [];
+  for (const t of all) {
+    try {
+      const pages: any[] = Array.isArray(t.pages) ? (t.pages as any[]) : [];
+      if (!pages.length || pages.some((p) => p.type)) { skipped++; continue; } // đã split hoặc rỗng
+      const front: any[] = [], middle: any[] = [], back: any[] = [];
+      for (let pi = 0; pi < pages.length; pi++) {
+        const pg = pages[pi];
+        const buf = await fetchBuf(pg.image);
+        const meta = await sharp(buf).metadata();
+        const W = meta.width || 1000, H = meta.height || 1000;
+        const half = Math.floor(W / 2);
+        const [lBuf, rBuf] = await Promise.all([
+          sharp(buf).extract({ left: 0, top: 0, width: half, height: H }).jpeg({ quality: 90 }).toBuffer(),
+          sharp(buf).extract({ left: half, top: 0, width: W - half, height: H }).jpeg({ quality: 90 }).toBuffer(),
+        ]);
+        const [lUrl, rUrl] = await Promise.all([upload(lBuf), upload(rBuf)]);
+        // REMAP khung: tọa độ % ảnh gốc -> % nửa ảnh (nhân đôi trục ngang); khung chắn giữa gán theo TÂM
+        const lSlots: any[] = [], rSlots: any[] = [];
+        for (const sl of pg.slots || []) {
+          const center = sl.x + sl.w / 2;
+          if (center < 50) lSlots.push(clampSlotSrv({ ...sl, x: sl.x * 2, w: sl.w * 2 }));
+          else rSlots.push(clampSlotSrv({ ...sl, x: (sl.x - 50) * 2, w: sl.w * 2 }));
+        }
+        const isCover = pi === 0;
+        const pgL = { image: lUrl, slots: lSlots, type: isCover ? "back_cover" : "inner_page" };
+        const pgR = { image: rUrl, slots: rSlots, type: isCover ? "front_cover" : "inner_page" };
+        if (isCover) { front.unshift(pgR); back.push(pgL); }
+        else middle.push(pgL, pgR);
+      }
+      const newPages = [...front, ...middle, ...back];
+      const totalSlots = newPages.reduce((n, p) => n + (p.slots?.length || 0), 0);
+      await prisma.template.update({
+        where: { id: t.id },
+        data: {
+          pages: newPages, pageCount: newPages.length, slots: totalSlots,
+          coverImage: newPages[0]?.image || t.coverImage,
+          demoImage: null, demoPages: [], // bố cục đổi -> ảnh ghép cũ sai, cần áp kho demo lại
+        },
+      });
+      processed++;
+    } catch (e: any) { errors.push(`${t.title}: ${e?.message || "lỗi"}`); }
+  }
+  res.json({ processed, skipped, errors });
+});
+
 export default router;

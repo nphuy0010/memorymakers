@@ -67,9 +67,20 @@ export default function AdminAbout() {
         {field("story", "Câu chuyện", true)}
         {field("values", "Giá trị", true)}
         <div className="grid grid-cols-3 gap-3">
-          {field("instagram", "Instagram")}
-          {field("tiktok", "TikTok")}
-          {field("hotline", "Hotline")}
+          {/* Mỗi kênh 2 ô: TÊN HIỂN THỊ (ra giao diện) + LINK (bấm vào mở). Trống cả 2 -> kênh tự ẩn ngoài web */}
+          {([
+            ["instagram", "Instagram", "@tên_tài_khoản", "https://instagram.com/..."],
+            ["tiktok", "TikTok", "@tên_kênh", "https://tiktok.com/@..."],
+            ["hotline", "Hotline", "0909 xxx xxx", "tel:0909xxxxxx"],
+          ] as [string, string, string, string][]).map(([key, label, phName, phUrl]) => (
+            <div key={key} className="border border-line rounded-xl p-3">
+              <div className="font-sans text-[12.5px] font-semibold text-ink mb-2">{label}</div>
+              <input className="w-full p-2 rounded-lg border border-line font-sans text-[13px] outline-none mb-2" placeholder={"Tên hiển thị — vd: " + phName}
+                value={(a as any)[key] || ""} onChange={(e) => set(key, e.target.value)} />
+              <input className="w-full p-2 rounded-lg border border-line font-sans text-[13px] outline-none" placeholder={"Đường dẫn — vd: " + phUrl}
+                value={(a as any)[key + "Url"] || ""} onChange={(e) => set(key + "Url", e.target.value)} />
+            </div>
+          ))}
         </div>
       </div>
 

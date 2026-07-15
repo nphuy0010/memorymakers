@@ -12,9 +12,9 @@ const DEFAULT_ABOUT = {
   mission: "Memory Makers giúp biến những kỷ niệm trong điện thoại thành một vật phẩm có thể chạm vào. Sứ mệnh: lưu giữ câu chuyện của bạn bằng thiết kế tử tế và công nghệ AI thân thiện.",
   story: "Bắt đầu từ một nhóm bạn mê chụp ảnh, Memory Makers ra đời để biến ảnh thành sách — dễ dàng, nhanh chóng và đẹp.",
   values: "• Mẫu thiết kế sẵn, AI chỉ điền ảnh.\n• Bảo vệ hình ảnh khách trước khi thanh toán.\n• In ấn chất lượng cao, giao tận nơi.",
-  instagram: "@memorymakers",
-  tiktok: "TikTok @memorymakers",
-  hotline: "Hotline 09xx xxx xxx",
+  instagram: "@memorymakers", instagramUrl: "",
+  tiktok: "TikTok @memorymakers", tiktokUrl: "",
+  hotline: "Hotline 09xx xxx xxx", hotlineUrl: "",
 };
 
 router.get("/about", async (_req, res) => {

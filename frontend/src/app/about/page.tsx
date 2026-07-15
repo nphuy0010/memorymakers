@@ -30,8 +30,9 @@ export default function AboutPage() {
           <h2 className="font-serif text-2xl text-ink font-bold mb-3">Giá trị</h2>
           <p className="font-sans text-[15px] text-sub leading-relaxed whitespace-pre-line">{a.values}</p>
           <div className="flex gap-3 mt-[18px]">
-            <span className="mm-btn border border-ink text-ink rounded-full px-4 py-2 font-sans text-sm inline-flex items-center gap-2"><Instagram size={15} /> {a.instagram}</span>
-            <span className="mm-btn bg-cream text-ink rounded-full px-4 py-2 font-sans text-sm inline-flex items-center">{a.tiktok}</span>
+            <ContactLink name={a.instagram} url={(a as any).instagramUrl} icon={<Instagram size={15} className="inline mr-2 -mt-0.5" />} className="mm-btn border border-ink text-ink rounded-full px-4 py-2 font-sans text-sm inline-flex items-center" />
+            <ContactLink name={a.tiktok} url={(a as any).tiktokUrl} icon={<Music2 size={15} className="inline mr-2 -mt-0.5" />} className="mm-btn bg-cream text-ink rounded-full px-4 py-2 font-sans text-sm inline-flex items-center" />
+            <ContactLink name={(a as any).hotline} url={(a as any).hotlineUrl} icon={<Phone size={15} className="inline mr-2 -mt-0.5" />} className="mm-btn bg-cream text-ink rounded-full px-4 py-2 font-sans text-sm inline-flex items-center" />
           </div>
         </div>
       </section>
