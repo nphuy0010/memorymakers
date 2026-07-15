@@ -4,6 +4,7 @@ import { Upload, Wand2, ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, Plus, Tr
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type StickerItem, type BuiltPage } from "@/lib/pages";
 import { detectFocus } from "@/lib/face";
+import { usePageRatio } from "@/lib/usePageRatio";
 import FontLoader, { FONT_GROUPS, fontCss } from "@/components/FontLoader";
 import { api } from "@/lib/api";
 
@@ -39,6 +40,7 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
   stickers?: StickerItem[]; onStickerMove?: (id: string, patch: any) => void; onStickerSelect?: (id: string) => void; selStk?: string | null;
   onPhotoDragStart?: (g: number) => void; onPhotoDragEnd?: (g: number) => void;
 }) {
+  const pageRatio = usePageRatio(page?.image);
   const draggedRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
   // CTRL + CHUỘT trên trang -> LUÔN tác động Ô ĐANG CHỌN (cùng cơ chế cho cả zoom lẫn kéo,
@@ -94,8 +96,8 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
   };
   return (
-    <div ref={rootRef} style={{ position: "relative", width: "100%", aspectRatio: "2000/1300", borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(42,37,32,.14)" }}>
-      {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />}
+    <div ref={rootRef} style={{ position: "relative", width: "100%", aspectRatio: pageRatio, borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(42,37,32,.14)" }}>
+      {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />}
       {page.slots.map((s) => {
         const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = false; /* chỉ dùng khung chữ nhật */
         const canDragOut = !!onSlot && !!img && !sel;
@@ -129,9 +131,10 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
 
 /* Thumbnail trang NHẸ cho thanh trái (chỉ ảnh + ô đã điền, không tương tác) — memo để không render lại toàn bộ khi đổi 1 ô */
 const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { page: BuiltPage; urls: (string | undefined)[]; edits: Record<number, Edit>; texts: TextItem[] }) {
+  const pageRatio = usePageRatio(page?.image);
   return (
-    <div style={{ position: "relative", width: "100%", aspectRatio: "2000/1300", borderRadius: 8, overflow: "hidden", background: "#fff", pointerEvents: "none" }}>
-      {page.image && <img src={page.image} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+    <div style={{ position: "relative", width: "100%", aspectRatio: pageRatio, borderRadius: 8, overflow: "hidden", background: "#fff", pointerEvents: "none" }}>
+      {page.image && <img src={page.image} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />}
       {page.slots.map((s, k) => {
         const img = urls[k];
         return <div key={s.g} style={{ position: "absolute", left: s.x + "%", top: s.y + "%", width: s.w + "%", height: s.h + "%", borderRadius: 2, overflow: "hidden", background: img ? "transparent" : "rgba(176,141,87,.18)", transform: `rotate(${(s as any).rot || 0}deg)` }}>
@@ -295,7 +298,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         {pageHidden && <div style={{ background: "#FBEEE7", border: "1px solid #E8C2B0", borderRadius: 10, padding: "8px 12px", fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: "#9A4E26", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span><EyeOff size={13} style={{ verticalAlign: -2 }} /> Trang này đang ẩn — sẽ không xuất hiện khi xem/đặt in.</span><button onClick={() => toggleHide(pageIdx)} style={{ background: "none", border: "none", color: C.brass, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Hiện lại</button></div>}
         <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 16 }}>
           {filling
-            ? <div style={{ aspectRatio: "2000/1300", display: "grid", placeItems: "center" }}><div style={{ width: 44, height: 44, border: `4px solid ${C.cream}`, borderTopColor: C.brass, borderRadius: "50%", animation: "mmspin 1s linear infinite" }} /></div>
+            ? <div style={{ aspectRatio: "3/2", display: "grid", placeItems: "center" }}><div style={{ width: 44, height: 44, border: `4px solid ${C.cream}`, borderTopColor: C.brass, borderRadius: "50%", animation: "mmspin 1s linear infinite" }} /></div>
             : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); setSelStk(null); }} selText={selText} stickers={pageStickers} onStickerMove={updateSticker} onStickerSelect={(id) => { setSelStk(id); setSelText(null); setSelSlot(null); }} selStk={selStk} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
         </div>
         <p style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} color={C.brass} /> Bấm khung để chọn ảnh/chỉnh sửa · kéo ảnh ra ngoài khung hoặc nhấn <b>Delete</b> để gỡ ảnh.</p>

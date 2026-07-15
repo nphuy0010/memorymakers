@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, BookOpen, Layers, X, EyeOff, ShieldCheck, Ch
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
 import FontLoader, { fontCss } from "@/components/FontLoader";
+import { usePageRatio } from "@/lib/usePageRatio";
 
 const INK = "#2A2520", BRASS = "#B08D57", CREAM = "#EFE7DA", SUB = "#6B6258", LINE = "#E5DCCF", SAGE = "#9CA98C";
 type VP = (BuiltPage & { texts?: TextItem[] }) | null;
@@ -13,7 +14,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
       <FontLoader />
-      {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+      {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />}
       {pg.slots.map((s: Slot & { g: number }) => {
         const img = assignments?.[s.g]; const round = false; /* chỉ dùng khung chữ nhật */
         return (
@@ -98,13 +99,13 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
   const turning = anim?.started;
   const half: React.CSSProperties = { position: "absolute", top: 0, width: "50%", height: "100%", overflow: "hidden" };
   const spine = (side: "left" | "right"): React.CSSProperties => ({ position: "absolute", top: 0, bottom: 0, [side]: 0, width: "12%", pointerEvents: "none", background: side === "left" ? "linear-gradient(to right, rgba(0,0,0,.16), transparent)" : "linear-gradient(to left, rgba(0,0,0,.16), transparent)" } as React.CSSProperties);
-  if (!count) return <div style={{ aspectRatio: "40/13", display: "grid", placeItems: "center", background: CREAM, borderRadius: 12, fontFamily: "var(--font-sans, sans-serif)", color: SUB, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
+  if (!count) return <div style={{ aspectRatio: spreadRatio, display: "grid", placeItems: "center", background: CREAM, borderRadius: 12, fontFamily: "var(--font-sans, sans-serif)", color: SUB, fontSize: 13 }}>Tất cả trang đang bị ẩn.</div>;
 
   return (
     <div onContextMenu={(e) => e.preventDefault()} style={{ userSelect: "none" }}>
       <style>{`@keyframes mmShade{0%{opacity:0}35%{opacity:.55}70%{opacity:.3}100%{opacity:0}} .mm-shade{animation:mmShade .72s ease both}`}</style>
       <div style={{ perspective: big ? 3000 : 2200 }}>
-        <div style={{ position: "relative", width: "100%", aspectRatio: "40/13", borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: spreadRatio, borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
           <div style={{ ...half, left: 0, borderRight: "1px solid rgba(0,0,0,.06)" }}>{page(L)}<div style={spine("right")} /></div>
           <div style={{ ...half, left: "50%" }}>{page(R)}<div style={spine("left")} /></div>
           {leaf && (
@@ -130,6 +131,9 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
   texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; watermark?: boolean; paid?: boolean;
 }) {
+  const oneRatio = usePageRatio((t as any)?.pages?.[0]?.image, "20/13"); // tỷ lệ 1 trang thật (đo từ ảnh trang đầu)
+  const [rw, rh] = oneRatio.split("/").map(Number);
+  const spreadRatio = rw && rh ? `${rw * 2}/${rh}` : "40/13"; // 2 trang mở cạnh nhau
   const [full, setFull] = useState(false);
   const [blurGuard, setBlurGuard] = useState(false);
   useEffect(() => {

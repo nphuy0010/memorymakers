@@ -3,9 +3,11 @@ import { useRef, useState } from "react";
 import { X, Download, Loader2 } from "lucide-react";
 import { buildPages, imgStyle, type Edit, type TextItem } from "@/lib/pages";
 import FontLoader, { fontCss } from "@/components/FontLoader";
+import { usePageRatio } from "@/lib/usePageRatio";
 
 // Xem lại mẫu KHÁCH đã đặt (ảnh đã ghép vào khung) + xuất PDF để đem in
 export default function OrderDesignModal({ order, onClose }: { order: any; onClose: () => void }) {
+  const pageRatio = usePageRatio((order?.pages?.[0] as any)?.image); // đo từ ảnh trang đầu của đơn
   const pages = buildPages({ pages: order.pages || [] } as any);
   const L = order.layout || {};
   const assignments: (string | undefined)[] = L.assignments || [];
@@ -106,7 +108,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
           {visible.map(({ p, i }, k) => (
             <div key={i} className="w-full">
               <div className="font-sans text-xs text-sub mb-1">Trang {k + 1}</div>
-              <div ref={(el) => { refs.current[k] = el; }} className="relative w-full rounded-lg overflow-hidden border border-line bg-white" style={{ aspectRatio: "2000 / 1300" }}>
+              <div ref={(el) => { refs.current[k] = el; }} className="relative w-full rounded-lg overflow-hidden border border-line bg-white" style={{ aspectRatio: pageRatio }}>
                 {p.image && <img src={p.image} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" />}
                 {p.slots.map((s) => {
                   const img = assignments[s.g];
