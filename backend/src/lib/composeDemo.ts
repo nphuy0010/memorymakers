@@ -37,6 +37,25 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
   const composed: string[] = [];
   let g = 0;
 
+  // ÉP overlay vừa trong base trước khi composite (sharp yêu cầu overlay ≤ base):
+  //  - left/top âm -> cắt phần tràn trái/trên, đặt lại 0
+  //  - tràn phải/dưới -> cắt bớt bề rộng/cao
+  //  - không còn phần nhìn thấy -> bỏ overlay (trả null)
+  const fitOverlay = async (buf: Buffer, left: number, top: number, baseW: number, baseH: number) => {
+    const m = await sharp(buf).metadata();
+    const w = m.width || 1, h = m.height || 1;
+    let cutL = 0, cutT = 0;
+    if (left < 0) { cutL = -left; left = 0; }
+    if (top < 0) { cutT = -top; top = 0; }
+    const visW = Math.min(w - cutL, baseW - left);
+    const visH = Math.min(h - cutT, baseH - top);
+    if (visW <= 0 || visH <= 0) return null;
+    const input = (cutL || cutT || visW < w || visH < h)
+      ? await sharp(buf).extract({ left: cutL, top: cutT, width: visW, height: visH }).toBuffer()
+      : buf;
+    return { input, left, top };
+  };
+
   for (const pg of pages) {
     const base = sharp(await fetchBuf(pg.image));
     const meta = await base.metadata();
@@ -82,16 +101,23 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
         img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
       }
       let left = Math.round((s.x / 100) * W), top = Math.round((s.y / 100) * H);
-      if (s.rot) {
-        const buf = await img.png().toBuffer();
-        const rotated = await sharp(buf).rotate(s.rot, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-        const rm = await sharp(rotated).metadata();
-        // xoay quanh TÂM khung: bù phần nở ra sau khi xoay
-        left = Math.round(left + dw / 2 - (rm.width || dw) / 2);
-        top = Math.round(top + dh / 2 - (rm.height || dh) / 2);
-        overlays.push({ input: rotated, left, top });
-      } else {
-        overlays.push({ input: await img.jpeg({ quality: 90 }).toBuffer(), left, top });
+      try {
+        if (s.rot) {
+          const buf = await img.png().toBuffer();
+          const rotated = await sharp(buf).rotate(s.rot, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+          const rm = await sharp(rotated).metadata();
+          // xoay quanh TÂM khung: bù phần nở ra sau khi xoay
+          left = Math.round(left + dw / 2 - (rm.width || dw) / 2);
+          top = Math.round(top + dh / 2 - (rm.height || dh) / 2);
+          const fitted = await fitOverlay(rotated, left, top, W, H);
+          if (fitted) overlays.push(fitted);
+        } else {
+          const fitted = await fitOverlay(await img.jpeg({ quality: 90 }).toBuffer(), left, top, W, H);
+          if (fitted) overlays.push(fitted);
+        }
+      } catch (err: any) {
+        // log kích thước để debug thay vì đánh sập cả mẫu
+        console.warn(`compose overlay slot ${gIdx} lỗi: ${err?.message} | base=${W}x${H} slot=${dw}x${dh}@${left},${top}`);
       }
     }
 
