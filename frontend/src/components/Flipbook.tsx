@@ -37,6 +37,10 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
   texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; sample?: boolean; big?: boolean;
 }) {
+  // Tỷ lệ khung sách = 2 trang mở cạnh nhau, đo từ ảnh trang thật (fallback 40/13 khi chưa tải xong)
+  const oneRatio = usePageRatio((t as any)?.pages?.[0]?.image, "20/13");
+  const [prw, prh] = oneRatio.split("/").map(Number);
+  const spreadRatio = prw && prh ? `${prw * 2}/${prh}` : "40/13";
   // Dãy "leaf": bìa trước đứng một mình (phải, trái trống), trang trong ghép đôi,
   // bìa sau chỉ có khi tổng trang hiển thị CHẴN. Lật trang cong 3D có bóng.
   const seq = useMemo<VP[]>(() => {
@@ -131,9 +135,6 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
   texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; watermark?: boolean; paid?: boolean;
 }) {
-  const oneRatio = usePageRatio((t as any)?.pages?.[0]?.image, "20/13"); // tỷ lệ 1 trang thật (đo từ ảnh trang đầu)
-  const [rw, rh] = oneRatio.split("/").map(Number);
-  const spreadRatio = rw && rh ? `${rw * 2}/${rh}` : "40/13"; // 2 trang mở cạnh nhau
   const [full, setFull] = useState(false);
   const [blurGuard, setBlurGuard] = useState(false);
   useEffect(() => {

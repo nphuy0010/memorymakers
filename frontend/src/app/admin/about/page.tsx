@@ -11,7 +11,6 @@ export default function AdminAbout() {
   const [vUp, setVUp] = useState(false);
   const [pols, setPols] = useState<any[]>([]);
   const [helpUrl, setHelpUrl] = useState("");
-  const [helpSaving, setHelpSaving] = useState(false);
   const [helpUp, setHelpUp] = useState(false);
   const [pSaving, setPSaving] = useState(false);
   const [pMsg, setPMsg] = useState("");
@@ -27,12 +26,6 @@ export default function AdminAbout() {
       clearApiCache(); setHeroVideo(url);
     } catch (e: any) { alert("Upload video lỗi: " + (e?.message || "") + "\n→ Video ≤ 15MB; backend cần bản mới (route hero-video)."); }
     finally { setVUp(false); }
-  };
-  const saveHelp = async () => {
-    setHelpSaving(true);
-    try { await api.setHelpVideo(helpUrl.trim() || null); clearApiCache(); alert(helpUrl.trim() ? "Đã lưu video hướng dẫn ✓" : "Đã tắt nút Hướng dẫn ✓"); }
-    catch (e: any) { alert("Lưu lỗi: " + (e?.message || "")); }
-    finally { setHelpSaving(false); }
   };
   const savePolicies = async () => {
     setPSaving(true); setPMsg("");
@@ -100,27 +93,31 @@ export default function AdminAbout() {
           </label>
         )}
       </div>
-      {/* VIDEO HƯỚNG DẪN (nút ? nổi cạnh chat): dán URL hoặc UPLOAD file; để trống -> ẩn nút */}
+      {/* VIDEO HƯỚNG DẪN (nút ? nổi cạnh chat): UPLOAD trực tiếp — có preview + nút xoá; chưa có video -> nút ? tự ẩn */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
         <h3 className="font-serif text-lg text-ink font-bold mb-1">Video hướng dẫn (nút ?)</h3>
-        <p className="font-sans text-[13px] text-sub mb-3">Dán link YouTube / Vimeo / mp4 <b>hoặc tải file video lên</b> (≤15MB). Khách sẽ thấy nút <b>?</b> tròn phía trên nút chat — bấm mở popup video. Để trống và Lưu để ẩn nút.</p>
-        <div className="flex gap-2 flex-wrap items-center">
-          <input className="flex-1 min-w-[240px] p-2.5 rounded-lg border border-line font-sans text-sm outline-none" placeholder="https://www.youtube.com/watch?v=…" value={helpUrl} onChange={(e) => setHelpUrl(e.target.value)} />
-          <label className="mm-btn inline-flex items-center gap-1.5 border border-line bg-cream/60 hover:bg-cream text-ink rounded-full px-4 py-2 font-sans text-sm font-semibold cursor-pointer">
-            {helpUp ? "Đang tải…" : "Tải video lên"}
-            <input type="file" accept="video/mp4,video/webm,video/*" className="hidden" disabled={helpUp}
+        <p className="font-sans text-[13px] text-sub mb-3">Tải video hướng dẫn (mp4 / webm / mov, ≤15MB). Khách sẽ thấy nút <b>?</b> tròn phía trên nút chat — bấm mở popup xem video. Xoá video để ẩn nút.</p>
+        {helpUrl ? (
+          <div>
+            <video src={helpUrl} controls playsInline preload="metadata" className="w-full max-w-md rounded-xl border border-line" />
+            <button onClick={async () => { if (!confirm("Xoá video hướng dẫn? Nút ? sẽ ẩn khỏi trang.")) return; try { await api.setHelpVideo(null); clearApiCache(); setHelpUrl(""); } catch (e: any) { alert(e?.message || "Lỗi"); } }}
+              className="mt-3 font-sans text-[13px] text-[#B05A4A] flex items-center gap-1.5">🗑 Xoá video (ẩn nút ?)</button>
+          </div>
+        ) : (
+          <label className="mm-btn inline-flex items-center gap-2 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold cursor-pointer">
+            {helpUp ? "Đang tải video…" : "Tải video lên"}
+            <input type="file" accept="video/mp4,video/webm,video/quicktime,video/*" className="hidden" disabled={helpUp}
               onChange={async (e) => {
                 const f = e.target.files?.[0]; e.currentTarget.value = "";
                 if (!f) return;
-                if (!f.type.startsWith("video")) { alert("Hãy chọn file VIDEO (mp4/webm)."); return; }
+                if (!f.type.startsWith("video")) { alert("Hãy chọn file VIDEO (mp4/webm/mov)."); return; }
                 setHelpUp(true);
-                try { const { url } = await api.uploadFile(f); setHelpUrl(url); await api.setHelpVideo(url); clearApiCache(); alert("Đã tải video và lưu ✓"); }
+                try { const { url } = await api.uploadFile(f); await api.setHelpVideo(url); clearApiCache(); setHelpUrl(url); }
                 catch (err: any) { alert("Upload lỗi: " + (err?.message || "") + "\n→ Video ≤ 15MB."); }
                 finally { setHelpUp(false); }
               }} />
           </label>
-          <button onClick={saveHelp} disabled={helpSaving} className="mm-btn bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">{helpSaving ? "Đang lưu…" : "Lưu"}</button>
-        </div>
+        )}
       </div>
 
       {/* CHÍNH SÁCH: admin chỉnh tiêu đề + nội dung; khách bấm ở footer -> popup */}

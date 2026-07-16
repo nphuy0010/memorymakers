@@ -30,14 +30,14 @@ if (CLOUD_ON) {
   console.log("🖼️  Upload lưu vào đĩa:", UPLOAD_DIR);
 }
 
-const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "video/mp4", "video/webm"];
+const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"];
 // Dùng memoryStorage: giữ buffer để đẩy lên Cloudinary hoặc ghi ra đĩa
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Định dạng không hỗ trợ (chỉ ảnh PNG/JPG/WEBP/GIF hoặc video MP4/WEBM)"));
+    else cb(new Error("Định dạng không hỗ trợ (chỉ ảnh PNG/JPG/WEBP/GIF hoặc video MP4/WEBM/MOV)"));
   },
 });
 

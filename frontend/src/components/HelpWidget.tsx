@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HelpCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -17,7 +17,11 @@ function toEmbed(url: string): { kind: "iframe" | "video"; src: string } {
 export default function HelpWidget() {
   const [url, setUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true); // spinner trong lúc video tải metadata
+  const vidRef = useRef<HTMLVideoElement>(null);
   useEffect(() => { api.getHelpVideo().then((r: any) => setUrl(r?.url || null)).catch(() => {}); }, []);
+  // ĐÓNG popup -> pause video (tránh chạy ngầm)
+  const close = () => { setOpen(false); vidRef.current?.pause(); };
 
   if (!url) return null; // admin chưa nhập URL -> ẩn hoàn toàn nút ?
   const emb = toEmbed(url);
@@ -32,12 +36,17 @@ export default function HelpWidget() {
               <div className="font-serif text-[15px] text-white font-bold leading-tight">Hướng dẫn sử dụng</div>
               <div className="font-sans text-[11.5px] text-white/85">Xem video để bắt đầu nhanh hơn</div>
             </div>
-            <button onClick={() => setOpen(false)} className="w-8 h-8 grid place-items-center rounded-full bg-white/20"><X size={15} className="text-white" /></button>
+            <button onClick={close} className="w-8 h-8 grid place-items-center rounded-full bg-white/20"><X size={15} className="text-white" /></button>
           </div>
-          <div className="bg-ink" style={{ aspectRatio: "16/9" }}>
+          <div className="bg-ink relative" style={{ aspectRatio: "16/9" }}>
+            {loading && emb.kind === "video" && (
+              <div className="absolute inset-0 grid place-items-center">
+                <div className="w-9 h-9 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+              </div>
+            )}
             {emb.kind === "iframe"
               ? <iframe src={emb.src} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title="Hướng dẫn sử dụng" />
-              : <video src={emb.src} controls playsInline className="w-full h-full object-contain" />}
+              : <video ref={vidRef} src={emb.src} controls playsInline preload="metadata" onLoadedData={() => setLoading(false)} onCanPlay={() => setLoading(false)} className="w-full h-full object-contain rounded-b-2xl">Trình duyệt không hỗ trợ video.</video>}
           </div>
         </div>
       )}
