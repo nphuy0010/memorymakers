@@ -13,7 +13,6 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
   if (!pg) return <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${CREAM}, #fff)`, display: "grid", placeItems: "center", color: SUB, fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", opacity: .55 }}>Memory Makers</div>;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff", overflow: "hidden" }}>
-      <FontLoader />
       {pg.image && <img src={pg.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />}
       {pg.slots.map((s: Slot & { g: number }) => {
         const img = assignments?.[s.g]; const round = false; /* chỉ dùng khung chữ nhật */
@@ -84,6 +83,14 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
   const [spread, setSpread] = useState(0);
   const [anim, setAnim] = useState<{ dir: "next" | "prev"; started: boolean } | null>(null);
   useEffect(() => { setSpread((s) => Math.min(s, Math.max(0, count - 2))); }, [count]);
+  useEffect(() => { if (!anim) return; const t = setTimeout(() => setAnim(null), 900); return () => clearTimeout(t); }, [anim]); // watchdog chống kẹt lật
+  // PRELOAD 2 spread kề -> lật mượt, không chờ ảnh
+  useEffect(() => {
+    [spread - 2, spread + 2, spread + 3].forEach((i) => {
+      const u = seq[i]?.image; if (!u) return;
+      const im = new Image(); im.src = u;
+    });
+  }, [spread, seq]);
   const busy = anim !== null;
   const page = (i: number) => <NPage pg={seq[i] || null} assignments={effAssign} edits={edits} sample={sample} />;
 
@@ -158,22 +165,22 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
     <div style={{ position: "absolute", top: 12, right: 12, background: SAGE, color: "#fff", borderRadius: 999, padding: "6px 12px", fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, display: "flex", gap: 6, alignItems: "center", zIndex: 8 }}><CheckCircle2 size={14} /> Đã mở khoá</div>
   );
 
-  const Book = ({ big }: { big?: boolean }) => <BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big={big} />;
 
   return (
     <div>
+      <FontLoader />
       <div className="bg-white border border-line rounded-2xl p-4">
         <div className="flex justify-between items-center mb-3">
           <span className="font-sans text-[11px] tracking-[1.5px] uppercase text-sub font-bold flex items-center gap-1.5"><BookOpen size={14} color={BRASS} /> Interactive Preview</span>
           <button onClick={() => setFull(true)} className="flex items-center gap-1.5 font-sans text-xs font-semibold text-ink bg-cream border border-line rounded-full px-3 py-1.5"><Layers size={13} /> Open Flipbook</button>
         </div>
-        <div style={{ position: "relative" }}><Book />{overlay}{paidBadge}</div>
+        <div style={{ position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} />{overlay}{paidBadge}</div>
       </div>
 
       {full && (
         <div onClick={() => setFull(false)} className="fixed inset-0 z-[90] grid place-items-center p-7" style={{ background: "rgba(28,24,20,.92)" }}>
           <button onClick={() => setFull(false)} className="absolute top-4 right-5 w-10 h-10 grid place-items-center rounded-full" style={{ background: "rgba(255,255,255,.15)" }}><X size={20} color="#fff" /></button>
-          <div onClick={e => e.stopPropagation()} style={{ width: "min(1100px, 94vw)", position: "relative" }}><Book big />{overlay}{paidBadge}</div>
+          <div onClick={e => e.stopPropagation()} style={{ width: "min(1100px, 94vw)", position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big />{overlay}{paidBadge}</div>
         </div>
       )}
     </div>

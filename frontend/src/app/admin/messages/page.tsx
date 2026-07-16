@@ -13,20 +13,16 @@ export default function AdminMessages() {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [delTarget, setDelTarget] = useState<string | null>(null);
-  // Xóa kiểu Messenger: recall = thu hồi 2 phía (hiện "đã thu hồi"); self = chỉ ẩn phía shop
-  const doDelete = async (mode: "recall" | "self") => {
-    const id = delTarget; setDelTarget(null);
-    if (!id) return;
+  const [delConvo, setDelConvo] = useState<string | null>(null); // userId của đoạn chat đang hỏi xoá
+  // XOÁ CẢ ĐOẠN: self = ẩn phía admin (khách vẫn thấy) · both = xoá hẳn 2 phía
+  const doDeleteConvo = async (mode: "self" | "both") => {
+    const uid = delConvo; setDelConvo(null);
+    if (!uid) return;
     try {
-      await api.deleteMessage(id, mode);
-      setConvos(cs => cs.map(c => ({
-        ...c,
-        messages: mode === "self"
-          ? c.messages.filter((m: any) => m.id !== id)
-          : c.messages.map((m: any) => m.id === id ? { ...m, recalled: true, content: "" } : m),
-      })));
-    } catch (e: any) { alert(e?.message || "Không xóa được"); }
+      await api.adminDeleteConversation(uid, mode);
+      setConvos(cs => cs.filter(c => c.userId !== uid));
+      if (sel === uid) setSel(null);
+    } catch (e: any) { alert(e?.message || "Không xoá được"); }
   };
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -73,22 +69,16 @@ export default function AdminMessages() {
               <div className="px-4 py-3 border-b border-line flex items-center gap-2">
                 <User size={16} className="text-brass" />
                 <div className="font-sans text-sm text-ink font-semibold">{cur.name}</div>
-                <div className="font-sans text-xs text-sub">· {cur.email} · {cur.phone}</div>
+                <div className="font-sans text-xs text-sub truncate">· {cur.email} · {cur.phone}</div>
+                <button onClick={() => setDelConvo(cur.userId)} title="Xoá đoạn chat"
+                  className="ml-auto shrink-0 flex items-center gap-1.5 font-sans text-[12px] text-[#B05A4A] border border-line rounded-full px-3 py-1.5 hover:bg-cream">
+                  <Trash2 size={13} /> Xoá đoạn chat
+                </button>
               </div>
               <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2.5 bg-paper/40">
                 {cur.messages.map(m => (
-                  <div key={m.id} className={(m.fromAdmin ? "self-end" : "self-start") + " group relative"}>
-                    {(m as any).recalled ? (
-                      <div className="px-3 py-2 rounded-xl font-sans text-[12px] italic text-sub border border-dashed border-line">Tin nhắn đã được thu hồi</div>
-                    ) : (
-                      <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[420px] whitespace-pre-wrap ${m.fromAdmin ? "bg-brass text-white" : "bg-cream text-ink"}`}>{m.content}</div>
-                    )}
-                    {m.fromAdmin && !(m as any).recalled && (
-                      <button onClick={() => setDelTarget(m.id)} title="Xóa tin nhắn của shop"
-                        className="absolute top-1/2 -translate-y-1/2 -left-6 w-5 h-5 rounded-full bg-white border border-line hidden group-hover:grid place-items-center">
-                        <Trash2 size={11} className="text-[#B05A4A]" />
-                      </button>
-                    )}
+                  <div key={m.id} className={m.fromAdmin ? "self-end" : "self-start"}>
+                    <div className={`px-3 py-2 rounded-xl font-sans text-[13px] max-w-[420px] whitespace-pre-wrap ${m.fromAdmin ? "bg-brass text-white" : "bg-cream text-ink"}`}>{m.content}</div>
                   </div>
                 ))}
               </div>
@@ -101,14 +91,14 @@ export default function AdminMessages() {
           )}
         </div>
       </div>
-      {delTarget && (
-        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setDelTarget(null)}>
-          <div className="bg-paper rounded-2xl border border-line w-full max-w-[300px] p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá tin nhắn này?</div>
-            <p className="font-sans text-[12.5px] text-sub mb-4">Thu hồi sẽ xoá ở cả hai phía; Xoá ở phía tôi chỉ ẩn với shop.</p>
-            <button onClick={() => doDelete("recall")} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Thu hồi</button>
-            <button onClick={() => doDelete("self")} className="w-full mb-2 bg-cream text-ink border border-line rounded-full py-2.5 font-sans text-sm font-semibold">Xoá ở phía tôi</button>
-            <button onClick={() => setDelTarget(null)} className="w-full text-sub font-sans text-sm py-1.5">Huỷ</button>
+      {delConvo && (
+        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setDelConvo(null)}>
+          <div className="bg-paper rounded-2xl border border-line w-full max-w-[320px] p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá toàn bộ đoạn chat với khách hàng này?</div>
+            <p className="font-sans text-[12.5px] text-sub mb-4">Hành động này không thể hoàn tác.</p>
+            <button onClick={() => doDeleteConvo("self")} className="w-full mb-2 bg-cream text-ink border border-line rounded-full py-2.5 font-sans text-sm font-semibold">Xoá ở phía tôi (khách vẫn thấy)</button>
+            <button onClick={() => doDeleteConvo("both")} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Xoá cả hai phía</button>
+            <button onClick={() => setDelConvo(null)} className="w-full text-sub font-sans text-sm py-1.5">Huỷ</button>
           </div>
         </div>
       )}

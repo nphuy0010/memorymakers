@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Instagram } from "lucide-react";
+import { Sparkles, Instagram, Music2, Phone } from "lucide-react";
+import ContactLink from "@/components/ContactLink";
 import { api } from "@/lib/api";
 import { FanMotif } from "@/components/Brand";
 

@@ -109,8 +109,10 @@ model Message {
   fromAdmin Boolean  @default(false)   // true = admin trả lời
   readByAdmin Boolean @default(false)  // để đếm tin chưa đọc cho admin
   readByUser  Boolean @default(true)
-  recalled          Boolean @default(false) // thu hồi: cả 2 phía thấy "đã thu hồi"
-  deletedForSender  Boolean @default(false) // xoá phía tôi: ẩn với NGƯỜI GỬI, phía kia vẫn thấy
+  recalled          Boolean @default(false) // (cũ - không dùng) thu hồi từng tin
+  deletedForSender  Boolean @default(false) // (cũ - không dùng) xoá từng tin phía người gửi
+  hiddenForUser     Boolean @default(false) // KHÁCH đã xoá CẢ ĐOẠN phía mình -> ẩn với khách
+  hiddenForAdmin    Boolean @default(false) // ADMIN đã xoá CẢ ĐOẠN phía mình -> ẩn với admin
   createdAt DateTime @default(now())
 }
 

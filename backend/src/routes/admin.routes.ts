@@ -121,9 +121,9 @@ router.get("/messages", async (_req, res) => {
     const msgs = await prisma.message.findMany({ include: { user: true }, orderBy: { createdAt: "asc" } });
     const byUser: Record<string, any> = {};
     for (const m of msgs) {
-      if (m.fromAdmin && m.deletedForSender) continue; // admin đã "xóa ở phía tôi" -> ẩn khỏi admin (khách vẫn thấy)
+      if (m.hiddenForAdmin) continue; // admin đã "xoá đoạn chat phía tôi" -> ẩn khỏi admin (khách vẫn thấy)
       const u = byUser[m.userId] || (byUser[m.userId] = { userId: m.userId, name: m.user?.name, email: m.user?.email, phone: m.user?.phone, messages: [], unread: 0, lastAt: m.createdAt });
-      u.messages.push({ id: m.id, content: m.recalled ? "" : m.content, fromAdmin: m.fromAdmin, recalled: !!m.recalled, createdAt: m.createdAt });
+      u.messages.push({ id: m.id, content: m.content, fromAdmin: m.fromAdmin, createdAt: m.createdAt });
       u.lastAt = m.createdAt;
       if (!m.fromAdmin && !m.readByAdmin) u.unread++;
     }
@@ -269,6 +269,18 @@ router.post("/templates/:id/resplit", async (req, res) => {
     console.error("resplit one:", t.title, e?.message);
     res.status(500).json({ error: e?.message || "Xử lý lỗi", title: t.title });
   }
+});
+
+// XOÁ CẢ ĐOẠN CHAT với 1 khách (chỉ admin):
+//   mode=self -> ẩn phía admin (khách vẫn thấy) · mode=both -> xoá hẳn cả 2 phía (không hoàn tác)
+router.post("/messages/:userId/delete-conversation", async (req, res) => {
+  const mode = String(req.body?.mode || "self");
+  if (mode === "both") {
+    await prisma.message.deleteMany({ where: { userId: req.params.userId } });
+    return res.json({ ok: true, mode });
+  }
+  await prisma.message.updateMany({ where: { userId: req.params.userId } , data: { hiddenForAdmin: true } });
+  res.json({ ok: true, mode });
 });
 
 export default router;

@@ -5,38 +5,23 @@ import { validate, messageSchema } from "../lib/validate";
 
 const router = Router();
 
-// Khách xem hội thoại của mình.
-// - Tin MÌNH gửi + deletedForSender -> ẨN (chỉ ẩn phía người gửi)
-// - Tin recalled -> vẫn trả về, content rỗng + cờ recalled (client hiện "Tin nhắn đã được thu hồi")
+// Khách xem hội thoại của mình — ẩn toàn bộ nếu khách đã "xoá đoạn chat phía tôi" (hiddenForUser)
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
-  const msgs = await prisma.message.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "asc" } });
-  const visible = msgs.filter((m: any) => !(m.deletedForSender && !m.fromAdmin)); // ẩn tin user tự "xoá phía tôi"
+  const msgs = await prisma.message.findMany({ where: { userId: req.userId, hiddenForUser: false }, orderBy: { createdAt: "asc" } });
   await prisma.message.updateMany({ where: { userId: req.userId, fromAdmin: true, readByUser: false }, data: { readByUser: true } });
-  res.json(visible.map((m: any) => ({ id: m.id, content: m.recalled ? "" : m.content, fromAdmin: m.fromAdmin, recalled: m.recalled, createdAt: m.createdAt })));
+  res.json(msgs.map((m: any) => ({ id: m.id, content: m.content, fromAdmin: m.fromAdmin, createdAt: m.createdAt })));
 });
 
 router.post("/", requireAuth, validate(messageSchema), async (req: AuthRequest, res) => {
+  // Nhắn mới sau khi đã xoá đoạn -> tin mới hiddenForUser=false nên hội thoại tự "bắt đầu lại" bình thường
   const m = await prisma.message.create({ data: { userId: req.userId!, content: req.body.content, fromAdmin: false, readByUser: true, readByAdmin: false } });
   res.json(m);
 });
 
-// XOÁ KIỂU MESSENGER — chỉ áp dụng cho tin CHÍNH MÌNH gửi:
-//   mode=recall : thu hồi cả 2 phía (content bị xoá vĩnh viễn, hiện "đã thu hồi")
-//   mode=self   : xoá ở phía tôi (đối phương vẫn thấy bình thường)
-router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
-  const mode = String(req.query.mode || "self");
-  const m = await prisma.message.findUnique({ where: { id: req.params.id } });
-  if (!m) return res.status(404).json({ error: "Không tìm thấy tin nhắn" });
-  const isAdmin = (req as any).role === "ADMIN";
-  const isMine = isAdmin ? m.fromAdmin : (m.userId === req.userId && !m.fromAdmin);
-  if (!isMine) return res.status(403).json({ error: "Chỉ thao tác được với tin nhắn do chính mình gửi" });
-
-  if (mode === "recall") {
-    await prisma.message.update({ where: { id: m.id }, data: { recalled: true, content: "" } });
-    return res.json({ ok: true, recalled: true });
-  }
-  await prisma.message.update({ where: { id: m.id }, data: { deletedForSender: true } });
-  res.json({ ok: true, deletedForSender: true });
+// XOÁ CẢ ĐOẠN CHAT phía KHÁCH: ẩn mọi tin hiện có với khách; phía admin vẫn thấy đầy đủ
+router.delete("/", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.message.updateMany({ where: { userId: req.userId }, data: { hiddenForUser: true } });
+  res.json({ ok: true });
 });
 
 export default router;
