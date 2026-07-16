@@ -189,12 +189,14 @@ function clampSlotSrv(s: any) {
   if (y + h > 120) h = Math.max(0.5, 120 - y);
   return { ...s, x, y, w, h };
 }
-router.post("/templates/resplit", async (_req, res) => {
+// XỬ LÝ 1 TEMPLATE: cắt đôi mọi slide + remap khung + đặt bìa. Trả "processed" | "skipped".
+// LƯU Ý NGUỒN DUY NHẤT: template.pages (đã cắt) là nơi mọi hiển thị/ghép ảnh đọc — sau hàm này dữ liệu cũ được đưa về chuẩn.
+async function resplitOne(t: any): Promise<"processed" | "skipped"> {
   const sharp = require("sharp");
   let cloud: any = null;
   try { cloud = require("cloudinary").v2; } catch {}
-  if (!cloud || !process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME) {
-    return res.status(400).json({ error: "Cần cấu hình Cloudinary để xử lý lại template cũ" });
+  if (!cloud || (!process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME)) {
+    throw new Error("Cần cấu hình Cloudinary để xử lý lại template cũ");
   }
   const fetchBuf = async (url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("fetch " + r.status); return Buffer.from(await r.arrayBuffer()); };
   const upload = async (buf: Buffer) => {
@@ -202,13 +204,10 @@ router.post("/templates/resplit", async (_req, res) => {
     const r = await cloud.uploader.upload(dataUri, { folder: "memory-makers/pages" });
     return r.secure_url as string;
   };
-  const all = await prisma.template.findMany({ where: { archived: false } });
-  let processed = 0, skipped = 0; const errors: string[] = [];
-  for (const t of all) {
-    try {
+  {
       let pages: any[] = [];
       try { pages = JSON.parse((t.pages as any) || "[]"); } catch { pages = []; }
-      if (!Array.isArray(pages) || !pages.length || pages.some((p) => p?.type)) { skipped++; continue; } // đã split hoặc rỗng
+      if (!Array.isArray(pages) || !pages.length || pages.some((p) => p?.type)) return "skipped"; // đã split hoặc rỗng
       const front: any[] = [], middle: any[] = [], back: any[] = [];
       for (let pi = 0; pi < pages.length; pi++) {
         const pg = pages[pi];
@@ -244,10 +243,32 @@ router.post("/templates/resplit", async (_req, res) => {
           demoImage: null, demoPages: "[]", // bố cục đổi -> ảnh ghép cũ sai, cần áp kho demo lại
         },
       });
-      processed++;
-    } catch (e: any) { errors.push(`${t.title}: ${e?.message || "lỗi"}`); }
+      return "processed";
+  }
+}
+
+// Batch: xử lý toàn bộ (giữ tương thích)
+router.post("/templates/resplit", async (_req, res) => {
+  const all = await prisma.template.findMany({ where: { archived: false } });
+  let processed = 0, skipped = 0; const errors: string[] = [];
+  for (const t of all) {
+    try { (await resplitOne(t)) === "processed" ? processed++ : skipped++; }
+    catch (e: any) { errors.push(`${t.title}: ${e?.message || "lỗi"}`); }
   }
   res.json({ processed, skipped, errors });
+});
+
+// Từng template — cho progress bar phía admin + fallback tự xử lý khi mở mẫu chưa cắt
+router.post("/templates/:id/resplit", async (req, res) => {
+  const t = await prisma.template.findUnique({ where: { id: req.params.id } });
+  if (!t) return res.status(404).json({ error: "Không tìm thấy template" });
+  try {
+    const r = await resplitOne(t);
+    res.json({ status: r, title: t.title });
+  } catch (e: any) {
+    console.error("resplit one:", t.title, e?.message);
+    res.status(500).json({ error: e?.message || "Xử lý lỗi", title: t.title });
+  }
 });
 
 export default router;

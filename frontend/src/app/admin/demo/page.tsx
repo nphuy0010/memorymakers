@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Plus, X, Loader2, Images, Sparkles, Wand2, Save } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, clearApiCache } from "@/lib/api";
 import AdminShell from "@/components/AdminShell";
 import Loading from "@/components/Loading";
 import Builder from "@/components/Builder";
@@ -54,7 +54,16 @@ export default function AdminDemoPool() {
   const openEditor = async (id: string) => {
     setELoading(true);
     try {
-      const full: any = await api.template(id);
+      let full: any = await api.template(id);
+      // FALLBACK: mẫu CŨ chưa cắt đôi (pages không có `type`) -> xử lý ngay rồi mở, tránh editor hiển thị slide đôi + khung chồng chéo
+      const pgs: any[] = full.pages || [];
+      if (pgs.length && !pgs.some((p: any) => p?.type)) {
+        if (confirm(`“${full.title}” là template cũ chưa cắt đôi.\nXử lý ngay bây giờ? (mất ~vài chục giây tùy số trang)`)) {
+          await api.resplitTemplate(id);
+          clearApiCache();
+          full = await api.template(id);
+        } else { setELoading(false); return; }
+      }
       // ĐIỀN SẴN ảnh như bản AI đã ghép: xáo kho theo seed = id mẫu (cùng thuật toán với server)
       const total = (full.pages || []).reduce((n: number, p: any) => n + ((p.slots || []).length), 0);
       let seed = 0; const idStr = String(full.id || "");

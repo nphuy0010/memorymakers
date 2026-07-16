@@ -103,6 +103,7 @@ export const api = {
   adminOrders: (page = 1, limit = 50) => req(`/admin/orders?page=${page}&limit=${limit}`),
   deleteMessage: (id: string, mode: "recall" | "self") => req(`/messages/${id}?mode=${mode}`, { method: "DELETE" }),
   resplitTemplates: () => req("/admin/templates/resplit", { method: "POST" }),
+  resplitTemplate: (id: string) => req(`/admin/templates/${id}/resplit`, { method: "POST" }),
   grantAdmin: (email: string) => req("/admin/users/grant-admin", { method: "POST", body: JSON.stringify({ email }) }),
   applyDemo: () => req("/admin/apply-demo", { method: "POST" }),
   applyDemoOne: (id: string, b: any) => req(`/admin/templates/${id}/apply-demo`, { method: "POST", body: JSON.stringify(b) }),
