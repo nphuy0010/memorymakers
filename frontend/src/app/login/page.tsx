@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import OtpInput, { maskPhone } from "@/components/OtpInput";
 import { useAuth } from "@/store/useAuth";
 
 type Phase = "form" | "otp" | "forgot" | "reset";
@@ -93,13 +94,18 @@ export default function LoginPage() {
 
       {phase === "otp" && (
         <>
-          <h1 className="font-serif text-2xl text-ink font-bold mb-1">Xác thực SĐT</h1>
-          <p className="font-sans text-sm text-sub mb-2">Nhập mã OTP 6 số đã gửi tới điện thoại của bạn.</p>
-          {devOtp && <div className="font-sans text-xs text-brass mb-3 bg-cream rounded-lg p-2">DEV: mã OTP của bạn là <b>{devOtp}</b> (production sẽ gửi qua SMS)</div>}
-          <input className={inp + " text-center tracking-[6px] text-lg"} placeholder="••••••" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} />
-          {err && <div className="font-sans text-sm text-[#B05A4A] mb-3">{err}</div>}
-          <button disabled={busy} onClick={verify} className="w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-50">{busy ? "Đang kiểm tra…" : "Xác thực"}</button>
-          <button onClick={() => api.resendOtp({ userId }).then((r: any) => setDevOtp(r.devOtp || ""))} className="w-full mt-2 text-sub font-sans text-sm">Gửi lại OTP</button>
+          <h1 className="font-serif text-2xl text-ink font-bold mb-1 text-center">Xác thực SĐT</h1>
+          <p className="font-sans text-sm text-sub mb-5 text-center">Nhập mã 6 số đã gửi tới <b>{maskPhone(form.phone) || "số điện thoại của bạn"}</b>.</p>
+          {devOtp && <div className="font-sans text-xs text-brass mb-4 bg-cream rounded-lg p-2 text-center">DEV: mã OTP của bạn là <b>{devOtp}</b> (production sẽ gửi qua SMS)</div>}
+          <OtpInput value={otp} onChange={setOtp} onResend={() => api.resendOtp({ userId }).then((r: any) => setDevOtp(r.devOtp || ""))} />
+          {err && <div className="font-sans text-sm text-[#B05A4A] mb-3 text-center">{err}</div>}
+          <div className="flex justify-end gap-2 mt-4">
+            <button onClick={() => { setErr(""); setOtp(""); setPhase("form"); }} className="font-sans text-sm text-sub px-4 py-2.5 rounded-full border border-line">Huỷ</button>
+            <button disabled={busy || otp.length < 6} onClick={verify}
+              className="bg-brass text-white rounded-full px-6 py-2.5 font-sans font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+              {busy ? "Đang kiểm tra…" : "Xác nhận"}
+            </button>
+          </div>
         </>
       )}
 
@@ -116,15 +122,22 @@ export default function LoginPage() {
 
       {phase === "reset" && (
         <>
-          <h1 className="font-serif text-2xl text-ink font-bold mb-1">Đặt lại mật khẩu</h1>
-          <p className="font-sans text-sm text-sub mb-2">Mã OTP đã gửi tới SĐT {phoneHint}.</p>
-          {devOtp && <div className="font-sans text-xs text-brass mb-3 bg-cream rounded-lg p-2">DEV: mã OTP của bạn là <b>{devOtp}</b> (production sẽ gửi qua SMS)</div>}
-          <input className={inp + " text-center tracking-[6px] text-lg"} placeholder="Mã OTP" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} />
-          <input className={inp} type="password" placeholder="Mật khẩu mới" value={newPwd} onChange={e => setNewPwd(e.target.value)} />
-          <input className={inp} type="password" placeholder="Nhập lại mật khẩu mới" value={newPwd2} onChange={e => setNewPwd2(e.target.value)} />
-          {err && <div className="font-sans text-sm text-[#B05A4A] mb-3">{err}</div>}
-          <button disabled={busy} onClick={doReset} className="w-full bg-brass text-white rounded-full py-3 font-sans font-semibold disabled:opacity-50">{busy ? "Đang đổi…" : "Đổi mật khẩu & đăng nhập"}</button>
-          <button onClick={() => api.forgotPassword({ identifier: form.email.trim() }).then((r: any) => setDevOtp(r.devOtp || "")).catch(() => {})} className="w-full mt-2 text-sub font-sans text-sm">Gửi lại OTP</button>
+          <h1 className="font-serif text-2xl text-ink font-bold mb-1 text-center">Đặt lại mật khẩu</h1>
+          <p className="font-sans text-sm text-sub mb-5 text-center">Mã 6 số đã gửi tới SĐT <b>{phoneHint}</b>.</p>
+          {devOtp && <div className="font-sans text-xs text-brass mb-4 bg-cream rounded-lg p-2 text-center">DEV: mã OTP của bạn là <b>{devOtp}</b> (production sẽ gửi qua SMS)</div>}
+          <OtpInput value={otp} onChange={setOtp} onResend={() => api.forgotPassword({ identifier: form.email.trim() }).then((r: any) => setDevOtp(r.devOtp || "")).catch(() => {})} />
+          <div className="mt-4">
+            <input className={inp} type="password" placeholder="Mật khẩu mới" value={newPwd} onChange={e => setNewPwd(e.target.value)} />
+            <input className={inp} type="password" placeholder="Nhập lại mật khẩu mới" value={newPwd2} onChange={e => setNewPwd2(e.target.value)} />
+          </div>
+          {err && <div className="font-sans text-sm text-[#B05A4A] mb-3 text-center">{err}</div>}
+          <div className="flex justify-end gap-2 mt-1">
+            <button onClick={() => { setErr(""); setOtp(""); setPhase("form"); }} className="font-sans text-sm text-sub px-4 py-2.5 rounded-full border border-line">Huỷ</button>
+            <button disabled={busy || otp.length < 6 || !newPwd} onClick={doReset}
+              className="bg-brass text-white rounded-full px-6 py-2.5 font-sans font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+              {busy ? "Đang đổi…" : "Đổi mật khẩu & đăng nhập"}
+            </button>
+          </div>
         </>
       )}
     </div>
