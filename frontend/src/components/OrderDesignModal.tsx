@@ -132,7 +132,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.6)" }}>
+    <div className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.6)" }}>
       <FontLoader />
       <div onClick={e => e.stopPropagation()} className="bg-paper rounded-2xl w-full max-w-[900px] max-h-[90vh] flex flex-col overflow-hidden border border-line">
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-line bg-white">

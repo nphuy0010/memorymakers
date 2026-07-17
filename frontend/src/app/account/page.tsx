@@ -101,7 +101,7 @@ export default function AccountPage() {
         const steps: ProjectStatus[] = ["PURCHASED", "SHIPPING", "DELIVERED"];
         const curIdx = steps.indexOf(track.status as ProjectStatus);
         return (
-          <div onClick={() => setTrack(null)} className="fixed inset-0 z-[90] grid place-items-center p-5" style={{ background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)" }}>
+          <div className="fixed inset-0 z-[90] grid place-items-center p-5" style={{ background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)" }}>
             <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl border border-line w-full max-w-[440px] p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -137,7 +137,7 @@ export default function AccountPage() {
         );
       })()}
       {review && (
-        <div onClick={() => setReview(null)} className="fixed inset-0 z-[90] grid place-items-center p-5" style={{ background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)" }}>
+        <div className="fixed inset-0 z-[90] grid place-items-center p-5" style={{ background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)" }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl border border-line w-full max-w-[420px] p-6">
             <div className="flex justify-between items-start mb-4">
               <div>

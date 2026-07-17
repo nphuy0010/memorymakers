@@ -180,7 +180,7 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
       </div>
 
       {full && (
-        <div onClick={() => setFull(false)} className="fixed inset-0 z-[90] grid place-items-center p-7" style={{ background: "rgba(28,24,20,.92)" }}>
+        <div className="fixed inset-0 z-[90] grid place-items-center p-7" style={{ background: "rgba(28,24,20,.92)" }}>
           <button onClick={() => setFull(false)} className="absolute top-4 right-5 w-10 h-10 grid place-items-center rounded-full" style={{ background: "rgba(255,255,255,.15)" }}><X size={20} color="#fff" /></button>
           <div onClick={e => e.stopPropagation()} style={{ width: "min(1100px, 94vw)", position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big />{overlay}{paidBadge}</div>
         </div>

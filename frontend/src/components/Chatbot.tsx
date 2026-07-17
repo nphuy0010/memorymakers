@@ -94,7 +94,7 @@ export default function Chatbot() {
       </button>
       {/* CONFIRM XOÁ CẢ ĐOẠN CHAT */}
       {clearAsk && (
-        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setClearAsk(false)}>
+        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }}>
           <div className="bg-paper rounded-2xl border border-line w-full max-w-[300px] p-5" onClick={(e) => e.stopPropagation()}>
             <div className="font-serif text-lg text-ink font-bold mb-1">Xoá đoạn chat này?</div>
             <p className="font-sans text-[12.5px] text-sub mb-4">Bạn sẽ không thấy lịch sử tin nhắn nữa. Shop vẫn thấy đoạn chat bình thường. Nếu shop nhắn tiếp, đoạn chat sẽ hiện lại chỉ với tin nhắn mới.</p>

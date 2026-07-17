@@ -29,7 +29,7 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
   useEffect(() => { if (initialPrompt && initialPrompt.trim()) run(initialPrompt); /* eslint-disable-next-line */ }, []);
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)", zIndex: 80, display: "grid", placeItems: "center", padding: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(42,37,32,.5)", backdropFilter: "blur(3px)", zIndex: 80, display: "grid", placeItems: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="mm-pop" style={{ width: "100%", maxWidth: 560, background: C.paper, borderRadius: 22, border: `1px solid ${C.line}`, overflow: "hidden", boxShadow: "0 30px 80px rgba(42,37,32,.3)" }}>
         <div style={{ background: `linear-gradient(120deg, ${C.blush}, ${C.brass})`, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
@@ -77,6 +77,7 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
                       <button key={t.id} onClick={() => onUse(t)} className="mm-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 8, cursor: "pointer", textAlign: "left" }}>
                         <TemplateCover t={t} kind="cover" />
                         <div style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 14, color: C.ink, fontWeight: 600, marginTop: 8 }}>{t.title}</div>
+                        {(t as any).category && <div style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 11, color: C.brass, marginTop: 3 }}>Danh mục: {(t as any).category}</div>}
                         <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12, color: C.brass, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Wand2 size={12} /> Thiết kế ngay</div>
                       </button>
                     ))}

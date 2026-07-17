@@ -92,7 +92,7 @@ export default function AdminMessages() {
         </div>
       </div>
       {delConvo && (
-        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setDelConvo(null)}>
+        <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }}>
           <div className="bg-paper rounded-2xl border border-line w-full max-w-[320px] p-5" onClick={(e) => e.stopPropagation()}>
             <div className="font-serif text-lg text-ink font-bold mb-1">Xoá đoạn chat này ở phía bạn?</div>
             <p className="font-sans text-[12.5px] text-sub mb-4">Khách hàng vẫn thấy đoạn chat bình thường. Nếu khách nhắn tiếp, đoạn chat sẽ hiện lại chỉ với tin nhắn mới.</p>

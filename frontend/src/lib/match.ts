@@ -17,6 +17,12 @@ export function matchTemplates(prompt: string, templates: Template[]) {
   return templates
     .map((t) => {
       let score = 0;
+      // DANH MỤC là tín hiệu mạnh nhất: prompt nhắc tới danh mục -> +6; từ khóa chủ đề khớp danh mục -> +5
+      const cat = ((t as any).category || "").toLowerCase();
+      if (cat && text.includes(cat)) score += 6;
+      for (const [canon, hints] of Object.entries(THEME_HINTS)) {
+        if (cat && cat.includes(canon) && hints.some((h) => text.includes(h))) score += 5;
+      }
       for (const w of t.keywords) if (text.includes(w.toLowerCase())) score += 3;
       for (const [canon, hints] of Object.entries(THEME_HINTS)) {
         if (hints.some((h) => text.includes(h)) && t.keywords.map((k) => k.toLowerCase()).includes(canon)) score += 4;

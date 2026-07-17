@@ -36,7 +36,7 @@ function dataUrlToFile(dataUrl: string, name: string): File {
 export default function AdminTemplates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [editSlots, setEditSlots] = useState<Template | null>(null);
-  const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
+  const [form, setForm] = useState({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000", sizeW: "", sizeH: "", sizeUnit: "cm" });
   const [pages, setPages] = useState<PageDef[]>([]);
   const [detecting, setDetecting] = useState(false);
   const [clampWarn, setClampWarn] = useState(0);
@@ -175,9 +175,10 @@ export default function AdminTemplates() {
         keywords: form.keywords.split(",").map((s) => s.trim()).filter(Boolean),
         prices: { soft: +form.soft, hard: +form.hard, fan: +form.fan, digital: +form.digital },
         coverImage: pages[0]?.image || null,   // bìa mặc định = trang đầu
+        productSize: (+form.sizeW > 0 && +form.sizeH > 0) ? { width: +form.sizeW, height: +form.sizeH, unit: form.sizeUnit || "cm" } : null,
         pages,
       });
-      setForm({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000" });
+      setForm({ title: "", category: "", description: "", keywords: "", canvaLink: "", featured: false, soft: "290000", hard: "450000", fan: "520000", digital: "150000", sizeW: "", sizeH: "", sizeUnit: "cm" });
       setPages([]);
       load();
     } catch (e: any) {
@@ -256,6 +257,20 @@ export default function AdminTemplates() {
           <input className={inp} placeholder="Từ khóa (cách nhau dấu phẩy)" value={form.keywords} onChange={e => setForm(f => ({ ...f, keywords: e.target.value }))} />
         </div>
         <input className={inp} placeholder="Link Canva (tùy chọn)" value={form.canvaLink} onChange={e => setForm(f => ({ ...f, canvaLink: e.target.value }))} />
+        <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Kích cỡ sản phẩm</span>
+        <div className="flex items-center gap-2 mt-2 mb-1.5">
+          <input type="number" min={1} className="w-24 p-2 rounded-lg border border-line font-sans text-sm outline-none" placeholder="Rộng (20)" value={form.sizeW} onChange={e => setForm(f => ({ ...f, sizeW: e.target.value }))} />
+          <span className="font-sans text-sm text-sub">×</span>
+          <input type="number" min={1} className="w-24 p-2 rounded-lg border border-line font-sans text-sm outline-none" placeholder="Cao (20)" value={form.sizeH} onChange={e => setForm(f => ({ ...f, sizeH: e.target.value }))} />
+          <select className="p-2 rounded-lg border border-line font-sans text-sm outline-none" value={form.sizeUnit} onChange={e => setForm(f => ({ ...f, sizeUnit: e.target.value }))}>
+            <option value="cm">cm</option><option value="inch">inch</option>
+          </select>
+        </div>
+        <div className="flex gap-1.5 flex-wrap mb-3">
+          {[["20×20", 20, 20], ["25×25", 25, 25], ["A4", 21, 29.7], ["A5", 14.8, 21]].map(([l, w, h]) => (
+            <button key={l as string} type="button" onClick={() => setForm(f => ({ ...f, sizeW: String(w), sizeH: String(h), sizeUnit: "cm" }))} className="font-sans text-[11.5px] px-2.5 py-1 rounded-full border border-line text-sub hover:bg-cream">{l} cm</button>
+          ))}
+        </div>
         <span className="font-sans text-[11px] tracking-[2px] uppercase text-brass font-bold">Giá theo option</span>
         <div className="grid grid-cols-4 gap-2.5 mt-2 mb-3">
           {([["soft", "Bìa thường"], ["hard", "Bìa cứng"], ["fan", "Gấp quạt"], ["digital", "Digital"]] as const).map(([k, l]) => (
@@ -304,7 +319,7 @@ export default function AdminTemplates() {
 
       {/* MODAL SỬA THÔNG TIN: tên, mô tả, 4 mức giá */}
       {editInfo && (
-        <div className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setEditInfo(null)}>
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }}>
           <div className="bg-paper rounded-2xl border border-line w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-serif text-lg text-ink font-bold">Sửa thông tin template</h3>
