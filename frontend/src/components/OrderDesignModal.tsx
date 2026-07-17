@@ -71,6 +71,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
     try {
       try { await (document as any).fonts?.ready; } catch {}
       const { default: jsPDF } = await import("jspdf");
+      if (!pages.length || !pages[0]?.image) { alert("Đơn này thiếu dữ liệu template (mẫu có thể đã bị xoá) — không thể xuất PDF."); return; }
       const canvases: HTMLCanvasElement[] = [];
       const isSplit = pages.length > 0 && pages.some((p: any) => p?.type);
       if (isSplit) {
@@ -104,7 +105,7 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       const pdf = new jsPDF({ orientation: first.width >= first.height ? "landscape" : "portrait", unit: "px", format: [first.width, first.height] });
       canvases.forEach((c, k) => {
         if (k > 0) pdf.addPage([c.width, c.height], c.width >= c.height ? "landscape" : "portrait");
-        pdf.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, c.width, c.height);
+        pdf.addImage(c.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, c.width, c.height); // chất lượng in
       });
       pdf.save(`memory-makers-${order.customer || "don"}-${order.id.slice(0, 6)}.pdf`);
     } catch (e: any) {

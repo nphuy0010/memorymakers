@@ -34,8 +34,9 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
   for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
 
   const cache = new Map<string, Buffer>(); // ảnh kho tải 1 lần
-  const composed: string[] = [];
-  let g = 0;
+  // XỬ LÝ CÁC TRANG SONG SONG: g (chỉ số ô toàn cục) tính trước theo offset từng trang để không race
+  const gOffsets: number[] = [];
+  { let acc = 0; for (const pg of pages) { gOffsets.push(acc); acc += (pg.slots || []).length; } }
 
   // ÉP overlay vừa trong base trước khi composite (sharp yêu cầu overlay ≤ base):
   //  - left/top âm -> cắt phần tràn trái/trên, đặt lại 0
@@ -56,7 +57,8 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
     return { input, left, top };
   };
 
-  for (const pg of pages) {
+  const composed: string[] = await Promise.all(pages.map(async (pg, pi) => {
+    let g = gOffsets[pi];
     const base = sharp(await fetchBuf(pg.image));
     const meta = await base.metadata();
     const W = meta.width || 2000, H = meta.height || 1300;
@@ -122,8 +124,8 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
     }
 
     const out = await base.composite(overlays).jpeg({ quality: 88 }).toBuffer();
-    composed.push(await saveBuffer(out, "image/jpeg", `demo-${t.id}-${composed.length}.jpg`));
-  }
+    return await saveBuffer(out, "image/jpeg", `demo-${t.id}-${pi}.jpg`);
+  }));
 
   await prisma.template.update({ where: { id: templateId }, data: { demoPages: JSON.stringify(composed), demoImage: composed[0] || null } });
   return { ok: true, pages: composed.length };

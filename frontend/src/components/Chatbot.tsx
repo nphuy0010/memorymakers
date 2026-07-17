@@ -58,7 +58,10 @@ export default function Chatbot() {
               <div className="font-serif text-base font-semibold">Nhắn tin với shop</div>
               <div className="font-sans text-[11px] text-white/70">Memory Makers thường trả lời trong ngày</div>
             </div>
-            <X size={18} className="cursor-pointer" onClick={() => setOpen(false)} />
+            <div className="flex items-center gap-3">
+              <Trash2 size={16} className="cursor-pointer text-white/45 hover:text-white/90 transition-colors" onClick={() => setClearAsk(true)} aria-label="Xoá đoạn chat" />
+              <X size={18} className="cursor-pointer" onClick={() => setOpen(false)} />
+            </div>
           </div>
 
           {!user ? (

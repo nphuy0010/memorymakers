@@ -212,6 +212,20 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
 
   const visibleGs = useMemo(() => pages.filter((_, i) => !(hidden && hidden[i])).flatMap((p) => p.slots.map((s) => s.g)), [pages, hidden]);
   // Tự động điền: mỗi lần bấm XÁO + ĐIỀN LẠI TẤT CẢ Ô (kể cả ô đã có ảnh) — bấm lại để đổi cách xếp
+  // Điền ảnh CHƯA DÙNG vào các slot TRỐNG của TRANG HIỆN TẠI (mục b: điền theo từng trang)
+  const fillCurrentPage = () => {
+    const used = new Set(assignments.filter(Boolean));
+    const pool = photos.filter((u) => !used.has(u));
+    if (!pool.length) return;
+    setAssignments((a) => {
+      const next = [...a];
+      let k = 0;
+      for (const sl of (pages[pageIdx]?.slots || [])) {
+        if (!next[sl.g] && k < pool.length) next[sl.g] = pool[k++];
+      }
+      return next;
+    });
+  };
   const autoFill = async () => {
     if (!photos.length) return;
     setFilling(true);
@@ -366,6 +380,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={addPhotos} style={{ display: "none" }} />
         </div>
         <button onClick={autoFill} disabled={!photos.length} style={{ width: "100%", marginTop: 10, background: C.brass, color: "#fff", border: "none", borderRadius: 999, padding: "11px", fontWeight: 600, cursor: photos.length ? "pointer" : "not-allowed", opacity: photos.length ? 1 : .5, display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center" }}><Wand2 size={16} /> Tự động điền (AI)</button>
+        <button onClick={fillCurrentPage} disabled={!photos.length} title="Điền ảnh chưa dùng vào khung trống của trang đang xem" style={{ width: "100%", marginTop: 8, background: "transparent", color: C.ink, border: `1px solid ${C.line}`, borderRadius: 999, padding: "9px", fontWeight: 600, fontSize: 13, cursor: photos.length ? "pointer" : "not-allowed", opacity: photos.length ? 1 : .5 }}>Điền trang này</button>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
           {photos.map((p, i) => (
             <div key={i} draggable onDragStart={(e) => e.dataTransfer.setData("text/mm", p)} onClick={() => clickPhoto(p)} style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: selSlot != null ? "copy" : "grab", border: `1px solid ${C.line}` }}>
