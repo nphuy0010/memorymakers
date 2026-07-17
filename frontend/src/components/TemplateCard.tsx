@@ -34,7 +34,10 @@ export default function TemplateCard({ t }: { t: Template }) {
           )}
         </div>
         {t.description && <p className="font-sans text-[12.5px] text-sub mt-1 line-clamp-2 leading-snug">{t.description}</p>}
-        <div className="font-sans text-[11.5px] text-sub mt-1.5">{t.pageCount ?? t.pages?.length ?? 0} trang</div>
+        <div className="font-sans text-[11.5px] text-sub mt-1.5">
+          📄 {t.pageCount ?? t.pages?.length ?? 0} trang
+          {(t as any).productSize?.width ? <> · 📏 {(t as any).productSize.width} × {(t as any).productSize.height} {(t as any).productSize.unit}</> : null}
+        </div>
 
         <div className="flex gap-2 mt-3 mt-auto pt-3">
           <button onClick={() => router.push(`/design/${t.id}`)}

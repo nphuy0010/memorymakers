@@ -62,6 +62,7 @@ model Template {
   category     String    @default("")   // danh mục
   slots        Int       @default(4)    // số ô ảnh
   pageCount    Int       @default(0)    // số trang
+  productSize  String?                  // JSON: { width, height, unit: "cm"|"inch" } — kích cỡ in thật
   // Giá theo từng option (VND). Không hiển thị ở gallery — chỉ lộ sau khi chọn option.
   priceDigital Int       @default(150000)
   priceSoft    Int       @default(290000)

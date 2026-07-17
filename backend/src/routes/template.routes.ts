@@ -19,6 +19,7 @@ function format(t: any) {
     ...rest,
     keywords: JSON.parse(keywords || "[]"),
     pages: JSON.parse(pages || "[]"),
+    productSize: (() => { try { return t.productSize ? JSON.parse(t.productSize) : null; } catch { return null; } })(),
     demoPhotos: JSON.parse(demoPhotos || "[]"),
     demoPages: JSON.parse(demoPages || "[]"),
     uses: _count?.projects ?? 0,
@@ -126,6 +127,7 @@ router.post("/", requireAuth, requireAdmin, validate(templateSchema), async (req
       slots: nSlots,
       pageCount: pageCount ?? Math.ceil(nSlots / 2),
       pages: JSON.stringify(pages || []),
+      productSize: req.body.productSize ? JSON.stringify(req.body.productSize) : null,
       demoPhotos: JSON.stringify(demoPhotos || []),
       demoPages: JSON.stringify(demoPages || []),
       canvaLink: canvaLink || "",
@@ -160,6 +162,7 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   if (slots !== undefined) { data.slots = slots; data.pageCount = Math.ceil(slots / 2); }
   if (pageCount !== undefined) data.pageCount = pageCount;
   if (pages !== undefined) data.pages = JSON.stringify(pages);
+  if (req.body.productSize !== undefined) data.productSize = req.body.productSize ? JSON.stringify(req.body.productSize) : null;
   if (demoPhotos !== undefined) data.demoPhotos = JSON.stringify(demoPhotos);
   if (demoPages !== undefined) data.demoPages = JSON.stringify(demoPages);
   if (previewGif !== undefined) data.previewGif = previewGif;

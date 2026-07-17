@@ -13,7 +13,7 @@ declare module "@prisma/client" {
     id: Str; slug: Str; title: Str; description: Str; keywords: Str;
     blankImage: Str | null; demoImage: Str | null; demoPhotos: Str; demoPages: Str;
     coverImage: Str | null; previewGif: Str | null; previewVideo: Str | null;
-    pages: Str; canvaLink: Str; category: Str; slots: Int; pageCount: Int;
+    pages: Str; productSize: Str | null; canvaLink: Str; category: Str; slots: Int; pageCount: Int;
     priceDigital: Int; priceSoft: Int; priceHard: Int; priceFan: Int;
     featured: Bool; archived: Bool; rating: number; createdAt: Dt; updatedAt: Dt;
   }

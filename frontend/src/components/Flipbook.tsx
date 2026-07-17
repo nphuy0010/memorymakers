@@ -115,7 +115,11 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
   return (
     <div onContextMenu={(e) => e.preventDefault()} style={{ userSelect: "none" }}>
       <style>{`@keyframes mmShade{0%{opacity:0}35%{opacity:.55}70%{opacity:.3}100%{opacity:0}} .mm-shade{animation:mmShade .72s ease both}`}</style>
-      <div style={{ perspective: big ? 3000 : 2200 }}>
+      {/* SÁCH 70% container căn giữa · nút lật đặt 2 BÊN giữa cạnh */}
+      <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
+        <button onClick={() => go("prev")} disabled={spread <= 0 || busy} aria-label="Trang trước" className="mm-flipnav" style={{ left: "max(0px, calc(15% - 54px))", opacity: spread <= 0 ? 0.3 : 1, pointerEvents: spread <= 0 ? "none" : "auto" }}><ChevronLeft size={20} color={INK} /></button>
+        <button onClick={() => go("next")} disabled={spread + 2 >= count || busy} aria-label="Trang sau" className="mm-flipnav" style={{ right: "max(0px, calc(15% - 54px))", opacity: spread + 2 >= count ? 0.3 : 1, pointerEvents: spread + 2 >= count ? "none" : "auto" }}><ChevronRight size={20} color={INK} /></button>
+      <div style={{ width: "70%", perspective: big ? 3000 : 2200 }}>
         <div style={{ position: "relative", width: "100%", aspectRatio: spreadRatio, borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
           <div style={{ ...half, left: 0, borderRight: "1px solid rgba(0,0,0,.06)" }}>{page(L)}<div style={spine("right")} /></div>
           <div style={{ ...half, left: "50%" }}>{page(R)}<div style={spine("left")} /></div>
@@ -128,11 +132,9 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
           <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(50% - 1px)", width: 2, background: "rgba(42,37,32,.12)", zIndex: 6, pointerEvents: "none" }} />
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 14 }}>
-        <button onClick={() => go("prev")} disabled={spread <= 0 || busy} style={navBtn(spread <= 0)}><ChevronLeft size={18} color={INK} /></button>
-        <span style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, letterSpacing: 1.5, color: SUB, textTransform: "uppercase", minWidth: 150, textAlign: "center" }}>Trang {spread + 1}–{Math.min(spread + 2, count)} / {count}</span>
-        <button onClick={() => go("next")} disabled={spread + 2 >= count || busy} style={navBtn(spread + 2 >= count)}><ChevronRight size={18} color={INK} /></button>
       </div>
+      {/* số trang nhỏ gọn dưới sách */}
+      <p style={{ textAlign: "center", fontSize: 13, color: "#999", marginTop: 8, fontFamily: "var(--font-sans, sans-serif)" }}>{Math.min(spread + 2, count)} / {count}</p>
     </div>
   );
 }

@@ -166,7 +166,6 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const [selSlot, setSelSlot] = useState<number | null>(null);
   const [selText, setSelText] = useState<string | null>(null);
   const [filling, setFilling] = useState(false);
-  const [cz, setCz] = useState(1); // ZOOM CANVAS (0.25–2) — khác Ctrl+lăn (zoom ảnh trong ô)
   const fileRef = useRef<HTMLInputElement>(null);
   const dragInfo = useRef<{ from: number; landed: boolean } | null>(null);
   const pageTexts = (texts && texts[pageIdx]) || [];
@@ -291,26 +290,18 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
 
       {/* CENTER */}
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <button onClick={() => setPageIdx((i) => Math.max(0, i - 1))} disabled={pageIdx === 0} style={arrow(pageIdx === 0)}><ChevronLeft size={16} color={C.ink} /></button>
-          <input type="range" min={0} max={pages.length - 1} value={pageIdx} onChange={(e) => { setPageIdx(+e.target.value); setSelSlot(null); setSelText(null); }} style={{ flex: 1, accentColor: C.brass }} />
-          <button onClick={() => setPageIdx((i) => Math.min(pages.length - 1, i + 1))} disabled={pageIdx === pages.length - 1} style={arrow(pageIdx === pages.length - 1)}><ChevronRight size={16} color={C.ink} /></button>
-          <span style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, minWidth: 96, textAlign: "right" }}>{idxLabel(pageIdx, pages.length)}</span>
-        </div>
         {pageHidden && <div style={{ background: "#FBEEE7", border: "1px solid #E8C2B0", borderRadius: 10, padding: "8px 12px", fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: "#9A4E26", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span><EyeOff size={13} style={{ verticalAlign: -2 }} /> Trang này đang ẩn — sẽ không xuất hiện khi xem/đặt in.</span><button onClick={() => toggleHide(pageIdx)} style={{ background: "none", border: "none", color: C.brass, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Hiện lại</button></div>}
-        {/* THANH ZOOM CANVAS: −/+/%/Vừa khung — độc lập với Ctrl+lăn (zoom ảnh trong ô) */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button onClick={() => setCz(z => Math.max(0.25, +(z - 0.1).toFixed(2)))} title="Thu nhỏ" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", fontWeight: 700, color: C.ink }}>−</button>
-          <span style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, minWidth: 44, textAlign: "center", color: C.ink }}>{Math.round(cz * 100)}%</span>
-          <button onClick={() => setCz(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Phóng to" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", fontWeight: 700, color: C.ink }}>+</button>
-          <button onClick={() => setCz(1)} title="Vừa khung (100%)" style={{ height: 28, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "var(--font-sans,sans-serif)", color: C.ink }}>Vừa khung</button>
-        </div>
-        <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 16, overflow: "auto" }}>
-          <div style={{ width: `${cz * 100}%`, margin: cz < 1 ? "0 auto" : undefined }}>
+        <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 16, position: "relative" }}>
+          {/* nút chuyển trang 2 BÊN giữa cạnh canvas */}
+          <button onClick={() => { setPageIdx((i) => Math.max(0, i - 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang trước" className="mm-flipnav" style={{ left: 8, opacity: pageIdx === 0 ? 0.3 : 1, pointerEvents: pageIdx === 0 ? "none" : "auto" }}><ChevronLeft size={18} color={C.ink} /></button>
+          <button onClick={() => { setPageIdx((i) => Math.min(pages.length - 1, i + 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang sau" className="mm-flipnav" style={{ right: 8, opacity: pageIdx === pages.length - 1 ? 0.3 : 1, pointerEvents: pageIdx === pages.length - 1 ? "none" : "auto" }}><ChevronRight size={18} color={C.ink} /></button>
+          {/* canvas 70% container, căn giữa (cố định, không zoom) */}
+          <div style={{ width: "70%", margin: "0 auto" }}>
           {filling
             ? <div style={{ aspectRatio: "3/2", display: "grid", placeItems: "center" }}><div style={{ width: 44, height: 44, border: `4px solid ${C.cream}`, borderTopColor: C.brass, borderRadius: "50%", animation: "mmspin 1s linear infinite" }} /></div>
             : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); setSelStk(null); }} selText={selText} stickers={pageStickers} onStickerMove={updateSticker} onStickerSelect={(id) => { setSelStk(id); setSelText(null); setSelSlot(null); }} selStk={selStk} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
           </div>
+          <p style={{ textAlign: "center", fontSize: 13, color: "#999", marginTop: 8, fontFamily: "var(--font-sans,sans-serif)" }}>{idxLabel(pageIdx, pages.length)}</p>
         </div>
         <p style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} color={C.brass} /> Bấm khung để chọn ảnh/chỉnh sửa · kéo ảnh ra ngoài khung hoặc nhấn <b>Delete</b> để gỡ ảnh.</p>
         {/* TEXT */}

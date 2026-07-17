@@ -67,7 +67,8 @@ export default function AdminTemplates() {
     if (!editInfo) return;
     setSavingInfo(true);
     try {
-      const b = { title: editInfo.title, description: editInfo.description || "", category: editInfo.category || "", priceDigital: +editInfo.priceDigital || 0, priceSoft: +editInfo.priceSoft || 0, priceHard: +editInfo.priceHard || 0, priceFan: +editInfo.priceFan || 0 };
+      const ps = (+editInfo.sizeW > 0 && +editInfo.sizeH > 0) ? { width: +editInfo.sizeW, height: +editInfo.sizeH, unit: editInfo.sizeUnit || "cm" } : null;
+      const b = { title: editInfo.title, description: editInfo.description || "", category: editInfo.category || "", productSize: ps, priceDigital: +editInfo.priceDigital || 0, priceSoft: +editInfo.priceSoft || 0, priceHard: +editInfo.priceHard || 0, priceFan: +editInfo.priceFan || 0 };
       const u = await api.updateTemplate(editInfo.id, b);
       clearApiCache();
       setTemplates(ts => ts.map(x => x.id === editInfo.id ? { ...x, ...u } : x));
@@ -292,7 +293,7 @@ export default function AdminTemplates() {
               </div>
               <div className="font-serif text-sm text-ink font-semibold mt-2">{t.title}</div>
               <div className="font-sans text-[11px] text-sub">{t.category || "—"} · {t.pageCount ?? t.pages?.length ?? 0} trang</div>
-              <button onClick={() => setEditInfo({ id: t.id, title: t.title, description: (t as any).description || "", category: (t as any).category || "", category: (t as any).category || "", priceDigital: (t as any).priceDigital ?? 150000, priceSoft: (t as any).priceSoft ?? 290000, priceHard: (t as any).priceHard ?? 450000, priceFan: (t as any).priceFan ?? 520000 })} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Pencil size={13} /> Sửa thông tin</button>
+              <button onClick={() => setEditInfo({ id: t.id, title: t.title, description: (t as any).description || "", category: (t as any).category || "", sizeW: (t as any).productSize?.width || "", sizeH: (t as any).productSize?.height || "", sizeUnit: (t as any).productSize?.unit || "cm", category: (t as any).category || "", priceDigital: (t as any).priceDigital ?? 150000, priceSoft: (t as any).priceSoft ?? 290000, priceHard: (t as any).priceHard ?? 450000, priceFan: (t as any).priceFan ?? 520000 })} className="mt-2 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Pencil size={13} /> Sửa thông tin</button>
               <button onClick={async () => { try { setEditSlots(await api.template(t.id)); } catch { setEditSlots(t); } }} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-ink font-sans flex items-center justify-center gap-1.5"><Wand2 size={13} /> Chỉnh khung</button>
               <button onClick={() => del(t.id)} className="mt-1.5 w-full bg-cream rounded-lg py-1.5 text-[13px] text-[#B05A4A] font-sans flex items-center justify-center gap-1.5"><Trash2 size={13} /> Xóa</button>
             </div>
@@ -315,6 +316,20 @@ export default function AdminTemplates() {
             <textarea rows={3} className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" value={editInfo.description} onChange={(e) => setEditInfo((s: any) => ({ ...s, description: e.target.value }))} />
             <div className="font-sans text-sm text-sub mb-1.5">Danh mục</div>
             <input className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-3" placeholder="vd: cưới, du lịch, sinh nhật…" value={editInfo.category} onChange={(e) => setEditInfo((s: any) => ({ ...s, category: e.target.value }))} />
+            <div className="font-sans text-sm text-sub mb-1.5">Kích cỡ sản phẩm (để trống nếu không hiển thị)</div>
+            <div className="flex items-center gap-2 mb-2">
+              <input type="number" min={1} className="w-20 p-2 rounded-lg border border-line font-sans text-sm outline-none" placeholder="20" value={editInfo.sizeW} onChange={(e) => setEditInfo((s: any) => ({ ...s, sizeW: e.target.value }))} />
+              <span className="font-sans text-sm text-sub">×</span>
+              <input type="number" min={1} className="w-20 p-2 rounded-lg border border-line font-sans text-sm outline-none" placeholder="20" value={editInfo.sizeH} onChange={(e) => setEditInfo((s: any) => ({ ...s, sizeH: e.target.value }))} />
+              <select className="p-2 rounded-lg border border-line font-sans text-sm outline-none" value={editInfo.sizeUnit} onChange={(e) => setEditInfo((s: any) => ({ ...s, sizeUnit: e.target.value }))}>
+                <option value="cm">cm</option><option value="inch">inch</option>
+              </select>
+            </div>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {[["20×20", 20, 20], ["25×25", 25, 25], ["A4", 21, 29.7], ["A5", 14.8, 21]].map(([l, w, h]) => (
+                <button key={l as string} onClick={() => setEditInfo((s: any) => ({ ...s, sizeW: w, sizeH: h, sizeUnit: "cm" }))} className="font-sans text-[11.5px] px-2.5 py-1 rounded-full border border-line text-sub hover:bg-cream">{l} cm</button>
+              ))}
+            </div>
             <div className="font-sans text-sm text-sub mb-1.5">Giá theo từng loại (₫)</div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[["priceDigital", "Bản digital"], ["priceSoft", "Bìa thường"], ["priceHard", "Bìa cứng"], ["priceFan", "Gấp quạt"]].map(([k, l]) => (

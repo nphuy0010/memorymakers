@@ -50,6 +50,7 @@ export const templateSchema = z.object({
   keywords: z.array(z.string().max(60)).max(30).optional(),
   category: z.string().max(100).optional(),
   pages: z.array(pageSchema).max(60).optional(),
+  productSize: z.object({ width: z.number().positive().max(500), height: z.number().positive().max(500), unit: z.enum(["cm", "inch"]) }).nullable().optional(),
   pageCount: z.number().int().min(0).max(200).optional(),
   canvaLink: z.string().max(1000).optional(),
   coverImage: noDataUrl.nullish(), demoImage: noDataUrl.nullish(), blankImage: noDataUrl.nullish(),

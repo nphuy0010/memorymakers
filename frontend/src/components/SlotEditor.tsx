@@ -18,6 +18,7 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
   const drag = useRef<{ mode: "move" | "resize" | "rotate"; idx: number; sx: number; sy: number; orig: Slot; cx?: number; cy?: number } | null>(null);
 
   const page = pages[pi];
+  const pageRatio = usePageRatio(page?.image);
   const slots = page?.slots || [];
   const setSlots = (fn: (s: Slot[]) => Slot[]) => setPages(ps => ps.map((p, i) => i === pi ? { ...p, slots: fn(p.slots) } : p));
 
@@ -85,16 +86,27 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
           <div>
             {/* chọn trang */}
             {pages.length > 1 && (
-              <div className="flex gap-1.5 mb-2 flex-wrap">
-                {pages.map((_, i) => (
-                  <button key={i} onClick={() => { setPi(i); setSel(null); }} className={`font-sans text-xs px-2.5 py-1 rounded-full border ${pi === i ? "bg-ink text-paper border-ink" : "border-line text-ink"}`}>Trang {i + 1}</button>
-                ))}
-              </div>
+              pages.length > 10 ? (
+                <select value={pi} onChange={(e) => { setPi(+e.target.value); setSel(null); }} className="font-sans text-xs px-3 py-1.5 rounded-full border border-line mb-2 outline-none">
+                  {pages.map((_, i) => <option key={i} value={i}>Trang {i + 1}</option>)}
+                </select>
+              ) : (
+                <div className="flex gap-1.5 mb-2 flex-wrap">
+                  {pages.map((_, i) => (
+                    <button key={i} onClick={() => { setPi(i); setSel(null); }} className={`font-sans text-xs px-2.5 py-1 rounded-full border ${pi === i ? "bg-ink text-paper border-ink" : "border-line text-ink"}`}>Trang {i + 1}</button>
+                  ))}
+                </div>
+              )
             )}
             {/* VÙNG ĐỆM quanh ảnh: ô sát mép vẫn lộ tay cầm xoay/đổi cỡ ra ngoài để thao tác dễ */}
-            <div className="bg-cream/60 rounded-xl border border-line" style={{ padding: 44 }}>
-              <div ref={boxRef} className="relative w-full select-none" style={{ aspectRatio: "2000 / 1300", touchAction: "none", overflow: "visible" }} onPointerDown={() => setSel(null)}>
-                {page?.image && <img src={page.image} className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-md border border-line bg-white" draggable={false} />}
+            <div className="bg-cream/60 rounded-xl border border-line relative" style={{ padding: 44 }}>
+              {pages.length > 1 && <>
+                <button onClick={() => { setPi(Math.max(0, pi - 1)); setSel(null); }} aria-label="Trang trước" className="mm-flipnav" style={{ left: 6, opacity: pi === 0 ? 0.3 : 1, pointerEvents: pi === 0 ? "none" : "auto" }}><ChevronLeft size={18} /></button>
+                <button onClick={() => { setPi(Math.min(pages.length - 1, pi + 1)); setSel(null); }} aria-label="Trang sau" className="mm-flipnav" style={{ right: 6, opacity: pi === pages.length - 1 ? 0.3 : 1, pointerEvents: pi === pages.length - 1 ? "none" : "auto" }}><ChevronRight size={18} /></button>
+              </>}
+              <div style={{ width: "70%", margin: "0 auto" }}>
+              <div ref={boxRef} className="relative w-full select-none" style={{ aspectRatio: pageRatio, touchAction: "none", overflow: "visible" }} onPointerDown={() => setSel(null)}>
+                {page?.image && <img src={page.image} className="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-md border border-line bg-white" draggable={false} />}
               {slots.map((s, i) => (
                 <div key={i}
                   onPointerDown={(e) => { e.stopPropagation(); setSel(i); drag.current = { mode: "move", idx: i, sx: e.clientX, sy: e.clientY, orig: { ...s } }; }}
@@ -117,6 +129,8 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                 </div>
               ))}
               </div>
+              </div>
+              <p style={{ textAlign: "center", fontSize: 13, color: "#999", marginTop: 8 }} className="font-sans">{pi + 1} / {pages.length}</p>
             </div>
             <div className="flex gap-2 mt-3">
               <button onClick={() => addSlot("rect")} className="mm-btn flex items-center gap-1.5 border border-ink text-ink rounded-full px-3.5 py-2 font-sans text-[13px] font-semibold"><Square size={14} /> Thêm khung</button>
