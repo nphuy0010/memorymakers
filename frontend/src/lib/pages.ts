@@ -1,13 +1,13 @@
 import type { Template, PageDef, Slot } from "./types";
 
-export interface BuiltPage { image: string | null; slots: (Slot & { g: number })[]; }
+export interface BuiltPage { image: string | null; type?: string; slots: (Slot & { g: number })[]; }
 
 /* Dựng pages [{image, slots(g)}] — gán chỉ số khung toàn cục g (xuyên suốt cả cuốn). */
 export function buildPages(t: Template): BuiltPage[] {
   const pages = (t.pages || []) as PageDef[];
   if (pages.length && typeof pages[0] === "object" && (pages[0] as PageDef).image) {
     let g = 0;
-    return pages.map((p) => ({ image: p.image, slots: (p.slots || []).map((s) => ({ ...s, g: g++ })) }));
+    return pages.map((p) => ({ image: p.image, type: (p as any).type, slots: (p.slots || []).map((s) => ({ ...s, g: g++ })) })); // GIỮ type để PDF nhận biết trang đã cắt (ghép spread)
   }
   const n = Math.max(t.pageCount || 4, 2);
   return Array.from({ length: n }).map(() => ({ image: null, slots: [] as (Slot & { g: number })[] }));

@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { X, Download, Loader2 } from "lucide-react";
-import { buildPages, imgStyle, type Edit, type TextItem } from "@/lib/pages";
+import { buildPages, imgStyle, FILTERS, type Edit, type TextItem } from "@/lib/pages";
 import FontLoader, { fontCss } from "@/components/FontLoader";
 import { usePageRatio } from "@/lib/usePageRatio";
 
@@ -21,13 +21,31 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
   const visible = pages.map((p, i) => ({ p, i })).filter(({ i }) => !hidden[i]);
 
   const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  // Vẽ ảnh ĐÚNG NHƯ KHÁCH CHỈNH (cover + pan ox/oy + zoom scale + xoay + filter)
+  // — cùng công thức với imgStyle (CSS) và compose server, đã kiểm chứng khớp pixel.
   function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, dx: number, dy: number, dw: number, dh: number, e?: any) {
-    const iw = img.naturalWidth, ih = img.naturalHeight; const sc = Math.max(dw / iw, dh / ih);
-    const sw = dw / sc, sh = dh / sc;
-    const ox = (e?.ox ?? 50) / 100, oy = (e?.oy ?? 38) / 100; // theo điểm mặt; mặc định lệch lên trên
-    const sx = Math.max(0, Math.min(iw - sw, ox * iw - sw / 2));
-    const sy = Math.max(0, Math.min(ih - sh, oy * ih - sh / 2));
-    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    const iw = img.naturalWidth || 1, ih = img.naturalHeight || 1;
+    const sc = e?.scale ?? 1, oxP = e?.ox ?? 50, oyP = e?.oy ?? 38, rot = e?.rot ?? 0;
+    const s0 = Math.max(dw / iw, dh / ih);            // object-fit: cover
+    const cw = iw * s0, ch = ih * s0;
+    const cropX = (cw - dw) * (oxP / 100);            // object-position
+    const cropY = (ch - dh) * (oyP / 100);
+    const tx = ((50 - oxP) * (sc - 1) / 100) * dw;    // translate theo mức zoom (pan thật)
+    const ty = ((50 - oyP) * (sc - 1) / 100) * dh;
+    const srcW = dw / sc, srcH = dh / sc;             // vùng nhìn thấy sau scale quanh tâm
+    const visX = Math.max(0, Math.min(cw - srcW, cropX + dw / 2 - (dw / 2 + tx) / sc));
+    const visY = Math.max(0, Math.min(ch - srcH, cropY + dh / 2 - (dh / 2 + ty) / sc));
+    const sxI = visX / s0, syI = visY / s0, swI = srcW / s0, shI = srcH / s0; // về tọa độ ảnh gốc
+    ctx.save();
+    try { ctx.filter = FILTERS[e?.filter || "none"] || "none"; } catch {}
+    if (rot) {
+      ctx.translate(dx + dw / 2, dy + dh / 2);
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.drawImage(img, sxI, syI, swI, shI, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      ctx.drawImage(img, sxI, syI, swI, shI, dx, dy, dw, dh);
+    }
+    ctx.restore();
   }
   // Vẽ 1 trang ở ĐỘ PHÂN GIẢI GỐC -> không méo, khớp đúng thiết kế
   async function renderPageCanvas(p: any, pageIndex: number): Promise<HTMLCanvasElement> {
