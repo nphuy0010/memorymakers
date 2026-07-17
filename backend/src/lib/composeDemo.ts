@@ -5,6 +5,12 @@ import sharp from "sharp";
 import { prisma } from "./prisma";
 import { saveBuffer } from "../routes/upload.routes";
 
+// PREVIEW không cần bản in: với URL Cloudinary, tải bản đã resize 1600px q_auto (nhẹ + nhanh hơn nhiều lần)
+function cdnResize(url: string, w = 1600): string {
+  const i = url.indexOf("/upload/");
+  if (!url.includes("res.cloudinary.com") || i < 0 || url.includes("/upload/w_")) return url;
+  return url.slice(0, i + 8) + `w_${w},q_auto/` + url.slice(i + 8);
+}
 async function fetchBuf(url: string): Promise<Buffer> {
   const r = await fetch(url);
   if (!r.ok) throw new Error("Tải ảnh lỗi " + r.status + ": " + url.slice(0, 80));
@@ -33,7 +39,8 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
   const shuffled = [...pool];
   for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
 
-  const cache = new Map<string, Buffer>(); // ảnh kho tải 1 lần
+  const cache = new Map<string, Promise<Buffer>>(); // ảnh kho: 1 URL chỉ fetch 1 lần kể cả khi các trang chạy song song
+  const getBuf = (url: string) => { let p = cache.get(url); if (!p) { p = fetchBuf(cdnResize(url)); cache.set(url, p); } return p; };
   // XỬ LÝ CÁC TRANG SONG SONG: g (chỉ số ô toàn cục) tính trước theo offset từng trang để không race
   const gOffsets: number[] = [];
   { let acc = 0; for (const pg of pages) { gOffsets.push(acc); acc += (pg.slots || []).length; } }
@@ -58,18 +65,17 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
   };
 
   const composed: string[] = await Promise.all(pages.map(async (pg, pi) => {
-    let g = gOffsets[pi];
-    const base = sharp(await fetchBuf(pg.image));
+    const base = sharp(await fetchBuf(cdnResize(pg.image)));
     const meta = await base.metadata();
     const W = meta.width || 2000, H = meta.height || 1300;
-    const overlays: { input: Buffer; left: number; top: number }[] = [];
 
-    for (const s of pg.slots || []) {
+    // CÁC Ô TRONG TRANG CHẠY SONG SONG — kết quả giữ thứ tự lớp theo chỉ số ô
+    const slotResults = await Promise.all((pg.slots || []).map(async (s, si) => {
       const ov: any = overrides?.assignments;
-      const gIdx = g; g++;
+      const gIdx = gOffsets[pi] + si;
       const url: string | undefined = (ov && ov[gIdx]) || (shuffled.length ? shuffled[gIdx % shuffled.length] : undefined);
-      if (!url) continue;
-      if (!cache.has(url)) cache.set(url, await fetchBuf(url));
+      if (!url) return null;
+      const srcBuf = await getBuf(url);
       const dw = Math.max(2, Math.round((s.w / 100) * W));
       const dh = Math.max(2, Math.round((s.h / 100) * H));
       const e = overrides?.edits?.[gIdx];
@@ -77,7 +83,7 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
       try {
         if (e) {
           // KHỚP PIXEL với công thức hiển thị client (objectPosition + translate theo zoom) -> WYSIWYG
-          const m = await sharp(cache.get(url)!).metadata();
+          const m = await sharp(srcBuf).metadata();
           const iw = m.width || 1000, ih = m.height || 1000;
           const s0 = Math.max(dw / iw, dh / ih);
           const cw = Math.max(dw, Math.round(iw * s0)), ch = Math.max(dh, Math.round(ih * s0));
@@ -86,7 +92,7 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
           const cropX = ((cw - dw) * ox) / 100, cropY = ((ch - dh) * oy) / 100;
           const tx = (((50 - ox) * (sc - 1)) / 100) * dw, ty = (((50 - oy) * (sc - 1)) / 100) * dh;
           // PHÒNG THỦ extract: resize ra buffer thật rồi mới cắt; mọi biên đều min/clamp theo kích thước thật
-          const rbuf = await sharp(cache.get(url)!).resize(cw, ch, { fit: "fill" }).toBuffer();
+          const rbuf = await sharp(srcBuf).resize(cw, ch, { fit: "fill" }).toBuffer();
           const rm = await sharp(rbuf).metadata();
           const RW = rm.width || cw, RH = rm.height || ch;
           const srcW = clampN(Math.round(dw / sc), 1, RW), srcH = clampN(Math.round(dh / sc), 1, RH);
@@ -95,12 +101,12 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
           img = sharp(rbuf).extract({ left, top, width: srcW, height: srcH }).resize(dw, dh);
         } else {
           // mặc định: cover-crop 'attention' (smart-crop né cắt mặt)
-          img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
+          img = sharp(srcBuf).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
         }
       } catch (err: any) {
         // 1 ô lỗi -> KHÔNG đánh sập cả mẫu: rơi về crop mặc định
         console.warn(`compose slot ${gIdx} lỗi (${err?.message}) -> dùng crop mặc định`);
-        img = sharp(cache.get(url)!).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
+        img = sharp(srcBuf).resize(dw, dh, { fit: "cover", position: sharp.strategy.attention });
       }
       let left = Math.round((s.x / 100) * W), top = Math.round((s.y / 100) * H);
       try {
@@ -111,17 +117,17 @@ export async function composeTemplateDemo(templateId: string, pool: string[], ov
           // xoay quanh TÂM khung: bù phần nở ra sau khi xoay
           left = Math.round(left + dw / 2 - (rm.width || dw) / 2);
           top = Math.round(top + dh / 2 - (rm.height || dh) / 2);
-          const fitted = await fitOverlay(rotated, left, top, W, H);
-          if (fitted) overlays.push(fitted);
+          return await fitOverlay(rotated, left, top, W, H);
         } else {
-          const fitted = await fitOverlay(await img.jpeg({ quality: 90 }).toBuffer(), left, top, W, H);
-          if (fitted) overlays.push(fitted);
+          return await fitOverlay(await img.jpeg({ quality: 85 }).toBuffer(), left, top, W, H);
         }
       } catch (err: any) {
         // log kích thước để debug thay vì đánh sập cả mẫu
         console.warn(`compose overlay slot ${gIdx} lỗi: ${err?.message} | base=${W}x${H} slot=${dw}x${dh}@${left},${top}`);
+        return null;
       }
-    }
+    }));
+    const overlays = slotResults.filter(Boolean) as { input: Buffer; left: number; top: number }[];
 
     const out = await base.composite(overlays).jpeg({ quality: 88 }).toBuffer();
     return await saveBuffer(out, "image/jpeg", `demo-${t.id}-${pi}.jpg`);

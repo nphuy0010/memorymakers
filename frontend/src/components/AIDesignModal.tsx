@@ -14,7 +14,6 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [thinking, setThinking] = useState(false);
   const [results, setResults] = useState<Template[] | null>(null);
-  const EXAMPLES = ["Tôi muốn mẫu đi du lịch biển cùng người yêu", "Album cưới phong cách nhẹ nhàng", "Kỷ yếu tốt nghiệp cho nhóm bạn", "Sinh nhật bé 1 tuổi thật dễ thương"];
 
   const run = (text?: string) => {
     const q = (text ?? prompt).trim();
@@ -46,14 +45,8 @@ export default function AIDesignModal({ templates, initialPrompt, onUse, onClose
           <p style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 14, color: C.sub, margin: "0 0 12px" }}>Bạn muốn cuốn photobook kể câu chuyện gì? Cứ mô tả tự nhiên, AI sẽ tìm mẫu hợp nhất rồi đưa bạn vào trang thiết kế.</p>
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
-            placeholder="Ví dụ: tôi muốn mẫu đi du lịch biển cùng người yêu"
+            placeholder="Mô tả cuốn photobook bạn muốn…"
             style={{ width: "100%", padding: 14, borderRadius: 14, border: `1.5px solid ${C.line}`, fontFamily: "var(--font-sans,sans-serif)", fontSize: 15, color: C.ink, outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }} />
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0 16px" }}>
-            {EXAMPLES.map((ex) => (
-              <button key={ex} onClick={() => setPrompt(ex)} style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, background: C.cream2, border: `1px solid ${C.line}`, borderRadius: 999, padding: "6px 13px", cursor: "pointer" }}>{ex}</button>
-            ))}
-          </div>
 
           <button onClick={() => run()} disabled={!prompt.trim() || thinking} className="mm-btn" style={{ width: "100%", background: C.brass, color: "#fff", border: "none", borderRadius: 999, padding: "12px", fontFamily: "var(--font-sans,sans-serif)", fontWeight: 600, fontSize: 14, cursor: prompt.trim() && !thinking ? "pointer" : "not-allowed", opacity: prompt.trim() && !thinking ? 1 : .5, display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
             <Sparkles size={16} /> {thinking ? "AI đang chọn mẫu…" : "Tạo mẫu với AI"}

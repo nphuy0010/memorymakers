@@ -46,7 +46,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2.5">
               <Search size={18} className="text-brass ml-2 shrink-0" />
               <input value={hero} onChange={e => setHero(e.target.value)} onKeyDown={e => e.key === "Enter" && search()}
-                placeholder="Ví dụ: tôi muốn mẫu đi du lịch biển cùng người yêu"
+                placeholder="Mô tả cuốn photobook bạn muốn…"
                 className="flex-1 bg-transparent outline-none font-sans text-[15px] text-ink py-2.5" />
               <button onClick={search} className="mm-btn flex items-center gap-2 bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold shrink-0">
                 <Sparkles size={16} /> Tìm mẫu
