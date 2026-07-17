@@ -72,7 +72,33 @@ export default function OrderDesignModal({ order, onClose }: { order: any; onClo
       try { await (document as any).fonts?.ready; } catch {}
       const { default: jsPDF } = await import("jspdf");
       const canvases: HTMLCanvasElement[] = [];
-      for (const { p, i } of visible) canvases.push(await renderPageCanvas(p, i));
+      const isSplit = pages.length > 0 && pages.some((p: any) => p?.type);
+      if (isSplit) {
+        // BẢN IN THẬT = SPREAD NGANG (2 trang liền / 1 tờ). Tái ghép slide gốc từ 2 trang đã cắt:
+        //  - Tờ đầu: trái = BÌA SAU (trang cuối) + phải = BÌA TRƯỚC (trang đầu) — đúng slide bìa upload gốc
+        //  - Tờ k: trái = pages[2k-1], phải = pages[2k] (ruột theo thứ tự), nửa thiếu để trắng
+        //  - KHÔNG bỏ trang ẩn: tờ in vật lý không thể thiếu nửa tờ
+        const N = pages.length;
+        const spreads: [number, number][] = [[N - 1, 0]];
+        for (let k = 1; 2 * k - 1 < N - 1; k++) spreads.push([2 * k - 1, 2 * k < N - 1 ? 2 * k : -1]);
+        for (const [li, ri] of spreads) {
+          const halves = await Promise.all([
+            li >= 0 ? renderPageCanvas(pages[li], li) : Promise.resolve(null),
+            ri >= 0 ? renderPageCanvas(pages[ri], ri) : Promise.resolve(null),
+          ]);
+          const ref = (halves[0] || halves[1])!;
+          const wl = halves[0]?.width ?? ref.width, wr = halves[1]?.width ?? ref.width;
+          const hh = Math.max(halves[0]?.height ?? 0, halves[1]?.height ?? 0);
+          const cv = document.createElement("canvas"); cv.width = wl + wr; cv.height = hh;
+          const ctx = cv.getContext("2d")!; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+          if (halves[0]) ctx.drawImage(halves[0], 0, 0);
+          if (halves[1]) ctx.drawImage(halves[1], wl, 0);
+          canvases.push(cv);
+        }
+      } else {
+        // Template cũ chưa cắt đôi: mỗi page vốn đã là spread gốc -> xuất trực tiếp, không xử lý thêm
+        for (const { p, i } of visible) canvases.push(await renderPageCanvas(p, i));
+      }
       if (!canvases.length) { alert("Không có trang để xuất."); return; }
       const first = canvases[0];
       const pdf = new jsPDF({ orientation: first.width >= first.height ? "landscape" : "portrait", unit: "px", format: [first.width, first.height] });

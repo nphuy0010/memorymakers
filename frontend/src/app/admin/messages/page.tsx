@@ -94,10 +94,9 @@ export default function AdminMessages() {
       {delConvo && (
         <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setDelConvo(null)}>
           <div className="bg-paper rounded-2xl border border-line w-full max-w-[320px] p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá toàn bộ đoạn chat với khách hàng này?</div>
-            <p className="font-sans text-[12.5px] text-sub mb-4">Hành động này không thể hoàn tác.</p>
-            <button onClick={() => doDeleteConvo("self")} className="w-full mb-2 bg-cream text-ink border border-line rounded-full py-2.5 font-sans text-sm font-semibold">Xoá ở phía tôi (khách vẫn thấy)</button>
-            <button onClick={() => doDeleteConvo("both")} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Xoá cả hai phía</button>
+            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá đoạn chat này ở phía bạn?</div>
+            <p className="font-sans text-[12.5px] text-sub mb-4">Khách hàng vẫn thấy đoạn chat bình thường. Nếu khách nhắn tiếp, đoạn chat sẽ hiện lại chỉ với tin nhắn mới.</p>
+            <button onClick={() => doDeleteConvo("self")} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Xoá</button>
             <button onClick={() => setDelConvo(null)} className="w-full text-sub font-sans text-sm py-1.5">Huỷ</button>
           </div>
         </div>

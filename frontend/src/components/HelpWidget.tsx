@@ -20,6 +20,13 @@ export default function HelpWidget() {
   const [loading, setLoading] = useState(true); // spinner trong lúc video tải metadata
   const vidRef = useRef<HTMLVideoElement>(null);
   useEffect(() => { api.getHelpVideo().then((r: any) => setUrl(r?.url || null)).catch(() => {}); }, []);
+  // Ẩn nút ? khi popup chat đang mở (chat quan trọng hơn, popup mở phía trên nút chat)
+  const [chatOpen, setChatOpen] = useState(false);
+  useEffect(() => {
+    const h = (e: any) => setChatOpen(!!e?.detail?.open);
+    window.addEventListener("mm-chat-open", h);
+    return () => window.removeEventListener("mm-chat-open", h);
+  }, []);
   // ĐÓNG popup -> pause video (tránh chạy ngầm)
   const close = () => { setOpen(false); vidRef.current?.pause(); };
 
@@ -52,7 +59,7 @@ export default function HelpWidget() {
       )}
       {/* Nút ? — giống hệt nút chat, đặt PHÍA TRÊN nút chat ~14px (chat: bottom-6 h-14 => 24+56+14 = 94px) */}
       <button onClick={() => setOpen(o => !o)} aria-label="Hướng dẫn sử dụng"
-        className="mm-float fixed right-6 w-14 h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[60]" style={{ bottom: 94 }}>
+        className="mm-float fixed right-6 w-12 h-12 rounded-full bg-brass grid place-items-center shadow-lg z-[998]" style={{ bottom: 90, display: chatOpen ? "none" : undefined }}>
         <HelpCircle size={24} className="text-white" />
       </button>
     </>

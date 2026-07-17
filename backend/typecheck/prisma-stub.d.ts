@@ -25,7 +25,7 @@ declare module "@prisma/client" {
   }
   export interface Message {
     id: Str; userId: Str; content: Str; fromAdmin: Bool;
-    readByAdmin: Bool; readByUser: Bool; recalled: Bool; deletedForSender: Bool; hiddenForUser: Bool; hiddenForAdmin: Bool;
+    readByAdmin: Bool; readByUser: Bool; hiddenForUser: Bool; hiddenForAdmin: Bool;
     createdAt: Dt; user?: User;
   }
   export interface Setting { key: Str; value: Str; }

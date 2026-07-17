@@ -33,6 +33,10 @@ export default function Chatbot() {
     try { await api.clearMyChat(); setMsgs([]); } // giao diện về trống — nhắn lại bình thường
     catch (e: any) { alert(e?.message || "Không xoá được"); }
   };
+  // Báo cho nút ? biết chat đang mở để tự ẩn (tránh popup đè lên nút ?)
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("mm-chat-open", { detail: { open } }));
+  }, [open]);
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -48,7 +52,7 @@ export default function Chatbot() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-[90px] right-6 w-[330px] bg-white rounded-2xl border border-line shadow-2xl z-[60] overflow-hidden">
+        <div className="fixed bottom-[90px] right-6 w-[330px] bg-white rounded-2xl border border-line shadow-2xl z-[999] overflow-hidden" style={{ maxHeight: "min(560px, calc(100vh - 110px))" }}>
           <div className="bg-ink text-white px-4 py-3.5 flex justify-between items-center">
             <div>
               <div className="font-serif text-base font-semibold">Nhắn tin với shop</div>
@@ -82,16 +86,16 @@ export default function Chatbot() {
           )}
         </div>
       )}
-      <button onClick={() => setOpen(o => !o)} className="mm-float fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[60]">
+      <button onClick={() => setOpen(o => !o)} className="mm-float fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[999]">
         <MessageCircle size={24} className="text-white" />
       </button>
       {/* CONFIRM XOÁ CẢ ĐOẠN CHAT */}
       {clearAsk && (
         <div className="fixed inset-0 z-[98] grid place-items-center p-4" style={{ background: "rgba(42,37,32,.55)" }} onClick={() => setClearAsk(false)}>
           <div className="bg-paper rounded-2xl border border-line w-full max-w-[300px] p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá toàn bộ đoạn chat này?</div>
-            <p className="font-sans text-[12.5px] text-sub mb-4">Hành động này không thể hoàn tác. Đoạn chat chỉ bị ẩn ở phía bạn — shop vẫn thấy để hỗ trợ khi cần.</p>
-            <button onClick={clearChat} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Xoá ở phía tôi</button>
+            <div className="font-serif text-lg text-ink font-bold mb-1">Xoá đoạn chat này?</div>
+            <p className="font-sans text-[12.5px] text-sub mb-4">Bạn sẽ không thấy lịch sử tin nhắn nữa. Shop vẫn thấy đoạn chat bình thường. Nếu shop nhắn tiếp, đoạn chat sẽ hiện lại chỉ với tin nhắn mới.</p>
+            <button onClick={clearChat} className="w-full mb-2 bg-[#B05A4A] text-white rounded-full py-2.5 font-sans text-sm font-semibold">Xoá</button>
             <button onClick={() => setClearAsk(false)} className="w-full text-sub font-sans text-sm py-1.5">Huỷ</button>
           </div>
         </div>
