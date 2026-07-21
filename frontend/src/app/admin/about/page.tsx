@@ -7,33 +7,25 @@ import AdminShell from "@/components/AdminShell";
 export default function AdminAbout() {
   const [a, setA] = useState<any>(null);
   const [saved, setSaved] = useState(false);
-  const [heroVideo, setHeroVideo] = useState<string | null>(null);
+  const [heroItems, setHeroItems] = useState<{ url: string; type: "image" | "video" }[]>([]);
   const [vUp, setVUp] = useState(false);
+  const saveHeroItems = async (items: { url: string; type: "image" | "video" }[]) => {
+    await api.setHeroMedia(items); clearApiCache(); setHeroItems(items);
+  };
   const [pols, setPols] = useState<any[]>([]);
   const [helpUrl, setHelpUrl] = useState("");
   const [helpUp, setHelpUp] = useState(false);
   const [pSaving, setPSaving] = useState(false);
   const [pMsg, setPMsg] = useState("");
 
-  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); api.getHelpVideo().then((r: any) => setHelpUrl(r?.url || "")).catch(() => {}); }, []);
+  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroMedia().then((r: any) => setHeroItems(Array.isArray(r?.items) ? r.items : [])).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); api.getHelpVideo().then((r: any) => setHelpUrl(r?.url || "")).catch(() => {}); }, []);
 
-  const uploadHero = async (file: File) => {
-    setVUp(true);
-    try {
-      if (!file.type.startsWith("video")) { alert("Hãy chọn file VIDEO (mp4/webm)."); return; }
-      const { url } = await api.uploadFile(file); // admin được upload video (giới hạn 15MB)
-      await api.setHeroVideo(url);
-      clearApiCache(); setHeroVideo(url);
-    } catch (e: any) { alert("Upload video lỗi: " + (e?.message || "") + "\n→ Video ≤ 15MB; backend cần bản mới (route hero-video)."); }
-    finally { setVUp(false); }
-  };
   const savePolicies = async () => {
     setPSaving(true); setPMsg("");
     try { await api.setPolicies(pols); clearApiCache(); setPMsg("Đã lưu ✓"); setTimeout(() => setPMsg(""), 2000); }
     catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route /settings/policies)."); }
     finally { setPSaving(false); }
   };
-  const removeHero = async () => { try { await api.setHeroVideo(null); clearApiCache(); setHeroVideo(null); } catch (e: any) { alert("Lỗi: " + (e?.message || "")); } };
   if (!a) return <AdminShell><div className="p-6 text-sub">Đang tải…</div></AdminShell>;
 
   const set = (k: string, v: string) => { setA((s: any) => ({ ...s, [k]: v })); setSaved(false); };
@@ -77,21 +69,44 @@ export default function AdminAbout() {
         </div>
       </div>
 
-      {/* VIDEO TRANG CHỦ: có video -> hero hiển thị video thay cụm bìa mẫu; gỡ -> hiển thị bìa như cũ */}
+      {/* MEDIA TRANG CHỦ: nhiều ẢNH + VIDEO — hiển thị carousel vòng tròn (ảnh 3s, video chạy hết) */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
-        <div className="flex items-center gap-2 mb-1"><Film size={18} className="text-brass" /><h3 className="font-serif text-lg text-ink font-bold">Video trang chủ</h3></div>
-        <p className="font-sans text-[13px] text-sub mb-3">Upload video (mp4/webm, ≤15MB) — trang chủ sẽ hiển thị video này thay cụm bìa mẫu, cập nhật ngay sau khi tải xong. Không có video thì trang chủ vẫn hiển thị các template như bình thường.</p>
-        {heroVideo ? (
-          <div>
-            <video src={heroVideo} autoPlay muted loop playsInline className="w-full max-w-md rounded-xl border border-line" />
-            <button onClick={removeHero} className="mt-3 font-sans text-[13px] text-[#B05A4A] flex items-center gap-1.5"><Trash2 size={14} /> Gỡ video (quay lại hiển thị bìa mẫu)</button>
-          </div>
-        ) : (
-          <label className="mm-btn inline-flex items-center gap-2 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold cursor-pointer">
-            {vUp ? <><Loader2 size={15} className="animate-spin" /> Đang tải video…</> : <><Film size={15} /> Tải video lên</>}
-            <input type="file" accept="video/mp4,video/webm,video/*" className="hidden" disabled={vUp} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHero(f); e.currentTarget.value = ""; }} />
-          </label>
-        )}
+        <div className="flex items-center gap-2 mb-1"><Film size={18} className="text-brass" /><h3 className="font-serif text-lg text-ink font-bold">Ảnh / Video trang chủ (carousel)</h3></div>
+        <p className="font-sans text-[13px] text-sub mb-3">Tải nhiều ảnh hoặc video (≤15MB mỗi file, tối đa 10). Trang chủ hiển thị lần lượt theo vòng tròn: đang chiếu nằm trước, các media sau xếp phía sau mờ dần; ảnh chiếu 3 giây, video chạy hết rồi tự chuyển. Trống thì hiển thị bìa mẫu như cũ.</p>
+        <div className="flex gap-2.5 flex-wrap items-start mb-3">
+          {heroItems.map((it, i) => (
+            <div key={i} className="relative w-24">
+              <div className="w-24 h-16 rounded-lg overflow-hidden border border-line bg-cream">
+                {it.type === "video"
+                  ? <video src={it.url} muted className="w-full h-full object-cover" />
+                  : <img src={it.url} className="w-full h-full object-cover" />}
+              </div>
+              <span className="absolute top-1 left-1 bg-black/55 text-white rounded px-1 font-sans text-[9.5px]">{i + 1} · {it.type === "video" ? "video" : "ảnh"}</span>
+              <button onClick={() => saveHeroItems(heroItems.filter((_, k) => k !== i))} className="absolute -top-1.5 -right-1.5 w-5 h-5 grid place-items-center rounded-full bg-[#B05A4A] text-white text-[10px]">✕</button>
+            </div>
+          ))}
+          {heroItems.length < 10 && (
+            <label className="w-24 h-16 rounded-lg border border-dashed border-brass/60 grid place-items-center cursor-pointer text-brass hover:bg-cream">
+              {vUp ? <Loader2 size={16} className="animate-spin" /> : <span className="font-sans text-[11px] font-semibold text-center leading-tight">+ Thêm<br />ảnh/video</span>}
+              <input type="file" accept="image/*,video/mp4,video/webm" className="hidden" disabled={vUp} multiple
+                onChange={async (e) => {
+                  const fs = Array.from(e.target.files || []); e.currentTarget.value = "";
+                  if (!fs.length) return;
+                  setVUp(true);
+                  try {
+                    const added: any[] = [];
+                    for (const f of fs.slice(0, 10 - heroItems.length)) {
+                      const { url } = await api.uploadFile(f);
+                      added.push({ url, type: f.type.startsWith("video") ? "video" : "image" });
+                    }
+                    await saveHeroItems([...heroItems, ...added]);
+                  } catch (err: any) { alert("Upload lỗi: " + (err?.message || "") + "\n→ Mỗi file ≤ 15MB; backend cần bản mới (route hero-media)."); }
+                  finally { setVUp(false); }
+                }} />
+            </label>
+          )}
+        </div>
+        <p className="font-sans text-[11.5px] text-sub">Thứ tự hiển thị = thứ tự trong danh sách. Xoá rồi tải lại để đổi thứ tự.</p>
       </div>
       {/* VIDEO HƯỚNG DẪN (nút ? nổi cạnh chat): UPLOAD trực tiếp — có preview + nút xoá; chưa có video -> nút ? tự ẩn */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">

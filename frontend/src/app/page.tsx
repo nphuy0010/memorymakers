@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight, Star, Eye, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import TemplateCover from "@/components/TemplateCover";
+import HeroCarousel, { type HeroItem } from "@/components/HeroCarousel";
 import { FanMotif, CatIcon, GRADS } from "@/components/Brand";
 import { CATS, type Template } from "@/lib/types";
 
@@ -12,13 +13,13 @@ export default function HomePage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [about, setAbout] = useState<any>(null);
   const [hero, setHero] = useState("");
-  const [heroVideo, setHeroVideo] = useState<string | null>(null);
+  const [heroMedia, setHeroMedia] = useState<HeroItem[]>([]);
   const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.templates().then(setTemplates).catch(() => {});
     api.about().then(setAbout).catch(() => {});
-    api.getHeroVideo().then((r: any) => setHeroVideo(r?.url || null)).catch(() => {});
+    api.getHeroMedia().then((r: any) => setHeroMedia(Array.isArray(r?.items) ? r.items : [])).catch(() => {});
   }, []);
 
   const featured = useMemo(() => {
@@ -56,10 +57,10 @@ export default function HomePage() {
           <button onClick={() => router.push("/templates")} className="mm-nav mt-3.5 font-sans text-sm text-sub">hoặc xem toàn bộ mẫu có sẵn →</button>
         </div>
 
-        {/* CÓ VIDEO (admin upload) -> hiển thị video; KHÔNG có -> hai bìa mẫu như cũ */}
-        {heroVideo ? (
-          <div className="relative">
-            <video src={heroVideo} autoPlay muted loop playsInline className="w-full rounded-2xl border border-line shadow-[0_18px_50px_rgba(42,37,32,.18)]" />
+        {/* CÓ MEDIA (admin upload) -> carousel vòng tròn ảnh+video; KHÔNG có -> hai bìa mẫu như cũ */}
+        {heroMedia.length > 0 ? (
+          <div className="relative pb-7">
+            <HeroCarousel items={heroMedia} />
           </div>
         ) : (
         <div className="relative min-h-[320px]">

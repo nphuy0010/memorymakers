@@ -50,6 +50,29 @@ router.put("/stickers", requireAuth, requireAdmin, validate(demoPoolSchema), asy
   res.json(JSON.parse(value));
 });
 
+// MEDIA TRANG CHỦ (carousel): mảng ảnh + video hiển thị xoay vòng ở hero
+const heroMediaSchema = z.object({
+  items: z.array(z.object({
+    url: z.string().max(2000).refine((u) => !u.startsWith("data:"), "Không nhận base64"),
+    type: z.enum(["image", "video"]),
+  })).max(10),
+});
+router.get("/hero-media", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "heroMedia" } });
+  let items: any[] = [];
+  try { items = JSON.parse(row?.value || "[]"); } catch {}
+  if (!items.length) { // tương thích ngược: chỉ có video hero cũ -> coi như 1 item
+    const old = await prisma.setting.findUnique({ where: { key: "heroVideo" } });
+    const u = (() => { try { return JSON.parse(old?.value || "null"); } catch { return old?.value || null; } })();
+    if (u) items = [{ url: u, type: "video" }];
+  }
+  res.json({ items });
+});
+router.put("/hero-media", requireAuth, requireAdmin, validate(heroMediaSchema), async (req, res) => {
+  await prisma.setting.upsert({ where: { key: "heroMedia" }, update: { value: JSON.stringify(req.body.items) }, create: { key: "heroMedia", value: JSON.stringify(req.body.items) } });
+  res.json({ ok: true });
+});
+
 // VIDEO TRANG CHỦ (hero): admin upload -> hiển thị thay cụm bìa mẫu; null -> hiển thị bìa như cũ
 const heroSchema = z.object({ url: z.string().max(2000).refine((u) => !u.startsWith("data:"), "Không nhận base64").nullable() });
 router.get("/hero-video", async (_req, res) => {
