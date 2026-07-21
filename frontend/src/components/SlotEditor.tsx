@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save, RotateCw } from "lucide-react";
+import { X, Square, Trash2, ChevronUp, ChevronDown, Loader2, Save, RotateCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { api, clearApiCache } from "@/lib/api";
+import { usePageRatio } from "@/lib/usePageRatio";
 
 type Slot = { x: number; y: number; w: number; h: number; shape: "rect" | "circle"; rot?: number };
 type Page = { image: string; slots: Slot[] };
