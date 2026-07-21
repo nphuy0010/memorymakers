@@ -159,7 +159,7 @@ router.post("/templates/:id/apply-demo", async (req, res) => {
   const pool = await getDemoPool();
   try {
     const r = await composeTemplateDemo(req.params.id, pool, { assignments: req.body?.assignments, edits: req.body?.edits });
-    if (!r.ok) return res.status(400).json({ error: "Không ghép được (mẫu chưa có trang hoặc chưa có ảnh)" });
+    if (!r.ok) return res.status(400).json({ error: r.reason || "Không ghép được (mẫu chưa có trang hoặc chưa có ảnh)" });
     res.json(r);
   } catch (e: any) {
     console.error("apply-demo one:", e?.message); // log kỹ thuật cho debug
@@ -168,108 +168,62 @@ router.post("/templates/:id/apply-demo", async (req, res) => {
 });
 
 // Ghép ảnh demo (server-side, sharp) cho TẤT CẢ template từ kho ảnh chung
-router.post("/apply-demo", async (_req, res) => {
+// Gợi ý cách sửa dựa trên nội dung lỗi -> admin biết làm gì tiếp
+function hintForReason(reason: string): string {
+  const r = (reason || "").toLowerCase();
+  if (r.includes("chưa có trang")) return "Vào Sửa mẫu, tải slide lên cho mẫu này.";
+  if (r.includes("chưa có khung")) return "Vào Chỉnh khung, thêm khung ảnh cho mẫu này.";
+  if (r.includes("kho ảnh demo trống")) return "Tải ảnh vào kho demo trước khi ghép.";
+  if (r.includes("không tải được ảnh") || r.includes("404") || r.includes("403") || r.includes("tải ảnh lỗi")) return "Ảnh mẫu bị thiếu/hỏng (có thể mất khi Render restart) — tải lại slide cho mẫu này.";
+  if (r.includes("same dimensions") || r.includes("composite")) return "Ảnh gốc lỗi kích thước — tải lại slide cho mẫu này.";
+  if (r.includes("cloudinary")) return "Lỗi Cloudinary — kiểm tra cấu hình CLOUDINARY_URL trên Render rồi thử lại.";
+  return "Thử lại; nếu vẫn lỗi, tải lại slide cho mẫu này.";
+}
+router.post("/apply-demo", async (req, res) => {
   const pool = await getDemoPool();
   if (!pool.length) return res.status(400).json({ error: "Kho ảnh demo trống" });
-  const templates = await prisma.template.findMany({ where: { archived: false }, select: { id: true, title: true } });
+  // body.ids (tùy chọn): chỉ ghép các template được chọn (dùng khi admin bỏ qua mẫu thiếu dữ liệu)
+  const onlyIds: string[] | null = Array.isArray(req.body?.ids) && req.body.ids.length ? req.body.ids : null;
+  let templates = await prisma.template.findMany({ where: { archived: false }, select: { id: true, title: true } });
+  if (onlyIds) templates = templates.filter((t: { id: string; title: string }) => onlyIds.includes(t.id));
   const results: any[] = [];
   for (const t of templates) {
-    try { const r = await composeTemplateDemo(t.id, pool); results.push({ id: t.id, title: t.title, ...r }); }
-    catch (e: any) { results.push({ id: t.id, title: t.title, ok: false, error: e?.message }); }
+    try { const r = await composeTemplateDemo(t.id, pool); results.push({ id: t.id, title: t.title, ...r, hint: r.ok ? undefined : hintForReason(r.reason || "") }); }
+    catch (e: any) {
+      console.error(`apply-demo "${t.title}" lỗi:`, e?.message); // log server chi tiết
+      results.push({ id: t.id, title: t.title, ok: false, error: e?.message, hint: hintForReason(e?.message || "") });
+    }
   }
   res.json({ done: true, results });
 });
 
-// ============ XỬ LÝ LẠI TEMPLATE CŨ: cắt đôi slide + remap khung ============
-// Template cũ = pages chưa có `type` trên bất kỳ trang nào. Slide 1: trái=bìa SAU, phải=bìa TRƯỚC.
-function clampSlotSrv(s: any) {
-  let x = Math.max(-20, Math.min(119, s.x)), y = Math.max(-20, Math.min(119, s.y));
-  let w = Math.max(0.5, Math.min(120, s.w)), h = Math.max(0.5, Math.min(120, s.h));
-  if (x + w > 120) w = Math.max(0.5, 120 - x);
-  if (y + h > 120) h = Math.max(0.5, 120 - y);
-  return { ...s, x, y, w, h };
-}
-// XỬ LÝ 1 TEMPLATE: cắt đôi mọi slide + remap khung + đặt bìa. Trả "processed" | "skipped".
-// LƯU Ý NGUỒN DUY NHẤT: template.pages (đã cắt) là nơi mọi hiển thị/ghép ảnh đọc — sau hàm này dữ liệu cũ được đưa về chuẩn.
-async function resplitOne(t: any): Promise<"processed" | "skipped"> {
-  const sharp = require("sharp");
-  let cloud: any = null;
-  try { cloud = require("cloudinary").v2; } catch {}
-  if (!cloud || (!process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME)) {
-    throw new Error("Cần cấu hình Cloudinary để xử lý lại template cũ");
+// KIỂM TRA TRƯỚC KHI GHÉP: liệt kê template đủ/thiếu dữ liệu (không tải ảnh nặng, chỉ check nhanh cấu trúc + HEAD ảnh trang đầu)
+router.post("/apply-demo/check", async (_req, res) => {
+  const pool = await getDemoPool();
+  const templates = await prisma.template.findMany({ where: { archived: false }, select: { id: true, title: true, pages: true } });
+  const ready: { id: string; title: string }[] = [];
+  const invalid: { id: string; title: string; reason: string; hint: string }[] = [];
+  for (const t of templates) {
+    let pages: any[] = [];
+    try { pages = JSON.parse((t.pages as any) || "[]"); } catch {}
+    if (!pages.length) { invalid.push({ id: t.id, title: t.title, reason: "Mẫu chưa có trang nào", hint: "Vào Sửa mẫu, tải slide lên cho mẫu này." }); continue; }
+    const totalSlots = pages.reduce((n: number, p: any) => n + (p.slots?.length || 0), 0);
+    if (!totalSlots) { invalid.push({ id: t.id, title: t.title, reason: "Mẫu chưa có khung ảnh nào", hint: "Vào Chỉnh khung, thêm khung cho mẫu này." }); continue; }
+    const noImg = pages.find((p: any) => !p.image || !/^https?:\/\//.test(p.image));
+    if (noImg) { invalid.push({ id: t.id, title: t.title, reason: "Có trang thiếu ảnh hoặc URL ảnh hỏng", hint: "Ảnh có thể đã mất (đĩa Render cũ) — tải lại slide cho mẫu này." }); continue; }
+    // HEAD ảnh trang đầu để phát hiện 404/ảnh chết trên Cloudinary
+    try {
+      const r = await fetch(pages[0].image, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+      if (!r.ok) { invalid.push({ id: t.id, title: t.title, reason: `Ảnh trang đầu trả về ${r.status}`, hint: "Ảnh không truy cập được — tải lại slide cho mẫu này." }); continue; }
+    } catch {
+      invalid.push({ id: t.id, title: t.title, reason: "Không truy cập được ảnh trang đầu", hint: "Ảnh có thể đã bị xoá/hết hạn — tải lại slide." }); continue;
+    }
+    ready.push({ id: t.id, title: t.title });
   }
-  const fetchBuf = async (url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("fetch " + r.status); return Buffer.from(await r.arrayBuffer()); };
-  const upload = async (buf: Buffer) => {
-    const dataUri = "data:image/jpeg;base64," + buf.toString("base64");
-    const r = await cloud.uploader.upload(dataUri, { folder: "memory-makers/pages" });
-    return r.secure_url as string;
-  };
-  {
-      let pages: any[] = [];
-      try { pages = JSON.parse((t.pages as any) || "[]"); } catch { pages = []; }
-      if (!Array.isArray(pages) || !pages.length || pages.some((p) => p?.type)) return "skipped"; // đã split hoặc rỗng
-      const front: any[] = [], middle: any[] = [], back: any[] = [];
-      for (let pi = 0; pi < pages.length; pi++) {
-        const pg = pages[pi];
-        const buf = await fetchBuf(pg.image);
-        const meta = await sharp(buf).metadata();
-        const W = meta.width || 1000, H = meta.height || 1000;
-        const half = Math.floor(W / 2);
-        const [lBuf, rBuf] = await Promise.all([
-          sharp(buf).extract({ left: 0, top: 0, width: half, height: H }).jpeg({ quality: 90 }).toBuffer(),
-          sharp(buf).extract({ left: half, top: 0, width: W - half, height: H }).jpeg({ quality: 90 }).toBuffer(),
-        ]);
-        const [lUrl, rUrl] = await Promise.all([upload(lBuf), upload(rBuf)]);
-        // REMAP khung: tọa độ % ảnh gốc -> % nửa ảnh (nhân đôi trục ngang); khung chắn giữa gán theo TÂM
-        const lSlots: any[] = [], rSlots: any[] = [];
-        for (const sl of pg.slots || []) {
-          const center = sl.x + sl.w / 2;
-          if (center < 50) lSlots.push(clampSlotSrv({ ...sl, x: sl.x * 2, w: sl.w * 2 }));
-          else rSlots.push(clampSlotSrv({ ...sl, x: (sl.x - 50) * 2, w: sl.w * 2 }));
-        }
-        const isCover = pi === 0;
-        const pgL = { image: lUrl, slots: lSlots, type: isCover ? "back_cover" : "inner_page" };
-        const pgR = { image: rUrl, slots: rSlots, type: isCover ? "front_cover" : "inner_page" };
-        if (isCover) { front.unshift(pgR); back.push(pgL); }
-        else middle.push(pgL, pgR);
-      }
-      const newPages = [...front, ...middle, ...back];
-      const totalSlots = newPages.reduce((n, p) => n + (p.slots?.length || 0), 0);
-      await prisma.template.update({
-        where: { id: t.id },
-        data: {
-          pages: JSON.stringify(newPages), pageCount: newPages.length, slots: totalSlots,
-          coverImage: newPages[0]?.image || t.coverImage,
-          demoImage: null, demoPages: "[]", // bố cục đổi -> ảnh ghép cũ sai, cần áp kho demo lại
-        },
-      });
-      return "processed";
-  }
-}
-
-// Batch: xử lý toàn bộ (giữ tương thích)
-router.post("/templates/resplit", async (_req, res) => {
-  const all = await prisma.template.findMany({ where: { archived: false } });
-  let processed = 0, skipped = 0; const errors: string[] = [];
-  for (const t of all) {
-    try { (await resplitOne(t)) === "processed" ? processed++ : skipped++; }
-    catch (e: any) { errors.push(`${t.title}: ${e?.message || "lỗi"}`); }
-  }
-  res.json({ processed, skipped, errors });
+  res.json({ poolEmpty: !pool.length, ready, invalid });
 });
 
-// Từng template — cho progress bar phía admin + fallback tự xử lý khi mở mẫu chưa cắt
-router.post("/templates/:id/resplit", async (req, res) => {
-  const t = await prisma.template.findUnique({ where: { id: req.params.id } });
-  if (!t) return res.status(404).json({ error: "Không tìm thấy template" });
-  try {
-    const r = await resplitOne(t);
-    res.json({ status: r, title: t.title });
-  } catch (e: any) {
-    console.error("resplit one:", t.title, e?.message);
-    res.status(500).json({ error: e?.message || "Xử lý lỗi", title: t.title });
-  }
-});
+// (Đã gỡ chức năng "xử lý lại template cũ / cắt đôi lại" theo yêu cầu — mọi template dùng trực tiếp pages hiện có.)
 
 // XOÁ CẢ ĐOẠN CHAT với 1 khách (chỉ admin):
 //   mode=self -> ẩn phía admin (khách vẫn thấy) · mode=both -> xoá hẳn cả 2 phía (không hoàn tác)

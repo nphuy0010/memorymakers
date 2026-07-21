@@ -40,27 +40,6 @@ export default function AdminTemplates() {
   const [pages, setPages] = useState<PageDef[]>([]);
   const [detecting, setDetecting] = useState(false);
   const [clampWarn, setClampWarn] = useState(0);
-  const [resplitting, setResplitting] = useState(false);
-  const [prog, setProg] = useState<{ done: number; total: number; errors: string[] } | null>(null);
-  // MIGRATION template cũ: xử lý TỪNG template (progress thật) — server tự bỏ qua mẫu đã cắt
-  const resplit = async () => {
-    if (!confirm("Xử lý lại toàn bộ template CŨ (chưa cắt đôi)?\n- Mỗi slide sẽ cắt thành 2 trang, slide 1 thành bìa trước/sau.\n- Ảnh demo đã ghép của các mẫu này sẽ bị xoá — vào Kho ảnh demo bấm áp dụng lại sau.")) return;
-    setResplitting(true);
-    const errors: string[] = [];
-    let processed = 0, skipped = 0;
-    try {
-      for (let i = 0; i < templates.length; i++) {
-        setProg({ done: i, total: templates.length, errors });
-        try {
-          const r: any = await api.resplitTemplate(templates[i].id);
-          if (r.status === "processed") processed++; else skipped++;
-        } catch (e: any) { errors.push(`${templates[i].title}: ${e?.message || "lỗi"}`); }
-      }
-      setProg({ done: templates.length, total: templates.length, errors });
-      clearApiCache(); load();
-      alert(`Đã xử lý xong ${processed + skipped}/${templates.length} template (${processed} cắt mới, ${skipped} đã cắt sẵn). ${errors.length} lỗi.` + (errors.length ? `\n\nTemplate lỗi (kiểm tra thủ công):\n${errors.join("\n")}` : ""));
-    } finally { setResplitting(false); setTimeout(() => setProg(null), 1500); }
-  };
   const [editInfo, setEditInfo] = useState<any>(null); // sửa tên/mô tả/giá
   const [savingInfo, setSavingInfo] = useState(false);
   const saveInfo = async () => {
@@ -286,18 +265,7 @@ export default function AdminTemplates() {
       <div className="bg-white rounded-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="font-serif text-lg text-ink font-bold">Template ({templates.length})</h3>
-          <button onClick={resplit} disabled={resplitting} className="mm-btn border border-line bg-cream/60 hover:bg-cream text-ink rounded-full px-4 py-2 font-sans text-[13px] font-semibold disabled:opacity-50">
-            {resplitting && prog ? `Đang xử lý template ${Math.min(prog.done + 1, prog.total)}/${prog.total}…` : "Xử lý lại template cũ (cắt đôi slide)"}
-          </button>
         </div>
-        {prog && (
-          <div className="mb-4">
-            <div className="h-2.5 rounded-full bg-cream overflow-hidden">
-              <div className="h-full bg-brass transition-all" style={{ width: `${(prog.done / Math.max(1, prog.total)) * 100}%` }} />
-            </div>
-            <div className="font-sans text-[12px] text-sub mt-1">{prog.done}/{prog.total} template{prog.errors.length ? ` · ${prog.errors.length} lỗi` : ""}</div>
-          </div>
-        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {templates.map(t => (
             <div key={t.id} className="border border-line rounded-xl p-2.5">

@@ -54,16 +54,7 @@ export default function AdminDemoPool() {
   const openEditor = async (id: string) => {
     setELoading(true);
     try {
-      let full: any = await api.template(id);
-      // FALLBACK: mẫu CŨ chưa cắt đôi (pages không có `type`) -> xử lý ngay rồi mở, tránh editor hiển thị slide đôi + khung chồng chéo
-      const pgs: any[] = full.pages || [];
-      if (pgs.length && !pgs.some((p: any) => p?.type)) {
-        if (confirm(`“${full.title}” là template cũ chưa cắt đôi.\nXử lý ngay bây giờ? (mất ~vài chục giây tùy số trang)`)) {
-          await api.resplitTemplate(id);
-          clearApiCache();
-          full = await api.template(id);
-        } else { setELoading(false); return; }
-      }
+      const full: any = await api.template(id); // mở thẳng editor với MỌI template (đã cắt hay chưa) — không chặn, không hỏi cắt đôi
       // ĐIỀN SẴN ảnh như bản AI đã ghép: xáo kho theo seed = id mẫu (cùng thuật toán với server)
       const total = (full.pages || []).reduce((n: number, p: any) => n + ((p.slots || []).length), 0);
       let seed = 0; const idStr = String(full.id || "");
@@ -123,16 +114,51 @@ export default function AdminDemoPool() {
   const removePhoto = async (i: number) => { const next = pool.filter((_, j) => j !== i); setPool(next); await savePool(next); };
 
   // GHÉP PHÍA SERVER (sharp): 1 lệnh, chạy trên backend — nhanh, idempotent, không phụ thuộc máy admin
+  // Kết quả ghép: danh sách lỗi chi tiết + trạng thái retry từng template
+  const [composeResult, setComposeResult] = useState<{ ok: number; total: number; fails: { id: string; title: string; msg: string; hint?: string; retrying?: boolean }[] } | null>(null);
+  const suggestFix = (msg: string) => {
+    if (/chưa có trang/i.test(msg)) return "→ Vào Template → Sửa mẫu để tải slide lên.";
+    if (/chưa có khung/i.test(msg)) return "→ Vào Template → Chỉnh khung để thêm khung ảnh.";
+    if (/HTTP 404|đã mất trên máy chủ|Không tải được ảnh/i.test(msg)) return "→ Ảnh của mẫu đã mất trên máy chủ (đĩa Render cũ bị xoá khi restart). Hãy upload lại ảnh cho mẫu này.";
+    if (/Kho ảnh demo trống/i.test(msg)) return "→ Thêm ảnh vào kho demo phía trên trước.";
+    if (/ETIMEDOUT|ECONNRESET|timeout/i.test(msg)) return "→ Mạng máy chủ chập chờn — bấm Thử lại.";
+    return "→ Bấm Thử lại; nếu vẫn lỗi, gửi thông báo này cho kỹ thuật.";
+  };
+  const retryOne = async (id: string) => {
+    setComposeResult((r) => r && { ...r, fails: r.fails.map((x) => x.id === id ? { ...x, retrying: true } : x) });
+    try {
+      await api.applyDemoOne(id, {}); // ghép lại riêng mẫu này từ kho (không cần chạy lại toàn bộ)
+      clearApiCache();
+      setComposeResult((r) => r && { ...r, ok: r.ok + 1, fails: r.fails.filter((x) => x.id !== id) });
+    } catch (e: any) {
+      setComposeResult((r) => r && { ...r, fails: r.fails.map((x) => x.id === id ? { ...x, retrying: false, msg: e?.message || x.msg } : x) });
+    }
+  };
   const applyAll = async () => {
     if (!pool.length) { alert("Hãy thêm ít nhất 1 ảnh vào kho."); return; }
-    setApplying(true); setProgress("Server đang ghép ảnh demo cho tất cả template…");
+    // VALIDATE TRƯỚC KHI GHÉP (server): kiểm cả cấu trúc LẪN ảnh trang đầu có truy cập được (404/ảnh chết)
+    setApplying(true); setProgress("Đang kiểm tra dữ liệu các template…"); setComposeResult(null);
+    let runIds: string[] | undefined;
+    try {
+      const chk: any = await api.checkDemo();
+      const invalid: any[] = chk.invalid || [];
+      if (invalid.length) {
+        const names = invalid.map((t: any) => `• ${t.title}: ${t.reason} (${t.hint})`).join("\n");
+        if (!confirm(`${invalid.length} template thiếu/hỏng dữ liệu, sẽ KHÔNG ghép được:\n${names}\n\nBỏ qua các mẫu này và tiếp tục với ${(chk.ready || []).length} mẫu còn lại?`)) { setApplying(false); setProgress(""); return; }
+        runIds = (chk.ready || []).map((t: any) => t.id);
+        if (!runIds.length) { alert("Không còn mẫu hợp lệ nào để ghép."); setApplying(false); setProgress(""); return; }
+      }
+    } catch {
+      // validate lỗi (backend cũ) -> vẫn cho ghép, chỉ mất bước check trước
+    }
+    setProgress("Server đang ghép ảnh demo cho các template…");
     try {
       await api.setDemoPool(pool);
-      const r: any = await api.applyDemo();
-      const ok = (r.results || []).filter((x: any) => x.ok).length;
-      const fail = (r.results || []).filter((x: any) => !x.ok);
-      setProgress("");
-      alert(`Đã ghép xong ${ok}/${(r.results || []).length} template ✓` + (fail.length ? `\nLỗi: ${fail.map((f: any) => f.title).join(", ")}` : ""));
+      const r: any = await api.applyDemo(runIds);
+      const results = r.results || [];
+      const fails = results.filter((x: any) => !x.ok).map((x: any) => ({ id: x.id, title: x.title, msg: x.reason || x.error || "lỗi không rõ", hint: x.hint }));
+      setComposeResult({ ok: results.length - fails.length, total: results.length, fails });
+      clearApiCache();
     } catch (e: any) { alert("Lỗi: " + (e?.message || "") + "\n→ Backend cần deploy bản mới (route /admin/apply-demo + sharp)."); }
     finally { setApplying(false); setProgress(""); }
   };
@@ -159,6 +185,29 @@ export default function AdminDemoPool() {
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addPhotos(e.target.files); e.currentTarget.value = ""; }} />
 
             {applying && progress && <div className="font-sans text-[13px] text-brass mb-3 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> {progress}</div>}
+
+            {/* KẾT QUẢ GHÉP: tổng hợp + lỗi chi tiết từng mẫu + gợi ý sửa + nút Thử lại riêng từng mẫu */}
+            {composeResult && (
+              <div className={`rounded-xl border p-4 mb-4 font-sans text-[13.5px] ${composeResult.fails.length ? "border-[#E9B384] bg-[#FEF6EC]" : "border-[#B7C9A8] bg-[#F1F6EC]"}`}>
+                <div className="font-semibold text-ink mb-1.5">
+                  {composeResult.fails.length ? "⚠" : "✓"} Ghép thành công {composeResult.ok}/{composeResult.total} template
+                  {composeResult.fails.length > 0 && <> — lỗi {composeResult.fails.length} template:</>}
+                </div>
+                {composeResult.fails.map((f) => (
+                  <div key={f.id} className="flex items-start gap-2.5 py-2 border-t border-black/5">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-ink"><b>“{f.title}”</b>: {f.msg}</div>
+                      <div className="text-sub text-[12.5px] mt-0.5">{(f as any).hint || suggestFix(f.msg)}</div>
+                    </div>
+                    <button onClick={() => retryOne(f.id)} disabled={f.retrying}
+                      className="shrink-0 mm-btn border border-brass text-brass rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-50 flex items-center gap-1.5">
+                      {f.retrying ? <Loader2 size={12} className="animate-spin" /> : null} {f.retrying ? "Đang thử…" : "Thử lại"}
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => setComposeResult(null)} className="mt-2 text-sub text-[12px] underline">Đóng</button>
+              </div>
+            )}
 
             <div className="font-sans text-xs text-sub mb-2">{pool.length} ảnh trong kho · {templates.length} template sẽ được áp dụng {poolMsg && <span className="text-brass font-semibold ml-2">· {poolMsg}</span>}</div>
             {pool.length === 0 ? (

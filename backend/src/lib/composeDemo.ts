@@ -12,9 +12,23 @@ function cdnResize(url: string, w = 1600): string {
   return url.slice(0, i + 8) + `w_${w},q_auto/` + url.slice(i + 8);
 }
 async function fetchBuf(url: string): Promise<Buffer> {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("Tải ảnh lỗi " + r.status + ": " + url.slice(0, 80));
-  return Buffer.from(await r.arrayBuffer());
+  if (!url || !/^https?:\/\//i.test(url)) throw new Error(`URL ảnh không hợp lệ: "${(url || "").slice(0, 60) || "(rỗng)"}"`);
+  // RETRY 3 lần (mạng Render<->Cloudinary chập chờn: ETIMEDOUT/ECONNRESET) + timeout 30s + bung nguyên nhân thật
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+      if (!r.ok) throw new Error("Tải ảnh lỗi HTTP " + r.status + " (ảnh có thể đã mất trên máy chủ): " + url.slice(0, 90));
+      return Buffer.from(await r.arrayBuffer());
+    } catch (e: any) {
+      lastErr = e;
+      const code = (e?.cause?.code || "") + " " + (e?.message || "");
+      if (attempt < 3 && /ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|timeout|aborted/i.test(code)) { await new Promise((z) => setTimeout(z, attempt * 1500)); continue; }
+      break;
+    }
+  }
+  const cause = lastErr?.cause?.message || lastErr?.cause?.code || lastErr?.message || "không rõ";
+  throw new Error(`Không tải được ảnh (${cause}): ${url.slice(0, 90)}`);
 }
 
 type Slot = { x: number; y: number; w: number; h: number; rot?: number };
@@ -25,11 +39,14 @@ export type DemoOverrides = {
 };
 const clampN = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-export async function composeTemplateDemo(templateId: string, pool: string[], overrides?: DemoOverrides): Promise<{ ok: boolean; pages: number }> {
+export async function composeTemplateDemo(templateId: string, pool: string[], overrides?: DemoOverrides): Promise<{ ok: boolean; pages: number; reason?: string }> {
   const t = await prisma.template.findUnique({ where: { id: templateId } });
-  if (!t || (!pool.length && !overrides?.assignments)) return { ok: false, pages: 0 };
+  if (!t) return { ok: false, pages: 0, reason: "Không tìm thấy template (có thể đã bị xoá)" };
+  if (!pool.length && !overrides?.assignments) return { ok: false, pages: 0, reason: "Kho ảnh demo trống — thêm ảnh vào kho trước" };
   const pages: { image: string; slots: Slot[] }[] = JSON.parse(t.pages || "[]");
-  if (!pages.length) return { ok: false, pages: 0 };
+  if (!pages.length) return { ok: false, pages: 0, reason: "Mẫu chưa có trang nào — vào Sửa mẫu tải slide lên trước" };
+  const totalSlots = pages.reduce((n, p) => n + (p.slots?.length || 0), 0);
+  if (!totalSlots) return { ok: false, pages: 0, reason: "Mẫu chưa có khung ảnh nào — vào Chỉnh khung thêm khung trước" };
 
   // XÁO thứ tự ảnh THEO TỪNG MẪU (seed = id mẫu): mỗi template một cách xếp khác nhau,
   // nhưng chạy lại vẫn ra đúng thứ tự đó (idempotent).
