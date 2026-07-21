@@ -23,7 +23,19 @@ if (process.env.SENTRY_DSN) {
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:3000" }));
+// CORS: hỗ trợ NHIỀU origin (phân cách bởi dấu phẩy trong FRONTEND_ORIGIN) + tự động cho phép
+// mọi domain *.vercel.app (preview deploy đổi URL theo từng lần build). Sai origin -> "Failed to
+// fetch" ở MỌI trang, MỌI API call (lỗi hay gặp nhất khi mới deploy — trình duyệt chặn TRƯỚC server).
+const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:3000")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // request không qua trình duyệt (Postman, health-check server-to-server)
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(new URL(origin).hostname)) return cb(null, true);
+    console.warn(`CORS chặn origin lạ: "${origin}" (đã cho phép: ${allowedOrigins.join(", ")}) — nếu đây là domain thật, thêm vào biến FRONTEND_ORIGIN trên Render.`);
+    cb(null, false);
+  },
+}));
 app.use(express.json({ limit: "2mb" })); // ảnh đi qua /api/upload (multipart) — JSON chỉ còn metadata/URL
 app.set("trust proxy", 1); // sau proxy Render -> rate-limit đọc đúng IP
 

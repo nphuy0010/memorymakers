@@ -46,13 +46,36 @@ function diskUrl(req: any, filename: string) {
   return `${base}/uploads/${filename}`;
 }
 
+// Upload buffer lên Cloudinary qua STREAM (không phồng base64 +33% RAM như dataURI) + TIMEOUT + RETRY.
+// Mạng Render<->Cloudinary chập chờn hay gây treo -> Render cắt kết nối (ERR_CONNECTION_RESET).
+function cloudUploadBuffer(buffer: Buffer, opts: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({ ...opts, timeout: 60000 }, (err: any, r: any) => {
+      if (err || !r?.secure_url) return reject(new Error(err?.message || "Cloudinary không trả kết quả"));
+      resolve(r.secure_url as string);
+    });
+    stream.end(buffer);
+  });
+}
+async function cloudUpload(buffer: Buffer, opts: any): Promise<string> {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try { return await cloudUploadBuffer(buffer, opts); }
+    catch (e: any) {
+      lastErr = e;
+      const msg = (e?.message || "") + (e?.http_code || "");
+      if (attempt < 3 && /ETIMEDOUT|ECONNRESET|EAI_AGAIN|timeout|499|5\d\d/i.test(msg)) { await new Promise((s) => setTimeout(s, attempt * 2000)); continue; }
+      break;
+    }
+  }
+  throw new Error("Tải ảnh lên Cloudinary thất bại: " + (lastErr?.message || "lỗi mạng").slice(0, 120));
+}
+
 // Lưu 1 file -> trả URL (Cloudinary hoặc đĩa)
 async function saveFile(req: any, file: Express.Multer.File): Promise<string> {
   if (CLOUD_ON) {
     const isVideo = file.mimetype.startsWith("video");
-    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-    const r = await cloudinary.uploader.upload(dataUri, { folder: "memory-makers", resource_type: isVideo ? "video" : "image" });
-    return r.secure_url as string;
+    return cloudUpload(file.buffer, { folder: "memory-makers", resource_type: isVideo ? "video" : "image" });
   }
   const ext = path.extname(file.originalname).toLowerCase() || ".png";
   const name = crypto.randomBytes(8).toString("hex") + "-" + Date.now() + ext;
@@ -63,9 +86,7 @@ async function saveFile(req: any, file: Express.Multer.File): Promise<string> {
 /** Lưu buffer bất kỳ -> URL (Cloudinary hoặc đĩa) — dùng cho ghép demo server-side. */
 export async function saveBuffer(buf: Buffer, mime: string, name: string): Promise<string> {
   if (CLOUD_ON) {
-    const dataUri = `data:${mime};base64,${buf.toString("base64")}`;
-    const r = await cloudinary.uploader.upload(dataUri, { folder: "memory-makers/demo" });
-    return r.secure_url as string;
+    return cloudUpload(buf, { folder: "memory-makers/demo" });
   }
   const safe = Date.now() + "-" + name.replace(/[^a-z0-9.-]/gi, "");
   fs.writeFileSync(path.join(UPLOAD_DIR, safe), buf);
@@ -81,9 +102,16 @@ router.post("/", requireAuth, upload.single("file"), async (req: any, res) => {
   }
   try {
     if (!req.file) return res.status(400).json({ error: "Không có file" });
+    if (!CLOUD_ON) {
+      // Đĩa Render là EPHEMERAL (mất khi service ngủ/restart) -> ảnh sẽ chết. Bắt buộc dùng Cloudinary trên production.
+      console.warn("⚠️ Upload nhưng CHƯA cấu hình Cloudinary — ảnh lưu vào đĩa tạm, sẽ mất khi Render restart. Hãy set CLOUDINARY_URL trên Render.");
+    }
     const url = await saveFile(req, req.file);
     res.json({ url, name: req.file.originalname });
-  } catch (e: any) { res.status(500).json({ error: e?.message || "Lỗi upload" }); }
+  } catch (e: any) {
+    console.error("Upload lỗi:", e?.message);
+    res.status(500).json({ error: e?.message || "Lỗi upload" });
+  }
 });
 
 // nhiều file -> { urls: [] }

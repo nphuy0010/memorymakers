@@ -1,5 +1,12 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+// PHÁT HIỆN CẤU HÌNH SAI: chạy trên domain thật (Vercel) nhưng BASE vẫn trỏ localhost
+// -> nghĩa là biến NEXT_PUBLIC_API_URL CHƯA set trên Vercel -> MỌI gọi API "Failed to fetch".
+export const apiMisconfigured =
+  typeof window !== "undefined" &&
+  !["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+  BASE.includes("localhost");
+
 function token() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("mm_token");
@@ -9,6 +16,12 @@ function token() {
 const cache = new Map<string, { exp: number; data: any }>();
 export function clearApiCache() { cache.clear(); }
 
+// Thông báo rõ ràng khi fetch fail (lỗi trình duyệt "Failed to fetch" — chặn TRƯỚC khi tới server)
+function fetchFailMsg() {
+  if (apiMisconfigured) return `Frontend chưa cấu hình đúng backend (đang gọi ${BASE}). → Vào Vercel → Settings → Environment Variables, thêm NEXT_PUBLIC_API_URL = URL backend (vd https://ten-app.onrender.com), rồi redeploy.`;
+  return `Không kết nối được backend (${BASE}). → Nguyên nhân thường gặp: (1) chưa set FRONTEND_ORIGIN = domain Vercel trên Render (CORS chặn), (2) backend Render đang "ngủ" — chờ ~30s rồi thử lại, (3) mất mạng.`;
+}
+
 async function req(path: string, opts: RequestInit = {}, cacheTtl = 0) {
   const method = (opts.method || "GET").toUpperCase();
   const key = method + " " + path;
@@ -16,14 +29,19 @@ async function req(path: string, opts: RequestInit = {}, cacheTtl = 0) {
     const hit = cache.get(key);
     if (hit && hit.exp > Date.now()) return hit.data;
   }
-  const res = await fetch(`${BASE}/api${path}`, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-      ...(opts.headers || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api${path}`, {
+      ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+        ...(opts.headers || {}),
+      },
+    });
+  } catch (e: any) {
+    throw new Error(fetchFailMsg());
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || "Lỗi"), { data, status: res.status });
   if (method === "GET" && cacheTtl > 0) cache.set(key, { exp: Date.now() + cacheTtl, data });
@@ -36,11 +54,16 @@ export const api = {
   uploadFile: async (file: File): Promise<{ url: string }> => {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`${BASE}/api/upload`, {
-      method: "POST",
-      headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, // KHÔNG set Content-Type để browser tự thêm boundary
-      body: fd,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/api/upload`, {
+        method: "POST",
+        headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, // KHÔNG set Content-Type để browser tự thêm boundary
+        body: fd,
+      });
+    } catch (e: any) {
+      throw new Error(fetchFailMsg());
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || "Lỗi upload"), { status: res.status });
     return data;
