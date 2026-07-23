@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, BookOpen, Layers, X, EyeOff, ShieldCheck, CheckCircle2 } from "lucide-react";
 import type { Template, Slot } from "@/lib/types";
 import { buildPages, imgStyle, type Edit, type TextItem, type BuiltPage } from "@/lib/pages";
@@ -92,6 +92,7 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
     });
   }, [spread, seq]);
   const busy = anim !== null;
+  const touchX = useRef<number | null>(null);
   const page = (i: number) => <NPage pg={seq[i] || null} assignments={effAssign} edits={edits} sample={sample} />;
 
   const go = (dir: "next" | "prev") => {
@@ -119,7 +120,17 @@ function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big 
       <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
         <button onClick={() => go("prev")} disabled={spread <= 0 || busy} aria-label="Trang trước" className="mm-flipnav" style={{ left: "max(0px, calc(15% - 54px))", opacity: spread <= 0 ? 0.3 : 1, pointerEvents: spread <= 0 ? "none" : "auto" }}><ChevronLeft size={20} color={INK} /></button>
         <button onClick={() => go("next")} disabled={spread + 2 >= count || busy} aria-label="Trang sau" className="mm-flipnav" style={{ right: "max(0px, calc(15% - 54px))", opacity: spread + 2 >= count ? 0.3 : 1, pointerEvents: spread + 2 >= count ? "none" : "auto" }}><ChevronRight size={20} color={INK} /></button>
-      <div style={{ width: "70%", perspective: big ? 3000 : 2200 }}>
+      <div
+        onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          // VUỐT NGANG trên mobile để lật trang (vuốt trái = trang sau)
+          if (touchX.current == null) return;
+          const dx = e.changedTouches[0].clientX - touchX.current;
+          touchX.current = null;
+          if (Math.abs(dx) > 45) go(dx < 0 ? "next" : "prev");
+        }}
+        className="mm-book-wrap"
+        style={{ width: "70%", perspective: big ? 3000 : 2200, touchAction: "pan-y" }}>
         <div style={{ position: "relative", width: "100%", aspectRatio: spreadRatio, borderRadius: 12, background: "#EFE7DA", boxShadow: "0 24px 60px rgba(42,37,32,.28)", transformStyle: "preserve-3d" }}>
           <div style={{ ...half, left: 0, borderRight: "1px solid rgba(0,0,0,.06)" }}>{page(L)}<div style={spine("right")} /></div>
           <div style={{ ...half, left: "50%" }}>{page(R)}<div style={spine("left")} /></div>
@@ -159,12 +170,9 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "flex", flexWrap: "wrap", gap: 24, alignContent: "center", justifyContent: "center", opacity: .13, transform: "rotate(-22deg)", zIndex: 8 }}>
         {Array.from({ length: 14 }).map((_, k) => <span key={k} style={{ fontFamily: "var(--font-sans, sans-serif)", fontWeight: 800, fontSize: 15, whiteSpace: "nowrap" }}>MEMORY MAKERS · CHƯA THANH TOÁN</span>)}
       </div>
-      <div style={{ position: "absolute", bottom: 12, left: 12, background: "rgba(42,37,32,.8)", color: "#fff", borderRadius: 999, padding: "6px 12px", fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, display: "flex", gap: 6, alignItems: "center", zIndex: 8 }}><ShieldCheck size={14} /> Ảnh được bảo vệ — mở khoá sau khi thanh toán</div>
+      <div style={{ position: "absolute", bottom: 12, left: 12, background: "rgba(42,37,32,.8)", color: "#fff", borderRadius: 999, padding: "6px 12px", fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, display: "flex", gap: 6, alignItems: "center", zIndex: 8 }}><ShieldCheck size={14} /> Bản nháp — ảnh được bảo vệ bằng watermark</div>
       {blurGuard && <div style={{ position: "absolute", inset: 0, background: INK, display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--font-sans, sans-serif)", zIndex: 9, borderRadius: 12 }}><div style={{ textAlign: "center" }}><EyeOff size={30} /><div style={{ marginTop: 8, fontSize: 13 }}>Tạm ẩn để bảo vệ bản quyền</div></div></div>}
     </>
-  );
-  const paidBadge = watermark && paid && (
-    <div style={{ position: "absolute", top: 12, right: 12, background: SAGE, color: "#fff", borderRadius: 999, padding: "6px 12px", fontFamily: "var(--font-sans, sans-serif)", fontSize: 12, display: "flex", gap: 6, alignItems: "center", zIndex: 8 }}><CheckCircle2 size={14} /> Đã mở khoá</div>
   );
 
 
@@ -176,13 +184,13 @@ export default function Flipbook({ t, assignments, edits, texts, hidden, sticker
           <span className="font-sans text-[11px] tracking-[1.5px] uppercase text-sub font-bold flex items-center gap-1.5"><BookOpen size={14} color={BRASS} /> Interactive Preview</span>
           <button onClick={() => setFull(true)} className="flex items-center gap-1.5 font-sans text-xs font-semibold text-ink bg-cream border border-line rounded-full px-3 py-1.5"><Layers size={13} /> Open Flipbook</button>
         </div>
-        <div style={{ position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} />{overlay}{paidBadge}</div>
+        <div style={{ position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} />{overlay}</div>
       </div>
 
       {full && (
         <div className="fixed inset-0 z-[90] grid place-items-center p-7" style={{ background: "rgba(28,24,20,.92)" }}>
           <button onClick={() => setFull(false)} className="absolute top-4 right-5 w-10 h-10 grid place-items-center rounded-full" style={{ background: "rgba(255,255,255,.15)" }}><X size={20} color="#fff" /></button>
-          <div onClick={e => e.stopPropagation()} style={{ width: "min(1100px, 94vw)", position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big />{overlay}{paidBadge}</div>
+          <div onClick={e => e.stopPropagation()} style={{ width: "min(1100px, 94vw)", position: "relative" }}><BookCore t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} sample={!assignments} big />{overlay}</div>
         </div>
       )}
     </div>

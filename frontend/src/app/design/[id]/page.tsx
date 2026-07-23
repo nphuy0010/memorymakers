@@ -288,11 +288,8 @@ export default function DesignPage() {
         <div className="max-w-[760px] mx-auto text-center py-5">
           <div className="w-16 h-16 rounded-full bg-sage grid place-items-center mx-auto mb-4"><CheckCircle2 size={34} className="text-white" /></div>
           <h2 className="font-serif text-3xl text-ink font-bold">Đặt hàng thành công!</h2>
-          <p className="font-sans text-sm text-sub mt-2.5 mb-5">{mode === "digital" ? "Bản digital đã mở khoá để tải." : "Memory Makers sẽ in và giao tới bạn sớm."}</p>
-          <div className="mb-4.5"><Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} watermark paid /></div>
-          {mode === "digital"
-            ? <button onClick={() => router.push("/account")} className="bg-brass text-white rounded-full px-6 py-3 font-sans font-semibold inline-flex items-center gap-2"><Download size={16} /> Tải &amp; về dự án</button>
-            : <button onClick={() => router.push("/account")} className="border border-ink text-ink rounded-full px-6 py-3 font-sans font-semibold">Xem trong dự án của tôi</button>}
+          <p className="font-sans text-sm text-sub mt-2.5 mb-6">Memory Makers sẽ in và giao tới bạn sớm.</p>
+          <button onClick={() => router.push("/cart")} className="border border-ink text-ink rounded-full px-6 py-3 font-sans font-semibold">Xem trong đơn hàng của tôi</button>
         </div>
       )}
     </div>

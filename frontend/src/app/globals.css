@@ -81,6 +81,7 @@ p { text-wrap: pretty; }
 .mm-canvas-wrap { width: 70%; margin: 0 auto; }
 @media (max-width: 767px) {
   .mm-canvas-wrap { width: 100%; }
+  .mm-book-wrap { width: 92% !important; }
   /* panel "Ảnh của bạn" chừa chỗ cho nút nổi chat/hướng dẫn */
   .mm-photos-panel { padding-bottom: 80px; }
 }

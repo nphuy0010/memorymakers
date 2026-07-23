@@ -36,6 +36,19 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
   res.json(format(p));
 });
 
+// DỮ LIỆU FLIPBOOK của 1 đơn — CHỈ mở khi đơn đã ở trạng thái Đang giao / Đã giao.
+// Kiểm tra ở BACKEND (không tin frontend): trạng thái chưa đủ -> 403, không trả dữ liệu trang.
+const FLIPBOOK_ALLOWED = ["SHIPPING", "DELIVERED"];
+router.get("/:id/flipbook", requireAuth, async (req: AuthRequest, res) => {
+  const p = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId }, include: { template: true } });
+  if (!p) return res.status(404).json({ error: "Không tìm thấy dự án" });
+  if (!FLIPBOOK_ALLOWED.includes(p.status)) {
+    return res.status(403).json({ error: "Chưa được phép xem. Đơn cần ở trạng thái Đang giao hoặc Đã giao." });
+  }
+  const f = format(p);
+  res.json({ template: f.template, layout: f.layout, status: p.status });
+});
+
 // Tạo dự án — chỉ gọi khi người dùng đã chèn ảnh / thiết kế thật.
 router.post("/", requireAuth, validate(projectCreateSchema), async (req: AuthRequest, res) => {
   const { templateId, photos, title, layout } = req.body;

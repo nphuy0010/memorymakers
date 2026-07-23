@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Sparkles, Trash2, ShoppingBag, Package } from "lucide-react";
+import { ShieldCheck, Sparkles, Trash2, ShoppingBag, Package, BookOpen, X, Loader2 } from "lucide-react";
 import { useCart } from "@/store/useCart";
 import { useAuth } from "@/store/useAuth";
 import { api } from "@/lib/api";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
+import Flipbook from "@/components/Flipbook";
 
 const vnd = (n: number) => (n || 0).toLocaleString("vi-VN") + "₫";
 const OPTION_LABEL: Record<string, string> = { soft: "Bìa thường", hard: "Bìa cứng", fan: "Gấp quạt", digital: "Bản digital" };
@@ -17,6 +18,19 @@ export default function CartPage() {
   const { items, remove, hydrated } = useCart();
   const { user, hydrate } = useAuth() as any;
   const [orders, setOrders] = useState<any[]>([]);
+  // FLIPBOOK đơn hàng: chỉ mở khi đơn Đang giao / Đã giao (backend cũng chặn, không tin frontend)
+  const [flip, setFlip] = useState<any | null>(null);
+  const [flipLoading, setFlipLoading] = useState<string | null>(null);
+  const openFlipbook = async (p: any) => {
+    setFlipLoading(p.id);
+    try {
+      const r: any = await api.projectFlipbook(p.id);
+      const L = r.layout || {};
+      setFlip({ t: r.template, assignments: L.assignments, edits: L.edits, texts: L.texts, hidden: L.hidden, stickers: L.stickers, title: p.title });
+    } catch (e: any) {
+      alert(e?.message || "Chưa xem được flipbook cho đơn này.");
+    } finally { setFlipLoading(null); }
+  };
   useEffect(() => { hydrate && hydrate(); }, [hydrate]);
   // ĐƠN ĐÃ ĐẶT (đang xử lý / đang giao / đã giao / đã hủy) — lấy từ server, không xóa được, chỉ xem trạng thái
   useEffect(() => {
@@ -123,12 +137,26 @@ export default function CartPage() {
               <h2 className="font-serif text-xl md:text-2xl text-ink font-bold">Đơn hàng của bạn</h2>
             </div>
             <div className="space-y-3">
-              {orders.map((p) => (
+              {orders.map((p) => {
+                const canFlip = p.status === "SHIPPING" || p.status === "DELIVERED";   // chỉ Đang giao / Đã giao
+                const cancelled = p.status === "CANCELLED";
+                return (
                 <article key={p.id} className="bg-white rounded-2xl border border-line p-3.5 md:p-4 flex gap-3 md:gap-4 items-center">
-                  <div className="w-16 h-20 md:w-20 md:h-24 rounded-lg overflow-hidden bg-cream shrink-0 border border-line">
-                    {(p.template?.coverImage || p.template?.demoImage)
-                      ? <img src={p.template.coverImage || p.template.demoImage} alt={p.title} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full grid place-items-center text-brass"><Package size={18} /></div>}
+                  <div className="shrink-0">
+                    <div
+                      onClick={() => canFlip && openFlipbook(p)}
+                      title={canFlip ? "Nhấn để xem flipbook" : undefined}
+                      className={`relative w-16 h-20 md:w-20 md:h-24 rounded-lg overflow-hidden bg-cream border border-line transition ${canFlip ? "cursor-pointer hover:brightness-95 hover:shadow-md" : ""} ${cancelled ? "opacity-40" : ""}`}>
+                      {(p.template?.coverImage || p.template?.demoImage)
+                        ? <img src={p.template.coverImage || p.template.demoImage} alt={p.title} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full grid place-items-center text-brass"><Package size={18} /></div>}
+                      {canFlip && (
+                        <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 grid place-items-center">
+                          {flipLoading === p.id ? <Loader2 size={12} className="text-white animate-spin" /> : <BookOpen size={12} className="text-white" />}
+                        </span>
+                      )}
+                    </div>
+                    {canFlip && <div className="font-sans text-[10.5px] text-sub text-center mt-1">Nhấn để xem</div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-serif text-[16px] md:text-lg text-ink font-bold leading-tight truncate">{p.title}</div>
@@ -149,11 +177,26 @@ export default function CartPage() {
                     )}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
       </div>
+
+      {/* FLIPBOOK FULLSCREEN của đơn hàng (Đang giao / Đã giao) */}
+      {flip && (
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4 md:p-7" style={{ background: "rgba(28,24,20,.94)" }}>
+          <button onClick={() => setFlip(null)} aria-label="Đóng"
+            className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full z-10" style={{ background: "rgba(255,255,255,.15)" }}>
+            <X size={20} color="#fff" />
+          </button>
+          <div className="w-full" style={{ maxWidth: "min(1100px, 96vw)" }}>
+            <div className="font-serif text-white text-lg mb-2 text-center truncate">{flip.title}</div>
+            <Flipbook t={flip.t} assignments={flip.assignments} edits={flip.edits} texts={flip.texts} hidden={flip.hidden} stickers={flip.stickers} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

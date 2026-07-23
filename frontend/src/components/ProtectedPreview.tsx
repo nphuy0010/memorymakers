@@ -52,7 +52,7 @@ export default function ProtectedPreview({ t, photos, paid }: { t: Template; pho
             ))}
           </div>
           <div className="absolute bottom-3 left-3 bg-ink/80 text-white rounded-full px-3 py-1.5 font-sans text-xs flex gap-1.5 items-center">
-            <ShieldCheck size={14} /> Ảnh được bảo vệ — mở khoá sau khi thanh toán
+            <ShieldCheck size={14} /> Bản nháp — ảnh được bảo vệ bằng watermark
           </div>
           {hidden && (
             <div className="absolute inset-0 bg-ink grid place-items-center">
@@ -63,11 +63,6 @@ export default function ProtectedPreview({ t, photos, paid }: { t: Template; pho
             </div>
           )}
         </>
-      )}
-      {paid && (
-        <div className="absolute top-3 right-3 bg-sage text-white rounded-full px-3 py-1.5 font-sans text-xs flex gap-1.5 items-center">
-          <CheckCircle2 size={14} /> Đã mở khoá
-        </div>
       )}
     </div>
   );
