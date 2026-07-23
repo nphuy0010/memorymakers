@@ -78,7 +78,68 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
     };
     el.addEventListener("wheel", wheel, { passive: false });
     el.addEventListener("pointerdown", down);
-    return () => { el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); };
+
+    /* ===== MOBILE: kéo 1 ngón = di chuyển ảnh trong khung; chụm 2 ngón = phóng to/thu nhỏ =====
+       Chỉ chặn cuộn/zoom trang KHI đang chọn 1 khung có ảnh — lúc khác trang cuộn bình thường.
+       Dùng requestAnimationFrame để mượt, không giật. */
+    let pinchStart = 0, pinchScale0 = 1;
+    let one: { x: number; y: number; ox: number; oy: number } | null = null;
+    let raf = 0, pending: (() => void) | null = null;
+    const schedule = (fn: () => void) => {
+      pending = fn;
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; const p = pending; pending = null; p && p(); });
+    };
+    const active = () => editSlot != null && !!assignments?.[editSlot];
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    const tStart = (e: TouchEvent) => {
+      if (!active()) return;
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        pinchStart = dist(e.touches);
+        pinchScale0 = Math.max(1, edits?.[editSlot!]?.scale ?? 1);
+        one = null;
+      } else if (e.touches.length === 1) {
+        const cur = edits?.[editSlot!] || {};
+        one = { x: e.touches[0].clientX, y: e.touches[0].clientY, ox: cur.ox ?? 50, oy: cur.oy ?? 38 };
+      }
+    };
+    const tMove = (e: TouchEvent) => {
+      if (!active()) return;
+      const g = editSlot!;
+      if (e.touches.length === 2 && pinchStart > 0) {
+        e.preventDefault();
+        const ratio = dist(e.touches) / pinchStart;
+        const sc = Math.min(3, Math.max(1, +(pinchScale0 * ratio).toFixed(2))); // giới hạn 100%–300%
+        schedule(() => onAdjust(g, { scale: sc }));
+      } else if (e.touches.length === 1 && one) {
+        e.preventDefault(); // chặn cuộn trang khi đang kéo ảnh
+        const slot: any = page.slots.find((x: any) => x.g === g);
+        const rect = el.getBoundingClientRect();
+        const sw = slot ? (rect.width * slot.w) / 100 : 300, sh = slot ? (rect.height * slot.h) / 100 : 200;
+        const sc = Math.max(1, edits?.[g]?.scale ?? 1);
+        const kx = sc > 1.02 ? Math.min(2, 100 / (sw * (sc - 1))) : 0.25;
+        const ky = sc > 1.02 ? Math.min(2, 100 / (sh * (sc - 1))) : 0.25;
+        const dx = e.touches[0].clientX - one.x, dy = e.touches[0].clientY - one.y;
+        if (Math.abs(dx) + Math.abs(dy) > 3) draggedRef.current = Date.now();
+        const ox = Math.min(100, Math.max(0, one.ox - dx * kx));
+        const oy = Math.min(100, Math.max(0, one.oy - dy * ky));
+        schedule(() => onAdjust(g, { ox, oy }));
+      }
+    };
+    const tEnd = () => { pinchStart = 0; one = null; };
+    el.addEventListener("touchstart", tStart, { passive: false });
+    el.addEventListener("touchmove", tMove, { passive: false });
+    el.addEventListener("touchend", tEnd);
+    el.addEventListener("touchcancel", tEnd);
+
+    return () => {
+      el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down);
+      el.removeEventListener("touchstart", tStart); el.removeEventListener("touchmove", tMove);
+      el.removeEventListener("touchend", tEnd); el.removeEventListener("touchcancel", tEnd);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [editSlot, edits, onAdjust, assignments, page]);
 
   const startStickerDrag = (st: StickerItem, ev: React.PointerEvent) => {
@@ -97,7 +158,9 @@ function PageCanvas({ page, assignments, edits, onSlot, selected, editSlot, onAd
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
   };
   return (
-    <div ref={rootRef} style={{ position: "relative", width: "100%", aspectRatio: pageRatio, borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(42,37,32,.14)" }}>
+    <div ref={rootRef} style={{ position: "relative", width: "100%", aspectRatio: pageRatio, borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(42,37,32,.14)",
+      // đang chỉnh 1 ảnh -> khoá cử chỉ mặc định của trình duyệt (cuộn/zoom trang)
+      touchAction: (editSlot != null && assignments?.[editSlot]) ? "none" : "auto" }}>
       {page.image && <img src={page.image} draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />}
       {page.slots.map((s) => {
         const img = assignments?.[s.g]; const sel = selected === s.g; const editable = editSlot === s.g && !!img && !!onAdjust; const round = false; /* chỉ dùng khung chữ nhật */
@@ -316,6 +379,29 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
             : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); setSelStk(null); }} selText={selText} stickers={pageStickers} onStickerMove={updateSticker} onStickerSelect={(id) => { setSelStk(id); setSelText(null); setSelSlot(null); }} selStk={selStk} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
           </div>
           <p style={{ textAlign: "center", fontSize: 13, color: "#999", marginTop: 8, fontFamily: "var(--font-sans,sans-serif)" }}>{idxLabel(pageIdx, pages.length)}</p>
+
+          {/* THANH CHỈNH ẢNH — hiện khi đang chọn 1 khung CÓ ảnh (chủ yếu phục vụ mobile, desktop dùng được luôn) */}
+          {editable && selSlot != null && assignments[selSlot] && (
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", alignItems: "center" }}>
+              {[
+                { key: "out", label: "Thu nhỏ", txt: "−", act: () => setEdit(selSlot, { scale: Math.max(1, +(((edits[selSlot]?.scale ?? 1)) - 0.15).toFixed(2)) }) },
+                { key: "in", label: "Phóng to", txt: "+", act: () => setEdit(selSlot, { scale: Math.min(3, +(((edits[selSlot]?.scale ?? 1)) + 0.15).toFixed(2)) }) },
+                { key: "rot", label: "Xoay", txt: "⟳", act: () => setEdit(selSlot, { rot: (((edits[selSlot]?.rot ?? 0) + 90) % 360) }) },
+              ].map((b) => (
+                <button key={b.key} onClick={b.act} title={b.label} aria-label={b.label}
+                  style={{ width: 40, height: 40, borderRadius: "50%", border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>{b.txt}</button>
+              ))}
+              <button onClick={() => clearSlot(selSlot)} title="Gỡ ảnh" aria-label="Gỡ ảnh"
+                style={{ width: 40, height: 40, borderRadius: "50%", border: `1px solid ${C.line}`, background: "#fff", color: "#B05A4A", cursor: "pointer", display: "grid", placeItems: "center" }}><Trash2 size={16} /></button>
+              <button onClick={() => setSelSlot(null)} title="Xong" aria-label="Xong"
+                style={{ height: 40, padding: "0 18px", borderRadius: 999, border: "none", background: C.brass, color: "#fff", fontWeight: 600, cursor: "pointer" }}>✓ Xong</button>
+            </div>
+          )}
+          {editable && selSlot != null && assignments[selSlot] && (
+            <p className="mm-touch-hint" style={{ textAlign: "center", fontSize: 12, color: C.sub, marginTop: 8, fontFamily: "var(--font-sans,sans-serif)" }}>
+              Kéo để di chuyển · chụm 2 ngón để phóng to
+            </p>
+          )}
         </div>
         <p style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: C.sub, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} color={C.brass} /> Bấm khung để chọn ảnh/chỉnh sửa · kéo ảnh ra ngoài khung hoặc nhấn <b>Delete</b> để gỡ ảnh.</p>
         {/* TEXT */}

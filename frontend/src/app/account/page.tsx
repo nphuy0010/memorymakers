@@ -5,6 +5,7 @@ import { Sparkles, Trash2, Truck, Star, ShoppingBag, X, CheckCircle2 } from "luc
 import { api } from "@/lib/api";
 import { useAuth } from "@/store/useAuth";
 import TemplateCover from "@/components/TemplateCover";
+import ProjectCover from "@/components/ProjectCover";
 import Loading from "@/components/Loading";
 import { STATUS_LABEL, STATUS_COLOR, vnd, CATS, type Project, type ProjectStatus } from "@/lib/types";
 
@@ -77,7 +78,9 @@ export default function AccountPage() {
           {list.map(p => (
             <div key={p.id} className="bg-white border border-line rounded-2xl p-3">
               <div className="relative">
-                <TemplateCover t={p.template} kind="cover" />
+                <div className="w-full overflow-hidden rounded-xl border border-line bg-cream" style={{ aspectRatio: "3/4" }}>
+                  <ProjectCover template={p.template} layout={(p as any).layout} rounded={0} />
+                </div>
                 <span className="absolute top-2.5 left-2.5 text-white rounded-full px-2.5 py-1 font-sans text-xs font-semibold" style={{ background: STATUS_COLOR[p.status] }}>{STATUS_LABEL[p.status]}</span>
               </div>
               <div className="px-1 pt-2.5">

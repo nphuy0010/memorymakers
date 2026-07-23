@@ -8,6 +8,7 @@ import { useAuth } from "@/store/useAuth";
 import { api } from "@/lib/api";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
 import Flipbook from "@/components/Flipbook";
+import ProjectCover from "@/components/ProjectCover";
 
 const vnd = (n: number) => (n || 0).toLocaleString("vi-VN") + "₫";
 const OPTION_LABEL: Record<string, string> = { soft: "Bìa thường", hard: "Bìa cứng", fan: "Gấp quạt", digital: "Bản digital" };
@@ -21,6 +22,17 @@ export default function CartPage() {
   // FLIPBOOK đơn hàng: chỉ mở khi đơn Đang giao / Đã giao (backend cũng chặn, không tin frontend)
   const [flip, setFlip] = useState<any | null>(null);
   const [flipLoading, setFlipLoading] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  // Xoá đơn ĐÃ HUỶ khỏi danh sách của khách (backend chỉ cho xoá đơn chưa thanh toán)
+  const removeCancelled = async (p: any) => {
+    if (!confirm(`Xoá đơn “${p.title}” khỏi danh sách? Thao tác này không thể hoàn tác.`)) return;
+    setRemoving(p.id);
+    const prev = orders;
+    setOrders((os) => os.filter((o) => o.id !== p.id));
+    try { await api.deleteProject(p.id); }
+    catch (e: any) { alert("Xoá lỗi: " + (e?.message || "")); setOrders(prev); }
+    finally { setRemoving(null); }
+  };
   const openFlipbook = async (p: any) => {
     setFlipLoading(p.id);
     try {
@@ -147,9 +159,7 @@ export default function CartPage() {
                       onClick={() => canFlip && openFlipbook(p)}
                       title={canFlip ? "Nhấn để xem flipbook" : undefined}
                       className={`relative w-16 h-20 md:w-20 md:h-24 rounded-lg overflow-hidden bg-cream border border-line transition ${canFlip ? "cursor-pointer hover:brightness-95 hover:shadow-md" : ""} ${cancelled ? "opacity-40" : ""}`}>
-                      {(p.template?.coverImage || p.template?.demoImage)
-                        ? <img src={p.template.coverImage || p.template.demoImage} alt={p.title} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full grid place-items-center text-brass"><Package size={18} /></div>}
+                      <ProjectCover template={p.template} layout={p.layout} rounded={0} />
                       {canFlip && (
                         <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 grid place-items-center">
                           {flipLoading === p.id ? <Loader2 size={12} className="text-white animate-spin" /> : <BookOpen size={12} className="text-white" />}
@@ -174,6 +184,13 @@ export default function CartPage() {
                     {/* Mẫu đã bị shop ngừng kinh doanh — đơn cũ vẫn giữ để in & tra cứu, nhưng không đặt lại được */}
                     {(p as any).template?.archived && (
                       <span className="rounded-full px-2.5 py-0.5 font-sans text-[11px] border border-line text-sub bg-cream whitespace-nowrap">Mẫu đã ngừng</span>
+                    )}
+                    {/* Đơn ĐÃ HUỶ: cho khách tự dọn khỏi danh sách */}
+                    {cancelled && (
+                      <button onClick={() => removeCancelled(p)} disabled={removing === p.id}
+                        className="mm-btn flex items-center gap-1 font-sans text-[12px] text-[#B05A4A] disabled:opacity-50">
+                        {removing === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Xoá đơn
+                      </button>
                     )}
                   </div>
                 </article>
