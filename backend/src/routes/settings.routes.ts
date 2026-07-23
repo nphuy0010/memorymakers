@@ -50,6 +50,24 @@ router.put("/stickers", requireAuth, requireAdmin, validate(demoPoolSchema), asy
   res.json(JSON.parse(value));
 });
 
+// MÃ QR THANH TOÁN: admin tải ảnh QR (MoMo/ngân hàng) + dòng ghi chú (số TK, chủ TK).
+// Khách quét ảnh này ở bước thanh toán khi chưa bật cổng MoMo tự động.
+const paymentQrSchema = z.object({
+  url: z.string().max(2000).refine((u) => !u.startsWith("data:"), "Không nhận base64").nullable(),
+  note: z.string().max(300).optional(),
+});
+router.get("/payment-qr", async (_req, res) => {
+  const row = await prisma.setting.findUnique({ where: { key: "paymentQr" } });
+  let data: any = { url: null, note: "" };
+  try { data = { ...data, ...JSON.parse(row?.value || "{}") }; } catch {}
+  res.json(data);
+});
+router.put("/payment-qr", requireAuth, requireAdmin, validate(paymentQrSchema), async (req, res) => {
+  const value = JSON.stringify({ url: req.body.url || null, note: req.body.note || "" });
+  await prisma.setting.upsert({ where: { key: "paymentQr" }, update: { value }, create: { key: "paymentQr", value } });
+  res.json({ ok: true });
+});
+
 // MEDIA TRANG CHỦ (carousel): mảng ảnh + video hiển thị xoay vòng ở hero
 const heroMediaSchema = z.object({
   items: z.array(z.object({

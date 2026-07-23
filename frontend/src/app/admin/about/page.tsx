@@ -15,10 +15,17 @@ export default function AdminAbout() {
   const [pols, setPols] = useState<any[]>([]);
   const [helpUrl, setHelpUrl] = useState("");
   const [helpUp, setHelpUp] = useState(false);
+  const [qr, setQr] = useState<{ url: string | null; note: string }>({ url: null, note: "" });
+  const [qrUp, setQrUp] = useState(false);
+  const [qrSaved, setQrSaved] = useState(false);
+  const saveQr = async (next: { url: string | null; note: string }) => {
+    await api.setPaymentQr(next.url, next.note); clearApiCache(); setQr(next);
+    setQrSaved(true); setTimeout(() => setQrSaved(false), 2000);
+  };
   const [pSaving, setPSaving] = useState(false);
   const [pMsg, setPMsg] = useState("");
 
-  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroMedia().then((r: any) => setHeroItems(Array.isArray(r?.items) ? r.items : [])).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); api.getHelpVideo().then((r: any) => setHelpUrl(r?.url || "")).catch(() => {}); }, []);
+  useEffect(() => { api.about().then(setA).catch(() => {}); api.getHeroMedia().then((r: any) => setHeroItems(Array.isArray(r?.items) ? r.items : [])).catch(() => {}); api.getPolicies().then(setPols).catch(() => {}); api.getHelpVideo().then((r: any) => setHelpUrl(r?.url || "")).catch(() => {}); api.getPaymentQr().then((r: any) => setQr({ url: r?.url || null, note: r?.note || "" })).catch(() => {}); }, []);
 
   const savePolicies = async () => {
     setPSaving(true); setPMsg("");
@@ -66,6 +73,42 @@ export default function AdminAbout() {
                 value={(a as any)[key + "Url"] || ""} onChange={(e) => set(key + "Url", e.target.value)} />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* MÃ QR THANH TOÁN: ảnh QR của shop (MoMo / ngân hàng) hiện ở bước thanh toán của khách */}
+      <div className="bg-white rounded-2xl border border-line p-5 mt-5">
+        <h3 className="font-serif text-lg text-ink font-bold mb-1">Mã QR thanh toán</h3>
+        <p className="font-sans text-[13px] text-sub mb-3">Tải ảnh QR của shop (chụp từ app MoMo hoặc ngân hàng). Khách sẽ quét mã này ở bước thanh toán, kèm số tiền và mã đơn để bạn đối chiếu. Chưa có ảnh thì khách thấy ô QR trống như cũ.</p>
+        <div className="flex items-start gap-4 flex-wrap">
+          {qr.url ? (
+            <div className="relative w-36">
+              <img src={qr.url} alt="QR thanh toán" className="w-36 h-36 rounded-xl border border-line object-contain bg-white" />
+              <button onClick={() => saveQr({ url: null, note: qr.note })} className="absolute -top-1.5 -right-1.5 w-5 h-5 grid place-items-center rounded-full bg-[#B05A4A] text-white text-[10px]">✕</button>
+            </div>
+          ) : (
+            <label className="w-36 h-36 rounded-xl border border-dashed border-brass/60 grid place-items-center cursor-pointer text-brass hover:bg-cream">
+              {qrUp ? <Loader2 size={18} className="animate-spin" /> : <span className="font-sans text-[12px] font-semibold text-center leading-tight">+ Tải ảnh<br />QR lên</span>}
+              <input type="file" accept="image/*" className="hidden" disabled={qrUp}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]; e.currentTarget.value = "";
+                  if (!f) return;
+                  setQrUp(true);
+                  try { const { url } = await api.uploadFile(f); await saveQr({ url, note: qr.note }); }
+                  catch (err: any) { alert("Upload lỗi: " + (err?.message || "")); }
+                  finally { setQrUp(false); }
+                }} />
+            </label>
+          )}
+          <div className="flex-1 min-w-[240px]">
+            <div className="font-sans text-sm text-sub mb-1.5">Thông tin nhận tiền (hiện dưới mã QR cho khách)</div>
+            <input value={qr.note} onChange={(e) => setQr((q) => ({ ...q, note: e.target.value }))}
+              placeholder="VD: Vietcombank · 0123456789 · NGUYEN VAN A"
+              className="w-full p-2.5 rounded-lg border border-line font-sans text-sm outline-none mb-2" />
+            <button onClick={() => saveQr(qr)} className="mm-btn bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold">
+              {qrSaved ? "Đã lưu ✓" : "Lưu thông tin"}
+            </button>
+          </div>
         </div>
       </div>
 

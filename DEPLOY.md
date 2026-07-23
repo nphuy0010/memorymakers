@@ -68,3 +68,21 @@ npm run dev
 - **P1001 / can't reach database**: sai `DATABASE_URL` hoặc thiếu `?sslmode=require`.
 - **Ảnh không upload được**: kiểm tra 3 biến `CLOUDINARY_*`.
 - **Render free “ngủ”** sau 15 phút không truy cập → lần gọi đầu chậm ~30s (bình thường).
+
+## Upload ảnh trực tiếp lên Cloudinary (khuyên dùng — tránh backend quá tải)
+
+Mặc định frontend upload ảnh THẲNG lên Cloudinary, không qua backend (hết lỗi timeout/hết RAM khi upload ảnh lớn). Cần làm 2 bước:
+
+**1. Tạo Upload Preset dạng Unsigned trên Cloudinary:**
+- Vào Cloudinary → Settings → Upload → Upload presets → Add upload preset.
+- Signing Mode: chọn **Unsigned**.
+- (Tuỳ chọn) đặt Folder = `memory-makers`, bật Incoming transformation resize để tự nén.
+- Lưu và copy tên preset.
+
+**2. Thêm 2 biến trên Vercel (Settings → Environment Variables) rồi Redeploy:**
+```
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME  = <cloud name của bạn>
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET = <tên preset Unsigned vừa tạo>
+```
+
+Nếu KHÔNG set 2 biến này, frontend tự động fallback về upload qua backend như cũ (vẫn chạy, nhưng backend phải xử lý file — dễ timeout trên Render free).

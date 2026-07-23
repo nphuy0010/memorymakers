@@ -115,6 +115,8 @@ export default function DesignPage() {
 
   // Hooks MoMo phải nằm TRƯỚC mọi early-return (quy tắc hooks — tránh lỗi React #310)
   const [momo, setMomo] = useState<{ payUrl?: string; qrCodeUrl?: string; amount?: number } | null>(null);
+  const [shopQr, setShopQr] = useState<{ url: string | null; note: string }>({ url: null, note: "" });
+  useEffect(() => { api.getPaymentQr().then((r: any) => setShopQr({ url: r?.url || null, note: r?.note || "" })).catch(() => {}); }, []);
   const pollRef = useRef<any>(null);
   useEffect(() => () => clearInterval(pollRef.current), []);
 
@@ -259,10 +261,18 @@ export default function DesignPage() {
             <div className={`bg-white border border-line rounded-2xl p-6 text-center ${mode === "physical" && !addrOk ? "opacity-40 pointer-events-none" : ""}`}>
               {momo?.qrCodeUrl
                 ? <img src={momo.qrCodeUrl} alt="QR MoMo" className="w-44 h-44 mx-auto bg-white border border-line rounded-xl object-contain" />
-                : <div className="w-44 h-44 mx-auto bg-white border border-line rounded-xl grid place-items-center"><QrCode size={120} className="text-ink" /></div>}
+                : shopQr.url
+                  ? <img src={shopQr.url} alt="QR thanh toán" className="w-44 h-44 mx-auto bg-white border border-line rounded-xl object-contain" />
+                  : <div className="w-44 h-44 mx-auto bg-white border border-line rounded-xl grid place-items-center"><QrCode size={120} className="text-ink" /></div>}
               {momo && <div className="font-sans text-xs text-sub text-center mt-2">Quét bằng app MoMo — hệ thống tự xác nhận khi bạn trả xong (đang chờ…)</div>}
+              {!momo?.qrCodeUrl && shopQr.url && (
+                <div className="font-sans text-xs text-sub text-center mt-2">
+                  Quét mã để chuyển khoản{shopQr.note ? <><br /><span className="text-ink font-semibold">{shopQr.note}</span></> : null}
+                </div>
+              )}
               <div className="font-serif text-2xl text-ink font-bold mt-4">{vnd(price)}</div>
-              <div className="font-sans text-xs text-sub">MEMORY MAKERS · MM{Math.floor(Math.random() * 9000 + 1000)}</div>
+              {/* MÃ ĐƠN CỐ ĐỊNH theo dự án -> khách ghi vào nội dung chuyển khoản, admin đối chiếu được */}
+              <div className="font-sans text-xs text-sub">Nội dung CK: <b className="text-ink">MM{(projectId || "").slice(-6).toUpperCase() || "——————"}</b></div>
             </div>
             <button disabled={!addrOk || saving} onClick={payNow} className="mt-4 w-full bg-brass text-white rounded-full py-3 font-sans font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"><CheckCircle2 size={16} /> {saving ? "Đang xử lý…" : (mode === "physical" && !addrOk ? "Điền đủ địa chỉ để thanh toán" : (momo ? "Mở lại trang MoMo" : "Thanh toán"))}</button>
           </div>

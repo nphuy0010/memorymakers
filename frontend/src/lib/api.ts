@@ -52,6 +52,30 @@ async function req(path: string, opts: RequestInit = {}, cacheTtl = 0) {
 export const api = {
   // upload file thật -> trả URL (ảnh hiển thị được ngay)
   uploadFile: async (file: File): Promise<{ url: string }> => {
+    // UPLOAD TRỰC TIẾP LÊN CLOUDINARY (không qua backend) — hết lỗi backend timeout/hết RAM.
+    // Cần 2 biến trên Vercel: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME + NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET (unsigned).
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (cloud && preset) {
+      const isVideo = file.type.startsWith("video");
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("upload_preset", preset);
+      const endpoint = `https://api.cloudinary.com/v1_1/${cloud}/${isVideo ? "video" : "image"}/upload`;
+      let res: Response;
+      try {
+        res = await fetch(endpoint, { method: "POST", body: fd });
+      } catch {
+        throw new Error("Không kết nối được Cloudinary. → Kiểm tra mạng, hoặc cấu hình NEXT_PUBLIC_CLOUDINARY_* trên Vercel.");
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.secure_url) {
+        throw new Error(data?.error?.message || "Upload Cloudinary thất bại. → Kiểm tra upload preset là 'Unsigned' trên Cloudinary.");
+      }
+      return { url: data.secure_url };
+    }
+
+    // FALLBACK: chưa cấu hình Cloudinary trực tiếp -> upload qua backend như cũ
     const fd = new FormData();
     fd.append("file", file);
     let res: Response;
@@ -69,6 +93,13 @@ export const api = {
     return data;
   },
   uploadFiles: async (files: File[]): Promise<{ urls: string[] }> => {
+    // Cloudinary trực tiếp: upload song song từng file (tái dùng uploadFile). Fallback backend multi nếu chưa cấu hình.
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (cloud && preset) {
+      const urls = await Promise.all(files.map((f) => api.uploadFile(f).then((r) => r.url)));
+      return { urls };
+    }
     const fd = new FormData();
     files.forEach((f) => fd.append("files", f));
     const res = await fetch(`${BASE}/api/upload/multi`, {
@@ -141,6 +172,8 @@ export const api = {
   getHelpVideo: () => req("/settings/help-video", {}, 30_000),
   setHelpVideo: (url: string | null) => req("/settings/help-video", { method: "PUT", body: JSON.stringify({ url }) }),
   getHeroVideo: () => req("/settings/hero-video", {}, 15_000),
+  getPaymentQr: () => req("/settings/payment-qr", {}, 15_000),
+  setPaymentQr: (url: string | null, note: string) => req("/settings/payment-qr", { method: "PUT", body: JSON.stringify({ url, note }) }),
   getHeroMedia: () => req("/settings/hero-media", {}, 15_000),
   setHeroMedia: (items: { url: string; type: "image" | "video" }[]) => req("/settings/hero-media", { method: "PUT", body: JSON.stringify({ items }) }),
   setHeroVideo: (url: string | null) => req("/settings/hero-video", { method: "PUT", body: JSON.stringify({ url }) }),
