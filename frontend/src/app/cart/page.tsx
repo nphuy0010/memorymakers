@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Sparkles, Trash2, ShoppingBag, Package, BookOpen, X, Loader2 } from "lucide-react";
 import { useCart } from "@/store/useCart";
 import { useAuth } from "@/store/useAuth";
 import { api } from "@/lib/api";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
-import Flipbook from "@/components/Flipbook";
+import { BookCore } from "@/components/Flipbook";
 import ProjectCover from "@/components/ProjectCover";
 
 const vnd = (n: number) => (n || 0).toLocaleString("vi-VN") + "₫";
@@ -23,6 +23,17 @@ export default function CartPage() {
   const [flip, setFlip] = useState<any | null>(null);
   const [flipLoading, setFlipLoading] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  // PHÂN TRANG đơn hàng: 4 đơn / trang
+  const PER_PAGE = 4;
+  const [page, setPage] = useState(1);
+  const ordersRef = useRef<HTMLDivElement>(null);
+  const pageCount = Math.max(1, Math.ceil(orders.length / PER_PAGE));
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [pageCount, page]);
+  const pagedOrders = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const goPage = (n: number) => {
+    setPage(Math.min(pageCount, Math.max(1, n)));
+    ordersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   // Xoá đơn ĐÃ HUỶ khỏi danh sách của khách (backend chỉ cho xoá đơn chưa thanh toán)
   const removeCancelled = async (p: any) => {
     if (!confirm(`Xoá đơn “${p.title}” khỏi danh sách? Thao tác này không thể hoàn tác.`)) return;
@@ -38,7 +49,8 @@ export default function CartPage() {
     try {
       const r: any = await api.projectFlipbook(p.id);
       const L = r.layout || {};
-      setFlip({ t: r.template, assignments: L.assignments, edits: L.edits, texts: L.texts, hidden: L.hidden, stickers: L.stickers, title: p.title });
+      const hasPages = Array.isArray(r.template?.pages) && r.template.pages.length > 0;
+      setFlip({ t: r.template, assignments: L.assignments, edits: L.edits, texts: L.texts, hidden: L.hidden, stickers: L.stickers, title: p.title, empty: !hasPages });
     } catch (e: any) {
       alert(e?.message || "Chưa xem được flipbook cho đơn này.");
     } finally { setFlipLoading(null); }
@@ -143,13 +155,13 @@ export default function CartPage() {
 
         {/* ĐƠN HÀNG CỦA BẠN: đang xử lý / đang giao / đã giao / đã hủy — hiển thị TRẠNG THÁI thay nút xóa */}
         {orders.length > 0 && (
-          <div className="mt-10">
+          <div className="mt-10" ref={ordersRef}>
             <div className="flex items-center gap-2 mb-3">
               <Package size={18} className="text-brass" />
               <h2 className="font-serif text-xl md:text-2xl text-ink font-bold">Đơn hàng của bạn</h2>
             </div>
             <div className="space-y-3">
-              {orders.map((p) => {
+              {pagedOrders.map((p) => {
                 const canFlip = p.status === "SHIPPING" || p.status === "DELIVERED";   // chỉ Đang giao / Đã giao
                 const cancelled = p.status === "CANCELLED";
                 return (
@@ -197,20 +209,38 @@ export default function CartPage() {
                 );
               })}
             </div>
+
+            {/* PHÂN TRANG — chỉ hiện khi có hơn 4 đơn; nút đủ lớn để bấm bằng ngón tay */}
+            {pageCount > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-5 flex-wrap">
+                <button onClick={() => goPage(page - 1)} disabled={page === 1} aria-label="Trang trước"
+                  className="min-w-[44px] h-11 px-3 rounded-full border border-line bg-white font-sans text-sm text-ink disabled:opacity-40">‹ Trước</button>
+                {Array.from({ length: pageCount }).map((_, i) => (
+                  <button key={i} onClick={() => goPage(i + 1)} aria-label={`Trang ${i + 1}`}
+                    className={`w-11 h-11 rounded-full font-sans text-sm border ${page === i + 1 ? "bg-ink text-paper border-ink font-semibold" : "bg-white text-ink border-line"}`}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button onClick={() => goPage(page + 1)} disabled={page === pageCount} aria-label="Trang sau"
+                  className="min-w-[44px] h-11 px-3 rounded-full border border-line bg-white font-sans text-sm text-ink disabled:opacity-40">Sau ›</button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* FLIPBOOK FULLSCREEN của đơn hàng (Đang giao / Đã giao) */}
       {flip && (
-        <div className="fixed inset-0 z-[95] grid place-items-center p-4 md:p-7" style={{ background: "rgba(28,24,20,.94)" }}>
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4 md:p-7" style={{ background: "rgba(0,0,0,.8)" }}>
           <button onClick={() => setFlip(null)} aria-label="Đóng"
             className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full z-10" style={{ background: "rgba(255,255,255,.15)" }}>
             <X size={20} color="#fff" />
           </button>
-          <div className="w-full" style={{ maxWidth: "min(1100px, 96vw)" }}>
-            <div className="font-serif text-white text-lg mb-2 text-center truncate">{flip.title}</div>
-            <Flipbook t={flip.t} assignments={flip.assignments} edits={flip.edits} texts={flip.texts} hidden={flip.hidden} stickers={flip.stickers} />
+          <div className="mm-flip-modal w-full" style={{ maxWidth: "min(1400px, 85vw)", maxHeight: "90vh" }}>
+            <div className="font-serif text-white text-base md:text-lg mb-2 text-center truncate">{flip.title}</div>
+            {flip.empty
+              ? <div className="bg-white/95 rounded-2xl p-8 text-center font-sans text-sm text-sub">Ảnh preview chưa sẵn sàng cho đơn hàng này.</div>
+              : <BookCore t={flip.t} assignments={flip.assignments} edits={flip.edits} texts={flip.texts} hidden={flip.hidden} stickers={flip.stickers} big />}
           </div>
         </div>
       )}

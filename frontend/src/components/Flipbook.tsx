@@ -32,7 +32,7 @@ function NPage({ pg, assignments, edits, sample }: { pg: VP; assignments?: (stri
   );
 }
 
-function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big }: {
+export function BookCore({ t, assignments, edits, texts, hidden, stickers, sample, big }: {
   t: Template; assignments?: (string | undefined)[]; edits?: Record<number, Edit>;
   texts?: Record<number, TextItem[]>; hidden?: Record<number, boolean>; stickers?: Record<number, any[]>; sample?: boolean; big?: boolean;
 }) {

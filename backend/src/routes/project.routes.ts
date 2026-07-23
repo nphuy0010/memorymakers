@@ -6,8 +6,30 @@ import { validate, projectCreateSchema, projectUpdateSchema, orderSchema, review
 
 const router = Router();
 
+// Template lồng trong dự án đến từ Prisma dạng THÔ: pages/keywords... còn là chuỗi JSON.
+// Không parse -> buildPages() ở frontend nhận chuỗi thay vì mảng -> dựng ra trang rỗng
+// -> flipbook & ảnh bìa dự án TRẮNG TRƠN. Parse tại đây cho mọi API trả về dự án.
+function formatTemplate(t: any) {
+  if (!t) return t;
+  const j = (v: any, fb: any) => { try { return v ? JSON.parse(v) : fb; } catch { return fb; } };
+  return {
+    ...t,
+    pages: j(t.pages, []),
+    keywords: j(t.keywords, []),
+    demoPages: j(t.demoPages, []),
+    demoPhotos: j(t.demoPhotos, []),
+    productSize: j(t.productSize, null),
+  };
+}
+
 function format(p: any) {
-  return { ...p, photos: JSON.parse(p.photos || "[]"), layout: p.layout ? JSON.parse(p.layout) : null, address: p.address ? JSON.parse(p.address) : null };
+  return {
+    ...p,
+    photos: JSON.parse(p.photos || "[]"),
+    layout: p.layout ? JSON.parse(p.layout) : null,
+    address: p.address ? JSON.parse(p.address) : null,
+    ...(p.template ? { template: formatTemplate(p.template) } : {}),
+  };
 }
 
 const PRICE_KEY: Record<string, "priceSoft" | "priceHard" | "priceFan" | "priceDigital"> = {
