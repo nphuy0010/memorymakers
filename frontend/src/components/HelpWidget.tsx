@@ -36,7 +36,7 @@ export default function HelpWidget() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-[160px] right-6 w-[330px] md:w-[380px] bg-white rounded-2xl border border-line shadow-2xl z-[60] overflow-hidden">
+        <div className="fixed bottom-[116px] right-3 left-3 md:bottom-[160px] md:right-6 md:left-auto md:w-[380px] bg-white rounded-2xl border border-line shadow-2xl z-[60] overflow-hidden">
           {/* Header giống khung chat */}
           <div className="flex items-center justify-between px-4 py-3 bg-brass">
             <div>
@@ -59,7 +59,7 @@ export default function HelpWidget() {
       )}
       {/* Nút ? — giống hệt nút chat, đặt PHÍA TRÊN nút chat ~14px (chat: bottom-6 h-14 => 24+56+14 = 94px) */}
       <button onClick={() => setOpen(o => !o)} aria-label="Hướng dẫn sử dụng"
-        className="mm-float fixed right-6 w-12 h-12 rounded-full bg-brass grid place-items-center shadow-lg z-[998]" style={{ bottom: 90, display: chatOpen ? "none" : undefined }}>
+        className="mm-float fixed bottom-[64px] md:bottom-[90px] right-4 md:right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-brass grid place-items-center shadow-lg z-[998]" style={{ display: chatOpen ? "none" : undefined }}>
         <HelpCircle size={24} className="text-white" />
       </button>
     </>

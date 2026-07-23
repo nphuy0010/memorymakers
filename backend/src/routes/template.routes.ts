@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { composeTemplateDemo, getDemoPool } from "../lib/composeDemo";
+
 import { validate, templateSchema } from "../lib/validate";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
@@ -144,7 +144,6 @@ router.post("/", requireAuth, requireAdmin, validate(templateSchema), async (req
       priceFan: prices?.fan ?? 520000,
     },
   });
-  getDemoPool().then((pool) => { if (pool.length) return composeTemplateDemo(t.id, pool); }).catch((e) => console.warn("compose demo:", e?.message));
   res.json(format(t));
 });
 
@@ -178,10 +177,8 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   if (imageType === "COVER" && image) data.coverImage = image;
   if (imageType === "GIF" && image) data.previewGif = image;
   const t = await prisma.template.update({ where: { id: req.params.id }, data });
-  // pages đổi -> ghép lại ảnh demo server-side (fire-and-forget, không chặn phản hồi)
-  if (pages !== undefined) {
-    getDemoPool().then((pool) => { if (pool.length) return composeTemplateDemo(t.id, pool); }).catch((e) => console.warn("compose demo:", e?.message));
-  }
+  // Ảnh demo nay được ghép ở TRÌNH DUYỆT (Admin -> Kho ảnh demo -> "Áp dụng cho tất cả template"),
+  // không ghép ở server nữa để backend khỏi tốn RAM.
   res.json(format(t));
 });
 

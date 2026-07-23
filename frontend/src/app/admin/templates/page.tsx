@@ -186,7 +186,6 @@ export default function AdminTemplates() {
     <AdminShell>
       <div className="bg-white rounded-2xl border border-line p-5 mb-6">
         <h3 className="font-serif text-lg text-ink font-bold mb-1">Thêm template</h3>
-        <p className="font-sans text-sm text-sub mb-4">Mỗi ảnh = 1 trang. Hệ thống tự dò vùng đặt ảnh và tạo khung. Trang đầu là bìa trước, trang cuối là bìa sau.</p>
 
         {/* Tải các trang — TỰ ĐỘNG TẠO KHUNG */}
         <div className="border border-line rounded-xl p-4 mb-5 bg-cream">

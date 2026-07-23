@@ -180,7 +180,6 @@ export default function DesignPage() {
           <div className="flex justify-between items-end mb-3 flex-wrap gap-2">
             <div>
               <h2 className="font-serif text-2xl text-ink font-bold">{t.title}</h2>
-              <p className="font-sans text-sm text-sub mt-1">Tải ảnh ở cột phải, bấm khung để chèn, kéo ảnh ra ngoài hoặc nhấn Delete để gỡ. Có thể thêm chữ, ẩn trang, chỉnh zoom/xoay/lọc.</p>
             </div>
             <button onClick={goPreview} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2 shrink-0">Xem trước <ChevronRight size={16} /></button>
           </div>
@@ -192,7 +191,6 @@ export default function DesignPage() {
       {step === 1 && (
         <div className="max-w-[980px] mx-auto">
           <h2 className="font-serif text-2xl text-ink font-bold mb-1.5">Xem trước cuốn sách</h2>
-          <p className="font-sans text-sm text-sub mb-4">Bản nháp có watermark bảo vệ tới khi thanh toán. Lật trang để xem toàn bộ.</p>
           <Flipbook t={t} assignments={assignments} edits={edits} texts={texts} hidden={hidden} stickers={stickers} watermark />
           <div className="mt-5 flex justify-between">
             <button onClick={() => setStep(0)} className="border border-ink text-ink rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2"><ChevronLeft size={16} /> Chỉnh tiếp</button>

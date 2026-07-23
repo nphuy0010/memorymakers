@@ -25,7 +25,7 @@ export default function AdminStickers() {
   const save = async (next: string[]) => {
     setMsg("Đang lưu…");
     try { await api.setStickers(next); setMsg("Đã lưu ✓"); setTimeout(() => setMsg(""), 1500); }
-    catch (e: any) { setMsg(""); alert("KHÔNG lưu được: " + (e?.message || "") + "\n→ Deploy lại backend (route /settings/stickers)."); }
+    catch (e: any) { setMsg(""); console.error("saveStickers:", e); alert("Đã xảy ra lỗi khi lưu. Vui lòng thử lại."); }
   };
   const add = async (files: FileList) => {
     setUploading(true);
@@ -45,7 +45,6 @@ export default function AdminStickers() {
     <AdminShell>
       <div className="bg-white rounded-2xl border border-line p-5">
         <div className="flex items-center gap-2 mb-1"><Sticker size={20} className="text-brass" /><h3 className="font-serif text-lg text-ink font-bold">Kho sticker</h3></div>
-        <p className="font-sans text-[13px] text-sub mb-4">Tải PNG nền trong suốt. Khách sẽ thấy kho này trong trình thiết kế để tự decor (kéo–thả, đổi cỡ, xoay). Tự lưu khi thêm/xóa.</p>
         {loading ? <Loading text="Đang tải…" /> : (
           <>
             <button onClick={() => fileRef.current?.click()} disabled={uploading} className="mm-btn flex items-center gap-1.5 bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60 mb-4">

@@ -52,7 +52,7 @@ export default function Chatbot() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-[90px] right-6 w-[330px] bg-white rounded-2xl border border-line shadow-2xl z-[999] overflow-hidden" style={{ maxHeight: "min(560px, calc(100vh - 110px))" }}>
+        <div className="fixed bottom-[72px] right-3 left-3 md:bottom-[90px] md:right-6 md:left-auto md:w-[330px] bg-white rounded-2xl border border-line shadow-2xl z-[999] overflow-hidden" style={{ maxHeight: "min(560px, calc(100vh - 110px))" }}>
           <div className="bg-ink text-white px-4 py-3.5 flex justify-between items-center">
             <div>
               <div className="font-serif text-base font-semibold">Nhắn tin với shop</div>
@@ -89,7 +89,7 @@ export default function Chatbot() {
           )}
         </div>
       )}
-      <button onClick={() => setOpen(o => !o)} className="mm-float fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[999]">
+      <button onClick={() => setOpen(o => !o)} className="mm-float fixed bottom-4 right-4 md:bottom-6 md:right-6 w-11 h-11 md:w-14 md:h-14 rounded-full bg-brass grid place-items-center shadow-lg z-[999]">
         <MessageCircle size={24} className="text-white" />
       </button>
       {/* CONFIRM XOÁ CẢ ĐOẠN CHAT */}

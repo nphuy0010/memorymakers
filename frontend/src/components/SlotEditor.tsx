@@ -153,7 +153,6 @@ export default function SlotEditor({ template, onClose, onSaved }: { template: a
                 </div>
               ))}
             </div>
-            <p className="font-sans text-[11px] text-sub mt-3 leading-relaxed">Khung nằm dưới trong danh sách sẽ đè lên khung phía trên (chồng lớp). Dùng để làm mẫu 2–3 ảnh đè nhau.</p>
           </div>
         </div>
       </div>

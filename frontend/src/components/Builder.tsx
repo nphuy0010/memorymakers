@@ -307,10 +307,10 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         {pageHidden && <div style={{ background: "#FBEEE7", border: "1px solid #E8C2B0", borderRadius: 10, padding: "8px 12px", fontFamily: "var(--font-sans,sans-serif)", fontSize: 12.5, color: "#9A4E26", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span><EyeOff size={13} style={{ verticalAlign: -2 }} /> Trang này đang ẩn — sẽ không xuất hiện khi xem/đặt in.</span><button onClick={() => toggleHide(pageIdx)} style={{ background: "none", border: "none", color: C.brass, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Hiện lại</button></div>}
         <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 16, position: "relative" }}>
           {/* nút chuyển trang 2 BÊN giữa cạnh canvas */}
-          <button onClick={() => { setPageIdx((i) => Math.max(0, i - 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang trước" className="mm-flipnav" style={{ left: 8, opacity: pageIdx === 0 ? 0.3 : 1, pointerEvents: pageIdx === 0 ? "none" : "auto" }}><ChevronLeft size={18} color={C.ink} /></button>
-          <button onClick={() => { setPageIdx((i) => Math.min(pages.length - 1, i + 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang sau" className="mm-flipnav" style={{ right: 8, opacity: pageIdx === pages.length - 1 ? 0.3 : 1, pointerEvents: pageIdx === pages.length - 1 ? "none" : "auto" }}><ChevronRight size={18} color={C.ink} /></button>
+          <button onClick={() => { setPageIdx((i) => Math.max(0, i - 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang trước" className="mm-flipnav mm-left" style={{ left: 8, opacity: pageIdx === 0 ? 0.3 : 1, pointerEvents: pageIdx === 0 ? "none" : "auto" }}><ChevronLeft size={18} color={C.ink} /></button>
+          <button onClick={() => { setPageIdx((i) => Math.min(pages.length - 1, i + 1)); setSelSlot(null); setSelText(null); }} aria-label="Trang sau" className="mm-flipnav mm-right" style={{ right: 8, opacity: pageIdx === pages.length - 1 ? 0.3 : 1, pointerEvents: pageIdx === pages.length - 1 ? "none" : "auto" }}><ChevronRight size={18} color={C.ink} /></button>
           {/* canvas 70% container, căn giữa (cố định, không zoom) */}
-          <div style={{ width: "70%", margin: "0 auto" }}>
+          <div className="mm-canvas-wrap">
           {filling
             ? <div style={{ aspectRatio: "3/2", display: "grid", placeItems: "center" }}><div style={{ width: 44, height: 44, border: `4px solid ${C.cream}`, borderTopColor: C.brass, borderRadius: "50%", animation: "mmspin 1s linear infinite" }} /></div>
             : <PageCanvas page={pages[pageIdx]} assignments={assignments} edits={edits} onSlot={onSlot} selected={selSlot} editSlot={editable ? selSlot : null} onAdjust={setEdit} texts={pageTexts} onTextMove={updateText} onTextSelect={(id) => { setSelText(id); setSelSlot(null); setSelStk(null); }} selText={selText} stickers={pageStickers} onStickerMove={updateSticker} onStickerSelect={(id) => { setSelStk(id); setSelText(null); setSelSlot(null); }} selStk={selStk} onPhotoDragStart={onPhotoDragStart} onPhotoDragEnd={onPhotoDragEnd} />}
@@ -373,7 +373,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
       </div>
 
       {/* RIGHT */}
-      <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 12 }}>
+      <div className="mm-photos-panel" style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 12 }}>
         <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: C.sub, fontWeight: 700, marginBottom: 10 }}>Ảnh của bạn</div>
         <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.blushDeep}`, borderRadius: 12, padding: 16, textAlign: "center", cursor: "pointer", background: C.cream }}>
           <Upload size={18} color={C.brass} /><div style={{ fontSize: 12.5, color: C.ink, marginTop: 6 }}>Tải ảnh lên</div>

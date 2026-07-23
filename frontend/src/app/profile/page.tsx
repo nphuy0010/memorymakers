@@ -52,7 +52,7 @@ export default function ProfilePage() {
       setAuth(token, u); // cập nhật ngay avatar/tên trên Header
       setPassword(""); setPwd2(""); setOldPwd(""); setMsg("Đã lưu ✓");
       setTimeout(() => setMsg(""), 2000);
-    } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route /auth/me PUT)."); }
+    } catch (e: any) { console.error("updateProfile:", e); alert("Đã xảy ra lỗi khi lưu. Vui lòng thử lại."); }
     finally { setSaving(false); }
   };
 

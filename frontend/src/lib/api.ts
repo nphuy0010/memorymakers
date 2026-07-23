@@ -16,10 +16,13 @@ function token() {
 const cache = new Map<string, { exp: number; data: any }>();
 export function clearApiCache() { cache.clear(); }
 
-// Thông báo rõ ràng khi fetch fail (lỗi trình duyệt "Failed to fetch" — chặn TRƯỚC khi tới server)
+// Thông báo NGẮN GỌN cho người dùng; chi tiết kỹ thuật chỉ log ra console cho developer.
 function fetchFailMsg() {
-  if (apiMisconfigured) return `Frontend chưa cấu hình đúng backend (đang gọi ${BASE}). → Vào Vercel → Settings → Environment Variables, thêm NEXT_PUBLIC_API_URL = URL backend (vd https://ten-app.onrender.com), rồi redeploy.`;
-  return `Không kết nối được backend (${BASE}). → Nguyên nhân thường gặp: (1) chưa set FRONTEND_ORIGIN = domain Vercel trên Render (CORS chặn), (2) backend Render đang "ngủ" — chờ ~30s rồi thử lại, (3) mất mạng.`;
+  const detail = apiMisconfigured
+    ? `[Memory Makers] Thiếu NEXT_PUBLIC_API_URL trên Vercel — frontend đang gọi ${BASE}. Set biến rồi redeploy.`
+    : `[Memory Makers] Không gọi được ${BASE}. Kiểm tra: FRONTEND_ORIGIN trên Render (CORS), backend còn chạy không, hoặc mạng.`;
+  console.error(detail);
+  return "Không kết nối được máy chủ. Vui lòng thử lại.";
 }
 
 async function req(path: string, opts: RequestInit = {}, cacheTtl = 0) {
@@ -158,9 +161,9 @@ export const api = {
   clearMyChat: () => req("/messages", { method: "DELETE" }),
   adminDeleteConversation: (userId: string, mode: "self" | "both") => req(`/admin/messages/${userId}/delete-conversation`, { method: "POST", body: JSON.stringify({ mode }) }),
   grantAdmin: (email: string) => req("/admin/users/grant-admin", { method: "POST", body: JSON.stringify({ email }) }),
-  applyDemo: (ids?: string[]) => req("/admin/apply-demo", { method: "POST", body: JSON.stringify(ids && ids.length ? { ids } : {}) }),
   checkDemo: () => req("/admin/apply-demo/check", { method: "POST" }),
-  applyDemoOne: (id: string, b: any) => req(`/admin/templates/${id}/apply-demo`, { method: "POST", body: JSON.stringify(b) }),
+  // Frontend ghép ảnh bằng Canvas rồi gửi danh sách URL lên đây (backend chỉ lưu DB)
+  saveDemoResult: (templateId: string, pages: string[]) => req("/admin/save-demo-result", { method: "POST", body: JSON.stringify({ templateId, pages }) }),
   adminUpdateOrder: (id: string, body: { status?: string; tracking?: string }) => req(`/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   adminStats: () => req("/admin/stats"),
   // settings

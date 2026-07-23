@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { aggregateStats } from "../lib/business";
-import { composeTemplateDemo, getDemoPool } from "../lib/composeDemo";
+import { getDemoPool } from "../lib/demoPool";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
 
@@ -155,46 +155,34 @@ router.post("/messages", async (req, res) => {
 });
 
 // ADMIN CHỈNH PREVIEW 1 mẫu: nhận ảnh gán từng ô + vị trí/zoom -> ghép lại đúng như admin xếp
-router.post("/templates/:id/apply-demo", async (req, res) => {
-  const pool = await getDemoPool();
-  try {
-    const r = await composeTemplateDemo(req.params.id, pool, { assignments: req.body?.assignments, edits: req.body?.edits });
-    if (!r.ok) return res.status(400).json({ error: r.reason || "Không ghép được (mẫu chưa có trang hoặc chưa có ảnh)" });
-    res.json(r);
-  } catch (e: any) {
-    console.error("apply-demo one:", e?.message); // log kỹ thuật cho debug
-    res.status(500).json({ error: "Đang xử lý ảnh gặp trục trặc, vui lòng thử lại." });
-  }
+// LƯU KẾT QUẢ GHÉP (nhẹ — KHÔNG xử lý ảnh): frontend ghép bằng Canvas rồi gửi danh sách URL lên đây.
+// Thay cho route ghép bằng sharp cũ (hay làm hết RAM 512MB của Render free -> process bị kill).
+router.post("/save-demo-result", async (req, res) => {
+  const templateId = String(req.body?.templateId || "");
+  const pages = req.body?.pages;
+  if (!templateId) return res.status(400).json({ error: "Thiếu templateId" });
+  if (!Array.isArray(pages) || !pages.length) return res.status(400).json({ error: "Thiếu danh sách ảnh đã ghép" });
+  const urls = pages
+    .filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u) && !u.startsWith("data:"))
+    .slice(0, 60);
+  if (!urls.length) return res.status(400).json({ error: "Danh sách ảnh không hợp lệ" });
+  const t = await prisma.template.findUnique({ where: { id: templateId }, select: { id: true } });
+  if (!t) return res.status(404).json({ error: "Không tìm thấy template" });
+  await prisma.template.update({
+    where: { id: templateId },
+    data: { demoPages: JSON.stringify(urls), demoImage: urls[0] },
+  });
+  res.json({ ok: true, pages: urls.length });
 });
 
-// Ghép ảnh demo (server-side, sharp) cho TẤT CẢ template từ kho ảnh chung
-// Gợi ý cách sửa dựa trên nội dung lỗi -> admin biết làm gì tiếp
-function hintForReason(reason: string): string {
-  const r = (reason || "").toLowerCase();
-  if (r.includes("chưa có trang")) return "Vào Sửa mẫu, tải slide lên cho mẫu này.";
-  if (r.includes("chưa có khung")) return "Vào Chỉnh khung, thêm khung ảnh cho mẫu này.";
-  if (r.includes("kho ảnh demo trống")) return "Tải ảnh vào kho demo trước khi ghép.";
-  if (r.includes("không tải được ảnh") || r.includes("404") || r.includes("403") || r.includes("tải ảnh lỗi")) return "Ảnh mẫu bị thiếu/hỏng (có thể mất khi Render restart) — tải lại slide cho mẫu này.";
-  if (r.includes("same dimensions") || r.includes("composite")) return "Ảnh gốc lỗi kích thước — tải lại slide cho mẫu này.";
-  if (r.includes("cloudinary")) return "Lỗi Cloudinary — kiểm tra cấu hình CLOUDINARY_URL trên Render rồi thử lại.";
-  return "Thử lại; nếu vẫn lỗi, tải lại slide cho mẫu này.";
-}
-router.post("/apply-demo", async (req, res) => {
-  const pool = await getDemoPool();
-  if (!pool.length) return res.status(400).json({ error: "Kho ảnh demo trống" });
-  // body.ids (tùy chọn): chỉ ghép các template được chọn (dùng khi admin bỏ qua mẫu thiếu dữ liệu)
-  const onlyIds: string[] | null = Array.isArray(req.body?.ids) && req.body.ids.length ? req.body.ids : null;
-  let templates = await prisma.template.findMany({ where: { archived: false }, select: { id: true, title: true } });
-  if (onlyIds) templates = templates.filter((t: { id: string; title: string }) => onlyIds.includes(t.id));
-  const results: any[] = [];
-  for (const t of templates) {
-    try { const r = await composeTemplateDemo(t.id, pool); results.push({ id: t.id, title: t.title, ...r, hint: r.ok ? undefined : hintForReason(r.reason || "") }); }
-    catch (e: any) {
-      console.error(`apply-demo "${t.title}" lỗi:`, e?.message); // log server chi tiết
-      results.push({ id: t.id, title: t.title, ok: false, error: e?.message, hint: hintForReason(e?.message || "") });
-    }
-  }
-  res.json({ done: true, results });
+// Route ghép bằng sharp CŨ — đã gỡ. Giữ lại phản hồi hướng dẫn phòng khi frontend cũ còn gọi.
+router.post("/templates/:id/apply-demo", (_req, res) => {
+  res.status(410).json({ error: "Route này đã được thay thế. Vui lòng cập nhật (tải lại trang bằng Ctrl+F5)." });
+});
+
+// Route ghép hàng loạt bằng sharp CŨ — đã gỡ (frontend nay tự ghép bằng Canvas).
+router.post("/apply-demo", (_req, res) => {
+  res.status(410).json({ error: "Route này đã được thay thế. Vui lòng cập nhật (tải lại trang bằng Ctrl+F5)." });
 });
 
 // KIỂM TRA TRƯỚC KHI GHÉP: liệt kê template đủ/thiếu dữ liệu (không tải ảnh nặng, chỉ check nhanh cấu trúc + HEAD ảnh trang đầu)

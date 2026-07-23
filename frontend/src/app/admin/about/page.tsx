@@ -30,7 +30,7 @@ export default function AdminAbout() {
   const savePolicies = async () => {
     setPSaving(true); setPMsg("");
     try { await api.setPolicies(pols); clearApiCache(); setPMsg("Đã lưu ✓"); setTimeout(() => setPMsg(""), 2000); }
-    catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route /settings/policies)."); }
+    catch (e: any) { console.error("savePolicies:", e); alert("Đã xảy ra lỗi khi lưu. Vui lòng thử lại."); }
     finally { setPSaving(false); }
   };
   if (!a) return <AdminShell><div className="p-6 text-sub">Đang tải…</div></AdminShell>;
@@ -79,7 +79,6 @@ export default function AdminAbout() {
       {/* MÃ QR THANH TOÁN: ảnh QR của shop (MoMo / ngân hàng) hiện ở bước thanh toán của khách */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
         <h3 className="font-serif text-lg text-ink font-bold mb-1">Mã QR thanh toán</h3>
-        <p className="font-sans text-[13px] text-sub mb-3">Tải ảnh QR của shop (chụp từ app MoMo hoặc ngân hàng). Khách sẽ quét mã này ở bước thanh toán, kèm số tiền và mã đơn để bạn đối chiếu. Chưa có ảnh thì khách thấy ô QR trống như cũ.</p>
         <div className="flex items-start gap-4 flex-wrap">
           {qr.url ? (
             <div className="relative w-36">
@@ -115,7 +114,6 @@ export default function AdminAbout() {
       {/* MEDIA TRANG CHỦ: nhiều ẢNH + VIDEO — hiển thị carousel vòng tròn (ảnh 3s, video chạy hết) */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
         <div className="flex items-center gap-2 mb-1"><Film size={18} className="text-brass" /><h3 className="font-serif text-lg text-ink font-bold">Ảnh / Video trang chủ (carousel)</h3></div>
-        <p className="font-sans text-[13px] text-sub mb-3">Tải nhiều ảnh hoặc video (≤15MB mỗi file, tối đa 10). Trang chủ hiển thị lần lượt theo vòng tròn: đang chiếu nằm trước, các media sau xếp phía sau mờ dần; ảnh chiếu 3 giây, video chạy hết rồi tự chuyển. Trống thì hiển thị bìa mẫu như cũ.</p>
         <div className="flex gap-2.5 flex-wrap items-start mb-3">
           {heroItems.map((it, i) => (
             <div key={i} className="relative w-24">
@@ -149,7 +147,6 @@ export default function AdminAbout() {
             </label>
           )}
         </div>
-        <p className="font-sans text-[11.5px] text-sub">Thứ tự hiển thị = thứ tự trong danh sách. Xoá rồi tải lại để đổi thứ tự.</p>
       </div>
       {/* VIDEO HƯỚNG DẪN (nút ? nổi cạnh chat): UPLOAD trực tiếp — có preview + nút xoá; chưa có video -> nút ? tự ẩn */}
       <div className="bg-white rounded-2xl border border-line p-5 mt-5">
@@ -184,7 +181,6 @@ export default function AdminAbout() {
           <h3 className="font-serif text-lg text-ink font-bold">Chính sách</h3>
           <button onClick={savePolicies} disabled={pSaving} className="mm-btn bg-brass text-white rounded-full px-4 py-2 font-sans text-sm font-semibold disabled:opacity-60">{pSaving ? "Đang lưu…" : pMsg || "Lưu chính sách"}</button>
         </div>
-        <p className="font-sans text-[13px] text-sub mb-4">5 mục cố định giống bản gốc, hiển thị ở chân trang — khách bấm vào sẽ hiện popup. Bạn chỉ cần soạn nội dung.</p>
         <div className="space-y-4">
           {pols.map((p, i) => (
             <div key={p.id} className="border border-line rounded-xl p-3.5">

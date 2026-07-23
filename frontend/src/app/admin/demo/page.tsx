@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, X, Loader2, Images, Sparkles, Wand2, Save } from "lucide-react";
 import { api, clearApiCache } from "@/lib/api";
+import { composeTemplateDemo } from "@/lib/composeCanvas";
 import AdminShell from "@/components/AdminShell";
 import Loading from "@/components/Loading";
 import Builder from "@/components/Builder";
@@ -72,13 +73,25 @@ export default function AdminDemoPool() {
     setESaving(true);
     try {
       // Gửi edits ĐẦY ĐỦ cho mọi ô có ảnh (kể cả ô chưa chỉnh -> mặc định 50/38/1)
-      // => server ghép đúng 100% những gì admin đang thấy trong modal (WYSIWYG)
+      // => ảnh ghép ra đúng 100% những gì admin đang thấy trong modal (WYSIWYG)
       const editsFull: Record<number, any> = {};
       eAssign.forEach((u, g) => { if (u) editsFull[g] = { ox: 50, oy: 38, scale: 1, ...(eEdits[g] || {}) }; });
-      await api.applyDemoOne(editT.id, { assignments: eAssign, edits: editsFull });
+      // GHÉP NGAY TRÊN TRÌNH DUYỆT (Canvas) rồi chỉ gửi danh sách URL về backend
+      const urls = await composeTemplateDemo(
+        editT.id, (editT.pages || []) as any, pool,
+        { assignments: eAssign, edits: editsFull },
+        (done, total) => setProgress(`Đang xử lý trang ${Math.min(done + 1, total)}/${total}…`),
+      );
+      await api.saveDemoResult(editT.id, urls);
+      clearApiCache();
+      setProgress("");
       alert("Đã lưu preview cho “" + editT.title + "” ✓");
       setEditT(null);
-    } catch (e: any) { alert("Lưu lỗi: " + (e?.message || "") + "\n→ Backend cần bản mới (route apply-demo từng mẫu)."); }
+    } catch (e: any) {
+      console.error("savePreview:", e); // chi tiết kỹ thuật để dev debug
+      setProgress("");
+      alert("Đã xảy ra lỗi khi xử lý. Vui lòng thử lại.");
+    }
     finally { setESaving(false); }
   };
 
@@ -92,7 +105,7 @@ export default function AdminDemoPool() {
     try { await api.setDemoPool(next); setPoolMsg("Đã lưu kho ✓"); setTimeout(() => setPoolMsg(""), 2000); }
     catch (e: any) {
       setPoolMsg("");
-      alert("KHÔNG lưu được kho ảnh: " + (e?.message || "") + "\n→ Backend chưa có mục kho ảnh (route /settings/demo-pool). Hãy DEPLOY LẠI backend rồi thử lại.");
+      console.error("savePool:", e); alert("Đã xảy ra lỗi khi lưu kho ảnh. Vui lòng thử lại.");
     }
   };
 
@@ -124,43 +137,58 @@ export default function AdminDemoPool() {
     if (/ETIMEDOUT|ECONNRESET|timeout/i.test(msg)) return "→ Mạng máy chủ chập chờn — bấm Thử lại.";
     return "→ Bấm Thử lại; nếu vẫn lỗi, gửi thông báo này cho kỹ thuật.";
   };
+  // Ghép lại RIÊNG 1 mẫu (không phải chạy lại toàn bộ)
+  const composeOne = async (id: string, onStep?: (d: number, t: number) => void) => {
+    const full: any = await api.template(id);           // lấy pages mới nhất
+    const urls = await composeTemplateDemo(id, (full.pages || []) as any, pool, undefined, onStep);
+    await api.saveDemoResult(id, urls);
+  };
   const retryOne = async (id: string) => {
     setComposeResult((r) => r && { ...r, fails: r.fails.map((x) => x.id === id ? { ...x, retrying: true } : x) });
     try {
-      await api.applyDemoOne(id, {}); // ghép lại riêng mẫu này từ kho (không cần chạy lại toàn bộ)
+      await composeOne(id);
       clearApiCache();
       setComposeResult((r) => r && { ...r, ok: r.ok + 1, fails: r.fails.filter((x) => x.id !== id) });
     } catch (e: any) {
+      console.error("retryOne:", e);
       setComposeResult((r) => r && { ...r, fails: r.fails.map((x) => x.id === id ? { ...x, retrying: false, msg: e?.message || x.msg } : x) });
     }
   };
   const applyAll = async () => {
     if (!pool.length) { alert("Hãy thêm ít nhất 1 ảnh vào kho."); return; }
-    // VALIDATE TRƯỚC KHI GHÉP (server): kiểm cả cấu trúc LẪN ảnh trang đầu có truy cập được (404/ảnh chết)
     setApplying(true); setProgress("Đang kiểm tra dữ liệu các template…"); setComposeResult(null);
-    let runIds: string[] | undefined;
+
+    // 1) Kiểm tra trước: mẫu nào thiếu trang/khung/ảnh hỏng -> hỏi admin có bỏ qua không
+    let list = templates as any[];
     try {
       const chk: any = await api.checkDemo();
       const invalid: any[] = chk.invalid || [];
       if (invalid.length) {
         const names = invalid.map((t: any) => `• ${t.title}: ${t.reason} (${t.hint})`).join("\n");
         if (!confirm(`${invalid.length} template thiếu/hỏng dữ liệu, sẽ KHÔNG ghép được:\n${names}\n\nBỏ qua các mẫu này và tiếp tục với ${(chk.ready || []).length} mẫu còn lại?`)) { setApplying(false); setProgress(""); return; }
-        runIds = (chk.ready || []).map((t: any) => t.id);
-        if (!runIds.length) { alert("Không còn mẫu hợp lệ nào để ghép."); setApplying(false); setProgress(""); return; }
+        const okIds = new Set((chk.ready || []).map((t: any) => t.id));
+        list = list.filter((t) => okIds.has(t.id));
+        if (!list.length) { alert("Không còn mẫu hợp lệ nào để ghép."); setApplying(false); setProgress(""); return; }
       }
-    } catch {
-      // validate lỗi (backend cũ) -> vẫn cho ghép, chỉ mất bước check trước
+    } catch { /* backend chưa có route check -> vẫn ghép bình thường */ }
+
+    // 2) GHÉP NGAY TRÊN TRÌNH DUYỆT từng mẫu, backend chỉ nhận URL kết quả
+    try { await api.setDemoPool(pool); } catch { /* kho ảnh đã lưu trước đó */ }
+    const fails: { id: string; title: string; msg: string }[] = [];
+    let ok = 0;
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      try {
+        await composeOne(t.id, (d, tot) => setProgress(`Mẫu ${i + 1}/${list.length} — “${t.title}” · trang ${Math.min(d + 1, tot)}/${tot}…`));
+        ok++;
+      } catch (e: any) {
+        console.error(`compose "${t.title}":`, e);
+        fails.push({ id: t.id, title: t.title, msg: e?.message || "lỗi không rõ" });
+      }
     }
-    setProgress("Server đang ghép ảnh demo cho các template…");
-    try {
-      await api.setDemoPool(pool);
-      const r: any = await api.applyDemo(runIds);
-      const results = r.results || [];
-      const fails = results.filter((x: any) => !x.ok).map((x: any) => ({ id: x.id, title: x.title, msg: x.reason || x.error || "lỗi không rõ", hint: x.hint }));
-      setComposeResult({ ok: results.length - fails.length, total: results.length, fails });
-      clearApiCache();
-    } catch (e: any) { alert("Lỗi: " + (e?.message || "") + "\n→ Backend cần deploy bản mới (route /admin/apply-demo + sharp)."); }
-    finally { setApplying(false); setProgress(""); }
+    clearApiCache();
+    setComposeResult({ ok, total: list.length, fails });
+    setApplying(false); setProgress("");
   };
 
   return (
@@ -170,7 +198,6 @@ export default function AdminDemoPool() {
           <Images size={20} className="text-brass" />
           <h3 className="font-serif text-lg text-ink font-bold">Kho ảnh demo chung</h3>
         </div>
-        <p className="font-sans text-[13px] text-sub mb-4">Tải ảnh vào kho này. Bấm “Áp dụng cho tất cả template” — hệ thống **tự** ghép ảnh vào khung của mọi template để khách xem bản mẫu đã điền. Bạn không cần thêm thủ công cho từng mẫu. Khi khách “Dùng mẫu” vẫn nhận template trống.</p>
 
         {loading ? <Loading text="Đang tải…" /> : (
           <>
@@ -226,7 +253,6 @@ export default function AdminDemoPool() {
             {/* CHỈNH PREVIEW TỪNG MẪU: admin tự xếp/kéo/zoom ảnh bằng chuột rồi Lưu */}
             <div className="mt-6 border-t border-line pt-4">
               <div className="font-serif text-base text-ink font-bold mb-1">Tinh chỉnh preview từng mẫu</div>
-              <p className="font-sans text-[12.5px] text-sub mb-3">Không ưng bản ghép tự động? Bấm “Chỉnh preview” — tự chọn ảnh vào từng ô, Ctrl + lăn chuột phóng to, Ctrl + kéo chỉnh vị trí, rồi Lưu.</p>
               <div className="grid md:grid-cols-3 gap-2">
                 {templates.map((t) => (
                   <div key={t.id} className="flex items-center justify-between border border-line rounded-xl px-3 py-2">
@@ -258,7 +284,6 @@ export default function AdminDemoPool() {
             </div>
             <div className="p-4">
               <Builder t={editT} photos={ePhotos} setPhotos={setEPhotos} assignments={eAssign} setAssignments={setEAssign} edits={eEdits} setEdits={setEEdits} hidden={eHidden} setHidden={setEHidden} locked={eLocked} setLocked={setELocked} texts={eTexts} setTexts={setETexts} stickers={eStickers} setStickers={setEStickers} />
-              <p className="font-sans text-[12px] text-sub mt-2">Lưu ý: preview chỉ ghép ẢNH (chữ/sticker thêm ở đây không vào ảnh preview).</p>
             </div>
           </div>
         </div>
