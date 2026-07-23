@@ -231,12 +231,12 @@ export default function CartPage() {
 
       {/* FLIPBOOK FULLSCREEN của đơn hàng (Đang giao / Đã giao) */}
       {flip && (
-        <div className="fixed inset-0 z-[95] grid place-items-center p-4 md:p-7" style={{ background: "rgba(0,0,0,.8)" }}>
+        <div className="fixed inset-0 z-[95] grid place-items-center p-3 md:p-6 overflow-y-auto" style={{ background: "rgba(0,0,0,.8)" }}>
           <button onClick={() => setFlip(null)} aria-label="Đóng"
             className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full z-10" style={{ background: "rgba(255,255,255,.15)" }}>
             <X size={20} color="#fff" />
           </button>
-          <div className="mm-flip-modal w-full" style={{ maxWidth: "min(1400px, 85vw)", maxHeight: "90vh" }}>
+          <div className="mm-flip-modal w-full" style={{ maxWidth: "min(1200px, 85vw, 112vh)" }}>
             <div className="font-serif text-white text-base md:text-lg mb-2 text-center truncate">{flip.title}</div>
             {flip.empty
               ? <div className="bg-white/95 rounded-2xl p-8 text-center font-sans text-sm text-sub">Ảnh preview chưa sẵn sàng cho đơn hàng này.</div>

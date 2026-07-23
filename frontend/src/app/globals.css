@@ -119,5 +119,5 @@ img, video { max-width: 100%; }
 @media (hover: none) and (pointer: coarse) { .mm-touch-hint { display: block; } }
 
 /* Flipbook trong modal đơn hàng: to hơn bản nhúng (desktop 88%, mobile gần full) */
-.mm-flip-modal .mm-book-wrap { width: 88% !important; }
-@media (max-width: 767px) { .mm-flip-modal .mm-book-wrap { width: 96% !important; } }
+.mm-flip-modal .mm-book-wrap { width: 86% !important; }
+@media (max-width: 767px) { .mm-flip-modal .mm-book-wrap { width: 94% !important; } }
