@@ -37,7 +37,10 @@ export default function AccountPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && !localStorage.getItem("mm_token")) { router.push("/login"); return; }
     setLoading(true);
-    api.projects().then((ps: any[]) => setProjects(ps.filter((p: any) => p.status === "DESIGNING" || p.status === "DESIGNED"))).catch(() => {}).finally(() => setLoading(false));
+    api.projects().then((ps: any[]) => setProjects(ps.filter((p: any) =>
+      (p.status === "DESIGNING" || p.status === "DESIGNED")
+      && !(p.template?.archived)   // mẫu đã ngừng + chưa thanh toán -> ẩn (dự án mồ côi, không dùng được nữa)
+    ))).catch(() => {}).finally(() => setLoading(false));
   }, [router]);
 
   const list = tab === "ALL" ? projects : projects.filter(p => p.status === tab);

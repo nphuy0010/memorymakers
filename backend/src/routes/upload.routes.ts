@@ -131,3 +131,30 @@ router.use((err: any, _req: any, res: any, _next: any) => {
 });
 
 export default router;
+
+/** XOÁ ẢNH trên Cloudinary theo URL (dọn rác khi xoá dự án/template).
+ *  Chỉ xoá ảnh do hệ thống upload lên Cloudinary; URL khác (đĩa, ngoài) bỏ qua an toàn.
+ *  KHÔNG bao giờ ném lỗi — dọn rác thất bại không được làm hỏng thao tác xoá chính. */
+export async function destroyByUrl(url: string): Promise<boolean> {
+  try {
+    if (!CLOUD_ON || !cloudinary || typeof url !== "string") return false;
+    if (!url.includes("res.cloudinary.com")) return false;
+    const m = url.match(/\/upload\/(?:[^/]+\/)*?v\d+\/(.+)$/) || url.match(/\/upload\/(.+)$/);
+    if (!m) return false;
+    const publicId = m[1].replace(/\.[a-z0-9]+$/i, "");        // bỏ đuôi file
+    if (!publicId || publicId.length > 300) return false;
+    const isVideo = /\/video\/upload\//.test(url);
+    await cloudinary.uploader.destroy(publicId, { resource_type: isVideo ? "video" : "image", timeout: 20000 });
+    return true;
+  } catch (e: any) {
+    console.warn("destroyByUrl bỏ qua:", e?.message);
+    return false;
+  }
+}
+
+/** Xoá nhiều URL, chạy tuần tự để không dồn kết nối. Trả về số ảnh đã xoá. */
+export async function destroyMany(urls: (string | null | undefined)[]): Promise<number> {
+  let n = 0;
+  for (const u of urls) if (u && await destroyByUrl(u)) n++;
+  return n;
+}

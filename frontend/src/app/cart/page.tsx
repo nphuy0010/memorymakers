@@ -143,6 +143,10 @@ export default function CartPage() {
                     <span className="text-white rounded-full px-3 py-1 font-sans text-[12px] font-semibold whitespace-nowrap" style={{ background: STATUS_COLOR[p.status as keyof typeof STATUS_COLOR] }}>
                       {STATUS_LABEL[p.status as keyof typeof STATUS_LABEL]}
                     </span>
+                    {/* Mẫu đã bị shop ngừng kinh doanh — đơn cũ vẫn giữ để in & tra cứu, nhưng không đặt lại được */}
+                    {(p as any).template?.archived && (
+                      <span className="rounded-full px-2.5 py-0.5 font-sans text-[11px] border border-line text-sub bg-cream whitespace-nowrap">Mẫu đã ngừng</span>
+                    )}
                   </div>
                 </article>
               ))}

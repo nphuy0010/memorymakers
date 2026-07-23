@@ -172,11 +172,45 @@ export default function AdminTemplates() {
     finally { setSaving(false); }
   };
 
+  const [cleaning, setCleaning] = useState(false);
+  const cleanupOrphans = async () => {
+    if (!confirm("Dọn các dự án của người dùng đang trỏ tới mẫu ĐÃ NGỪNG và CHƯA thanh toán?\n\nDự án đã thanh toán luôn được giữ lại. Thao tác này không thể hoàn tác.")) return;
+    setCleaning(true);
+    try {
+      const r: any = await api.cleanupOrphans();
+      alert(`Đã xoá ${r.deleted || 0} dự án mồ côi. Giữ lại ${r.keptPaid || 0} dự án đã thanh toán.` + (r.cleanedImages ? `\nĐã dọn ${r.cleanedImages} ảnh trên Cloudinary.` : ""));
+    } catch (e: any) { alert("Dọn lỗi: " + (e?.message || "")); }
+    finally { setCleaning(false); }
+  };
+
   const del = async (id: string) => {
-    if (!confirm("Xóa template này?")) return;
+    const t = templates.find((x) => x.id === id);
+    const name = t?.title || "này";
+    // Hỏi ảnh hưởng THẬT trước khi xoá: bao nhiêu dự án chưa/đã thanh toán dùng mẫu này
+    let usage: any = null;
+    try { usage = await api.templateUsage(id); } catch { /* backend cũ -> hỏi câu chung */ }
+
+    let msg: string;
+    if (usage && usage.total > 0) {
+      msg = `Template “${name}” đang được ${usage.total} dự án của người dùng sử dụng.\n\n`
+        + `• ${usage.unpaid} dự án CHƯA thanh toán sẽ bị XOÁ VĨNH VIỄN (kèm ảnh khách đã tải lên).\n`
+        + `• ${usage.paid} dự án ĐÃ thanh toán được GIỮ LẠI để in ấn & lịch sử đơn; mẫu sẽ chuyển sang trạng thái “đã ngừng”.\n\n`
+        + `Bạn có chắc muốn xoá?`;
+    } else {
+      msg = `Xoá template “${name}”? Mẫu chưa có dự án nào nên sẽ bị xoá vĩnh viễn (kèm ảnh của mẫu).`;
+    }
+    if (!confirm(msg)) return;
+
     const prev = templates;
     setTemplates(ts => ts.filter(t => t.id !== id)); // xóa NGAY trên giao diện
-    try { await api.deleteTemplate(id); }             // gọi API chạy nền, không tải lại cả danh sách
+    try {
+      const r: any = await api.deleteTemplate(id);
+      const parts: string[] = [];
+      if (r?.deletedProjects) parts.push(`đã xoá ${r.deletedProjects} dự án chưa thanh toán`);
+      if (r?.keptPaid) parts.push(`giữ lại ${r.keptPaid} dự án đã thanh toán`);
+      if (r?.cleanedImages) parts.push(`dọn ${r.cleanedImages} ảnh trên Cloudinary`);
+      if (parts.length) alert("Đã xoá template ✓ — " + parts.join(", ") + ".");
+    }
     catch (e: any) { alert("Xóa lỗi: " + (e?.message || "")); setTemplates(prev); } // lỗi thì khôi phục
   };
 
@@ -264,6 +298,10 @@ export default function AdminTemplates() {
       <div className="bg-white rounded-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="font-serif text-lg text-ink font-bold">Template ({templates.length})</h3>
+          <button onClick={cleanupOrphans} disabled={cleaning}
+            className="mm-btn border border-line rounded-full px-3.5 py-2 font-sans text-[13px] text-sub hover:bg-cream disabled:opacity-60">
+            {cleaning ? "Đang dọn…" : "Dọn dự án mồ côi"}
+          </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {templates.map(t => (

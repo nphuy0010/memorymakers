@@ -161,6 +161,8 @@ export const api = {
   clearMyChat: () => req("/messages", { method: "DELETE" }),
   adminDeleteConversation: (userId: string, mode: "self" | "both") => req(`/admin/messages/${userId}/delete-conversation`, { method: "POST", body: JSON.stringify({ mode }) }),
   grantAdmin: (email: string) => req("/admin/users/grant-admin", { method: "POST", body: JSON.stringify({ email }) }),
+  templateUsage: (id: string) => req(`/templates/${id}/usage`),
+  cleanupOrphans: () => req("/admin/cleanup-orphans", { method: "POST" }),
   checkDemo: () => req("/admin/apply-demo/check", { method: "POST" }),
   // Frontend ghép ảnh bằng Canvas rồi gửi danh sách URL lên đây (backend chỉ lưu DB)
   saveDemoResult: (templateId: string, pages: string[]) => req("/admin/save-demo-result", { method: "POST", body: JSON.stringify({ templateId, pages }) }),

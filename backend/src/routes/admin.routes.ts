@@ -5,6 +5,7 @@ import { aggregateStats } from "../lib/business";
 import { getDemoPool } from "../lib/demoPool";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
+import { destroyMany } from "./upload.routes";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -183,6 +184,28 @@ router.post("/templates/:id/apply-demo", (_req, res) => {
 // Route ghép hàng loạt bằng sharp CŨ — đã gỡ (frontend nay tự ghép bằng Canvas).
 router.post("/apply-demo", (_req, res) => {
   res.status(410).json({ error: "Route này đã được thay thế. Vui lòng cập nhật (tải lại trang bằng Ctrl+F5)." });
+});
+
+// DỌN DỰ ÁN MỒ CÔI: dự án trỏ tới mẫu ĐÃ NGỪNG (archived) mà CHƯA thanh toán -> xoá + dọn ảnh.
+// Dự án đã thanh toán luôn được giữ (phục vụ in ấn & lịch sử đơn).
+router.post("/cleanup-orphans", async (_req, res) => {
+  const PAID = ["PURCHASED", "SHIPPING", "DELIVERED"];
+  const rows = await prisma.project.findMany({
+    where: { template: { archived: true } },
+    select: { id: true, status: true, photos: true },
+  });
+  const removable = rows.filter((p: { status: string }) => !PAID.includes(p.status));
+  const kept = rows.length - removable.length;
+
+  const photoUrls: string[] = [];
+  for (const p of removable) {
+    try { const arr = JSON.parse((p as any).photos || "[]"); if (Array.isArray(arr)) photoUrls.push(...arr.filter((u: any) => typeof u === "string")); } catch {}
+  }
+  if (removable.length) {
+    await prisma.project.deleteMany({ where: { id: { in: removable.map((p: { id: string }) => p.id) } } });
+  }
+  const cleanedImages = await destroyMany(photoUrls);
+  res.json({ ok: true, deleted: removable.length, keptPaid: kept, cleanedImages });
 });
 
 // KIỂM TRA TRƯỚC KHI GHÉP: liệt kê template đủ/thiếu dữ liệu (không tải ảnh nặng, chỉ check nhanh cấu trúc + HEAD ảnh trang đầu)

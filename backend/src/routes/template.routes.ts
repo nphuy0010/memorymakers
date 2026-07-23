@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { validate, templateSchema } from "../lib/validate";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
+import { destroyMany } from "./upload.routes";
 
 const router = Router();
 
@@ -182,16 +183,62 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   res.json(format(t));
 });
 
-// "Xoá" template = XOÁ MỀM (ẩn khỏi catalog) để KHÔNG làm mất đơn hàng đã tham chiếu mẫu này.
+// Trạng thái coi là ĐÃ THANH TOÁN -> tuyệt đối GIỮ LẠI để phục vụ in ấn & lịch sử đơn
+const PAID_STATUSES = ["PURCHASED", "SHIPPING", "DELIVERED"];
+
+// XEM TRƯỚC ẢNH HƯỞNG trước khi xoá — để admin confirm với con số cụ thể
+router.get("/:id/usage", requireAuth, requireAdmin, async (req, res) => {
+  const all = await prisma.project.findMany({ where: { templateId: req.params.id }, select: { status: true } });
+  const paid = all.filter((p: { status: string }) => PAID_STATUSES.includes(p.status)).length;
+  res.json({ total: all.length, paid, unpaid: all.length - paid });
+});
+
+// "Xoá" template: XOÁ các dự án CHƯA thanh toán (kèm ảnh khách trên Cloudinary),
+// GIỮ dự án ĐÃ thanh toán. Còn dự án đã thanh toán -> xoá mềm (archived) để không mất lịch sử đơn;
+// không còn dự án nào -> xoá hẳn template + ảnh của template.
 router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const orders = await prisma.project.count({ where: { templateId: req.params.id } });
-  if (orders > 0) {
-    await prisma.template.update({ where: { id: req.params.id }, data: { archived: true } });
-    return res.json({ ok: true, archived: true });
+  const id = req.params.id;
+  const tpl = await prisma.template.findUnique({ where: { id } });
+  if (!tpl) return res.status(404).json({ error: "Không tìm thấy template" });
+
+  const projects = await prisma.project.findMany({ where: { templateId: id }, select: { id: true, status: true, photos: true } });
+  const unpaid = projects.filter((p: { status: string }) => !PAID_STATUSES.includes(p.status));
+  const paidCount = projects.length - unpaid.length;
+
+  // 1) Gom ảnh khách của các dự án sắp xoá (dọn rác Cloudinary SAU khi xoá DB thành công)
+  const photoUrls: string[] = [];
+  for (const p of unpaid) {
+    try { const arr = JSON.parse((p as any).photos || "[]"); if (Array.isArray(arr)) photoUrls.push(...arr.filter((u: any) => typeof u === "string")); } catch {}
   }
-  // Chưa có đơn nào -> xoá hẳn cho gọn.
-  await prisma.template.delete({ where: { id: req.params.id } });
-  res.json({ ok: true, archived: false });
+
+  // 2) Xoá dự án chưa thanh toán
+  if (unpaid.length) {
+    await prisma.project.deleteMany({ where: { id: { in: unpaid.map((p: { id: string }) => p.id) } } });
+  }
+
+  // 3) Còn dự án đã thanh toán -> chỉ xoá mềm (KHÔNG xoá ảnh template vì đơn cũ còn cần để in)
+  if (paidCount > 0) {
+    await prisma.template.update({ where: { id }, data: { archived: true } });
+    const cleaned = await destroyMany(photoUrls);
+    return res.json({ ok: true, archived: true, deletedProjects: unpaid.length, keptPaid: paidCount, cleanedImages: cleaned });
+  }
+
+  // 4) Không còn dự án nào -> xoá hẳn template + dọn ảnh của template
+  await prisma.template.delete({ where: { id } });
+  const tplImages: string[] = [tpl.blankImage, tpl.demoImage, tpl.coverImage, tpl.previewGif, tpl.previewVideo].filter(Boolean) as string[];
+  for (const key of ["pages", "demoPages", "demoPhotos"]) {
+    try {
+      const arr = JSON.parse((tpl as any)[key] || "[]");
+      if (Array.isArray(arr)) {
+        for (const it of arr) {
+          if (typeof it === "string") tplImages.push(it);
+          else if (it && typeof it.image === "string") tplImages.push(it.image); // pages: [{ image, slots }]
+        }
+      }
+    } catch {}
+  }
+  const cleaned = await destroyMany([...photoUrls, ...tplImages]);
+  res.json({ ok: true, archived: false, deletedProjects: unpaid.length, keptPaid: 0, cleanedImages: cleaned });
 });
 
 export default router;
