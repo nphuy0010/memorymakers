@@ -18,6 +18,7 @@ model User {
   password      String
   phone         String?
   phoneVerified Boolean    @default(false)
+  photoPool   String?   // JSON [{url, at}] — KHO ẢNH dùng chung cho mọi dự án của user (TTL 24h)
   avatar        String?
   role          String     @default("CUSTOMER") // "ADMIN" | "CUSTOMER"
   createdAt     DateTime   @default(now())

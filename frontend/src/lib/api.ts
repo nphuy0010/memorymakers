@@ -162,6 +162,8 @@ export const api = {
   adminDeleteConversation: (userId: string, mode: "self" | "both") => req(`/admin/messages/${userId}/delete-conversation`, { method: "POST", body: JSON.stringify({ mode }) }),
   grantAdmin: (email: string) => req("/admin/users/grant-admin", { method: "POST", body: JSON.stringify({ email }) }),
   myPhotos: () => req("/projects/my-photos"),
+  addMyPhotos: (urls: string[]) => req("/projects/my-photos", { method: "POST", body: JSON.stringify({ urls }) }),
+  removeMyPhoto: (url: string) => req("/projects/my-photos/remove", { method: "POST", body: JSON.stringify({ url }) }),
   projectFlipbook: (id: string) => req(`/projects/${id}/flipbook`),
   templateUsage: (id: string) => req(`/templates/${id}/usage`),
   cleanupImages: (confirm = false) => req("/admin/cleanup-images", { method: "POST", body: JSON.stringify({ confirm }) }),

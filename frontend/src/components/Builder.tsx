@@ -215,8 +215,9 @@ const MiniPage = React.memo(function MiniPage({ page, urls, edits, texts }: { pa
   a.page.slots.every((s) => JSON.stringify(a.edits[s.g]) === JSON.stringify(b.edits[s.g]))
 );
 
-export default function Builder({ t, photos, setPhotos, assignments, setAssignments, edits, setEdits, hidden, setHidden, locked, setLocked, texts, setTexts, stickers, setStickers }: {
+export default function Builder({ t, photos, setPhotos, onPhotosAdded, onPhotoRemoved, assignments, setAssignments, edits, setEdits, hidden, setHidden, locked, setLocked, texts, setTexts, stickers, setStickers }: {
   t: Template; photos: string[]; setPhotos: (f: (p: string[]) => string[]) => void;
+  onPhotosAdded?: (urls: string[]) => void; onPhotoRemoved?: (url: string) => void;
   assignments: (string | undefined)[]; setAssignments: (f: (a: (string | undefined)[]) => (string | undefined)[]) => void;
   edits: Record<number, Edit>; setEdits: (f: (e: Record<number, Edit>) => Record<number, Edit>) => void;
   hidden: Record<number, boolean>; setHidden: (f: (h: Record<number, boolean>) => Record<number, boolean>) => void;
@@ -245,6 +246,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
         for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
         const { url } = await api.uploadFile(new File([arr], "photo.jpg", { type: mime }));
         setPhotos((p) => [...p, url]);
+        onPhotosAdded?.([url]);   // lưu vào kho ảnh của tài khoản -> mọi dự án đều thấy
       } catch (err: any) {
         const hint = err?.status === 403
           ? "\n→ Backend đang chạy BẢN CŨ (chưa cho khách upload). Hãy deploy lại backend (push code + chờ Render build)."
@@ -282,6 +284,7 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
     if (used && !confirm(`Ảnh này đang dùng ở ${used} khung. Xoá ảnh và gỡ khỏi các khung đó?`)) return;
     setPhotos((p) => p.filter((x) => x !== url));
     if (used) setAssignments((a) => a.map((u) => (u === url ? undefined : u)));
+    onPhotoRemoved?.(url);   // xoá khỏi kho ảnh của tài khoản (mọi dự án)
   };
 
   const fillCurrentPage = () => {

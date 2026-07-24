@@ -7,7 +7,8 @@ declare module "@prisma/client" {
   export interface User {
     id: Str; name: Str; email: Str; password: Str; phone: Str;
     phoneVerified: Bool; avatar: Str | null; role: Str; createdAt: Dt;
-  }
+    photoPool: Str | null;
+}
   export interface OtpToken { id: Str; userId: Str; code: Str; purpose: Str; expiresAt: Dt; used: Bool; createdAt: Dt; }
   export interface Template {
     id: Str; slug: Str; title: Str; description: Str; keywords: Str;

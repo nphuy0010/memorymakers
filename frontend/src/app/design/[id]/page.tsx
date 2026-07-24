@@ -25,15 +25,11 @@ export default function DesignPage() {
   const [t, setT] = useState<Template | null>(null);
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState<string[]>([]);
-  // KHO ẢNH TẠM (24h) của khách: ảnh vừa tải nằm sẵn trong "Ảnh của bạn" kể cả khi đổi mẫu
-  // hoặc đổi thiết bị (lưu theo tài khoản trên server). Tải thêm thì CỘNG DỒN, không xoá ảnh cũ.
+  // KHO ẢNH CỦA TÀI KHOẢN (dùng chung cho mọi dự án, tự hết hạn sau 24h)
   useEffect(() => {
     if (!user) return;
     api.myPhotos()
-      .then((r: any) => {
-        const pool: string[] = r?.photos || [];
-        if (pool.length) setPhotos((cur) => [...cur, ...pool.filter((u) => !cur.includes(u))]);
-      })
+      .then((r: any) => { const pool: string[] = r?.photos || []; if (pool.length) setPhotos((cur) => [...cur, ...pool.filter((u) => !cur.includes(u))]); })
       .catch(() => {});
   }, [user]);
   const [assignments, setAssignments] = useState<(string | undefined)[]>([]);
@@ -194,7 +190,9 @@ export default function DesignPage() {
             </div>
             <button onClick={goPreview} className="bg-brass text-white rounded-full px-5 py-2.5 font-sans text-sm font-semibold inline-flex items-center gap-2 shrink-0">Xem trước <ChevronRight size={16} /></button>
           </div>
-          <Builder t={t} photos={photos} setPhotos={setPhotos} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} locked={locked} setLocked={setLocked} texts={texts} setTexts={setTexts} stickers={stickers} setStickers={setStickers} />
+          <Builder t={t} photos={photos} setPhotos={setPhotos}
+            onPhotosAdded={(urls) => api.addMyPhotos(urls).catch(() => {})}
+            onPhotoRemoved={(url) => api.removeMyPhoto(url).catch(() => {})} assignments={assignments} setAssignments={setAssignments} edits={edits} setEdits={setEdits} hidden={hidden} setHidden={setHidden} locked={locked} setLocked={setLocked} texts={texts} setTexts={setTexts} stickers={stickers} setStickers={setStickers} />
         </div>
       )}
 

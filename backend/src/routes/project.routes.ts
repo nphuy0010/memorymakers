@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { computeAmount, canCustomerDelete } from "../lib/business";
 import { validate, projectCreateSchema, projectUpdateSchema, orderSchema, reviewSchema } from "../lib/validate";
+import { destroyByUrl } from "./upload.routes";
 
 const router = Router();
 
@@ -51,29 +52,58 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// KHO ẢNH ĐÃ TẢI của CHÍNH khách (lọc theo userId — không bao giờ thấy ảnh của khách khác).
-// Chỉ gom ảnh trong 24 GIỜ gần nhất: đây là kho TẠM để đổi mẫu vẫn dùng lại được ảnh vừa tải,
-// không phải thư viện lâu dài. Ảnh của đơn đã đặt vẫn nằm nguyên trong đơn để in.
+/* ===== KHO ẢNH CỦA NGƯỜI DÙNG — dùng chung cho MỌI dự án của chính họ =====
+   Lưu ở User.photoPool (JSON [{url, at}]), chỉ giữ ảnh trong 24 giờ.
+   Tách bạch theo tài khoản: khách A không bao giờ thấy ảnh của khách B. */
+const POOL_TTL = 24 * 60 * 60 * 1000;
+
+async function readPool(userId: string): Promise<{ url: string; at: number }[]> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { photoPool: true } });
+  let arr: any[] = [];
+  try { arr = JSON.parse((u as any)?.photoPool || "[]"); } catch {}
+  const cutoff = Date.now() - POOL_TTL;
+  return arr.filter((it: any) => it && typeof it.url === "string" && Number(it.at) > cutoff)
+            .map((it: any) => ({ url: it.url, at: Number(it.at) }));
+}
+async function writePool(userId: string, list: { url: string; at: number }[]) {
+  await prisma.user.update({ where: { id: userId }, data: { photoPool: JSON.stringify(list.slice(0, 200)) } });
+}
+
+// Lấy kho ảnh (mới nhất trước, đã lọc quá 24h)
 router.get("/my-photos", requireAuth, async (req: AuthRequest, res) => {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const rows = await prisma.project.findMany({
-    where: { userId: req.userId, updatedAt: { gte: since } },
-    orderBy: { updatedAt: "desc" },
-    take: 40,
-    select: { photos: true },
-  });
-  const seen = new Set<string>();
-  const urls: string[] = [];
-  for (const r of rows) {
-    let arr: any[] = [];
-    try { arr = JSON.parse((r as any).photos || "[]"); } catch {}
-    for (const u of arr) {
-      if (typeof u === "string" && u && !seen.has(u)) { seen.add(u); urls.push(u); }
-      if (urls.length >= 60) break;                 // đủ dùng, tránh trả về quá nặng
-    }
-    if (urls.length >= 60) break;
+  const pool = await readPool(req.userId!);
+  res.json({ photos: pool.sort((a, b) => b.at - a.at).map((p) => p.url) });
+});
+
+// Thêm ảnh vừa tải lên vào kho (cộng dồn, tự bỏ trùng)
+router.post("/my-photos", requireAuth, async (req: AuthRequest, res) => {
+  const urls: string[] = Array.isArray(req.body?.urls) ? req.body.urls : [];
+  const clean = urls.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 50);
+  if (!clean.length) return res.json({ ok: true });
+  const pool = await readPool(req.userId!);
+  const have = new Set(pool.map((p) => p.url));
+  const now = Date.now();
+  for (const u of clean) if (!have.has(u)) { pool.unshift({ url: u, at: now }); have.add(u); }
+  await writePool(req.userId!, pool);
+  res.json({ ok: true, total: pool.length });
+});
+
+// Xoá 1 ảnh khỏi kho — chỉ ảnh của chính mình; xoá file nếu không còn nơi nào dùng
+router.post("/my-photos/remove", requireAuth, async (req: AuthRequest, res) => {
+  const url = String(req.body?.url || "").split("?")[0];
+  if (!url) return res.status(400).json({ error: "Thiếu URL" });
+  const pool = await readPool(req.userId!);
+  await writePool(req.userId!, pool.filter((p) => p.url.split("?")[0] !== url));
+
+  // Chỉ xoá file khi không còn đơn đã thanh toán / template nào dùng ảnh này
+  const PAID = ["PURCHASED", "SHIPPING", "DELIVERED"];
+  let fileDeleted = false;
+  const usedPaid = await prisma.project.count({ where: { status: { in: PAID }, photos: { contains: url } } });
+  if (!usedPaid) {
+    const inTpl = await prisma.template.count({ where: { OR: [{ pages: { contains: url } }, { demoPages: { contains: url } }, { demoPhotos: { contains: url } }] } });
+    if (!inTpl) fileDeleted = await destroyByUrl(url);
   }
-  res.json({ photos: urls });
+  res.json({ ok: true, fileDeleted });
 });
 
 // Lấy 1 dự án của chính user (để khôi phục thiết kế khi tiếp tục)
