@@ -276,6 +276,14 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
   const visibleGs = useMemo(() => pages.filter((_, i) => !(hidden && hidden[i])).flatMap((p) => p.slots.map((s) => s.g)), [pages, hidden]);
   // Tự động điền: mỗi lần bấm XÁO + ĐIỀN LẠI TẤT CẢ Ô (kể cả ô đã có ảnh) — bấm lại để đổi cách xếp
   // Điền ảnh CHƯA DÙNG vào các slot TRỐNG của TRANG HIỆN TẠI (mục b: điền theo từng trang)
+  // XOÁ ẢNH khỏi "Ảnh của bạn"; nếu ảnh đang nằm trong khung nào thì gỡ khỏi khung đó luôn
+  const removePhoto = (url: string) => {
+    const used = assignments.filter((u) => u === url).length;
+    if (used && !confirm(`Ảnh này đang dùng ở ${used} khung. Xoá ảnh và gỡ khỏi các khung đó?`)) return;
+    setPhotos((p) => p.filter((x) => x !== url));
+    if (used) setAssignments((a) => a.map((u) => (u === url ? undefined : u)));
+  };
+
   const fillCurrentPage = () => {
     const used = new Set(assignments.filter(Boolean));
     const pool = photos.filter((u) => !used.has(u));
@@ -471,6 +479,8 @@ export default function Builder({ t, photos, setPhotos, assignments, setAssignme
           {photos.map((p, i) => (
             <div key={i} draggable onDragStart={(e) => e.dataTransfer.setData("text/mm", p)} onClick={() => clickPhoto(p)} style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: selSlot != null ? "copy" : "grab", border: `1px solid ${C.line}` }}>
               <img src={p} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <button onClick={(e) => { e.stopPropagation(); removePhoto(p); }} title="Xoá ảnh này" aria-label="Xoá ảnh"
+                style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.55)", color: "#fff", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
           ))}
         </div>
