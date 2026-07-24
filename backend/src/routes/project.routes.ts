@@ -51,6 +51,31 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// KHO ẢNH ĐÃ TẢI của CHÍNH khách (lọc theo userId — không bao giờ thấy ảnh của khách khác).
+// Chỉ gom ảnh trong 24 GIỜ gần nhất: đây là kho TẠM để đổi mẫu vẫn dùng lại được ảnh vừa tải,
+// không phải thư viện lâu dài. Ảnh của đơn đã đặt vẫn nằm nguyên trong đơn để in.
+router.get("/my-photos", requireAuth, async (req: AuthRequest, res) => {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const rows = await prisma.project.findMany({
+    where: { userId: req.userId, updatedAt: { gte: since } },
+    orderBy: { updatedAt: "desc" },
+    take: 40,
+    select: { photos: true },
+  });
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const r of rows) {
+    let arr: any[] = [];
+    try { arr = JSON.parse((r as any).photos || "[]"); } catch {}
+    for (const u of arr) {
+      if (typeof u === "string" && u && !seen.has(u)) { seen.add(u); urls.push(u); }
+      if (urls.length >= 60) break;                 // đủ dùng, tránh trả về quá nặng
+    }
+    if (urls.length >= 60) break;
+  }
+  res.json({ photos: urls });
+});
+
 // Lấy 1 dự án của chính user (để khôi phục thiết kế khi tiếp tục)
 router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
   const p = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.userId }, include: { template: true } });

@@ -130,6 +130,33 @@ router.use((err: any, _req: any, res: any, _next: any) => {
   res.status(400).json({ error: err.message || "Lỗi upload" });
 });
 
+/** Liệt kê ảnh trong thư mục Cloudinary (dùng để dọn ảnh rác quá hạn).
+ *  Trả về [{ url, publicId, createdAt }]. Không cấu hình Cloudinary -> mảng rỗng. */
+export async function listCloudImages(folder = "memory-makers", max = 500): Promise<{ url: string; publicId: string; createdAt: string }[]> {
+  if (!CLOUD_ON || !cloudinary) return [];
+  const out: { url: string; publicId: string; createdAt: string }[] = [];
+  let cursor: string | undefined;
+  do {
+    const r: any = await cloudinary.api.resources({
+      type: "upload", prefix: folder, max_results: 100, next_cursor: cursor, resource_type: "image",
+    });
+    for (const it of r.resources || []) {
+      out.push({ url: it.secure_url, publicId: it.public_id, createdAt: it.created_at });
+    }
+    cursor = r.next_cursor;
+  } while (cursor && out.length < max);
+  return out;
+}
+
+/** Xoá theo public_id (dùng sau khi đã đối chiếu chắc chắn ảnh không còn ai dùng). */
+export async function destroyByPublicId(publicId: string): Promise<boolean> {
+  try {
+    if (!CLOUD_ON || !cloudinary) return false;
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image", timeout: 20000 });
+    return true;
+  } catch (e: any) { console.warn("destroyByPublicId bỏ qua:", e?.message); return false; }
+}
+
 export default router;
 
 /** XOÁ ẢNH trên Cloudinary theo URL (dọn rác khi xoá dự án/template).

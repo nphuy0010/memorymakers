@@ -183,6 +183,19 @@ export default function AdminTemplates() {
     finally { setCleaning(false); }
   };
 
+  const [cleaningImg, setCleaningImg] = useState(false);
+  const cleanupImages = async () => {
+    setCleaningImg(true);
+    try {
+      const pre: any = await api.cleanupImages(false);   // XEM TRƯỚC, chưa xoá gì
+      if (!pre.orphans) { alert(`Không có ảnh rác nào.\n(Đã quét ${pre.scanned} ảnh, ${pre.referenced} ảnh đang được dùng.)`); return; }
+      if (!confirm(`Tìm thấy ${pre.orphans} ảnh tải lên quá 24 giờ và KHÔNG còn nơi nào dùng.\n\nĐã quét ${pre.scanned} ảnh, ${pre.referenced} ảnh đang được dùng sẽ được giữ nguyên.\n\nXoá ${pre.orphans} ảnh rác này khỏi Cloudinary? Không thể hoàn tác.`)) return;
+      const r: any = await api.cleanupImages(true);
+      alert(`Đã xoá ${r.deleted} ảnh rác ✓`);
+    } catch (e: any) { alert("Dọn ảnh lỗi: " + (e?.message || "")); }
+    finally { setCleaningImg(false); }
+  };
+
   const del = async (id: string) => {
     const t = templates.find((x) => x.id === id);
     const name = t?.title || "này";
@@ -301,6 +314,10 @@ export default function AdminTemplates() {
           <button onClick={cleanupOrphans} disabled={cleaning}
             className="mm-btn border border-line rounded-full px-3.5 py-2 font-sans text-[13px] text-sub hover:bg-cream disabled:opacity-60">
             {cleaning ? "Đang dọn…" : "Dọn dự án mồ côi"}
+          </button>
+          <button onClick={cleanupImages} disabled={cleaningImg}
+            className="mm-btn border border-line rounded-full px-3.5 py-2 font-sans text-[13px] text-sub hover:bg-cream disabled:opacity-60">
+            {cleaningImg ? "Đang quét…" : "Dọn ảnh rác >24h"}
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

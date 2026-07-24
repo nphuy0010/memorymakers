@@ -25,6 +25,17 @@ export default function DesignPage() {
   const [t, setT] = useState<Template | null>(null);
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState<string[]>([]);
+  // KHO ẢNH TẠM (24h) của khách: ảnh vừa tải nằm sẵn trong "Ảnh của bạn" kể cả khi đổi mẫu
+  // hoặc đổi thiết bị (lưu theo tài khoản trên server). Tải thêm thì CỘNG DỒN, không xoá ảnh cũ.
+  useEffect(() => {
+    if (!user) return;
+    api.myPhotos()
+      .then((r: any) => {
+        const pool: string[] = r?.photos || [];
+        if (pool.length) setPhotos((cur) => [...cur, ...pool.filter((u) => !cur.includes(u))]);
+      })
+      .catch(() => {});
+  }, [user]);
   const [assignments, setAssignments] = useState<(string | undefined)[]>([]);
   const [edits, setEdits] = useState<Record<number, Edit>>({});
   const [hidden, setHidden] = useState<Record<number, boolean>>({});

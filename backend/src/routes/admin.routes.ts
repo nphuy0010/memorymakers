@@ -5,7 +5,7 @@ import { aggregateStats } from "../lib/business";
 import { getDemoPool } from "../lib/demoPool";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
-import { destroyMany } from "./upload.routes";
+import { destroyMany, listCloudImages, destroyByPublicId } from "./upload.routes";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -206,6 +206,55 @@ router.post("/cleanup-orphans", async (_req, res) => {
   }
   const cleanedImages = await destroyMany(photoUrls);
   res.json({ ok: true, deleted: removable.length, keptPaid: kept, cleanedImages });
+});
+
+// DỌN ẢNH RÁC trên Cloudinary: ảnh tải lên quá 24h mà KHÔNG còn nơi nào tham chiếu.
+// An toàn nhiều lớp: (1) quét TOÀN BỘ URL Cloudinary trong mọi bảng bằng regex nên không sót
+// cấu trúc lồng nhau; (2) mặc định chỉ XEM TRƯỚC, phải gửi confirm:true mới xoá thật;
+// (3) nếu không tìm thấy tham chiếu nào -> DỪNG (dấu hiệu lỗi đọc dữ liệu, tránh xoá sạch kho).
+router.post("/cleanup-images", async (req, res) => {
+  try {
+    const CLOUD_RE = /https:\/\/res\.cloudinary\.com\/[^\s"'\\)]+/g;
+    const referenced = new Set<string>();
+    const scan = (v: any) => {
+      if (typeof v !== "string" || !v) return;
+      for (const m of v.match(CLOUD_RE) || []) referenced.add(m.split("?")[0]);
+    };
+
+    const [templates, projects, settings, users] = await Promise.all([
+      prisma.template.findMany(),
+      prisma.project.findMany(),
+      prisma.setting.findMany(),
+      prisma.user.findMany({ select: { avatar: true } }),
+    ]);
+    // Quét mọi trường dạng chuỗi -> bắt được cả URL nằm sâu trong JSON (pages, layout, heroMedia…)
+    for (const row of [...templates, ...projects, ...settings] as any[]) {
+      for (const val of Object.values(row)) scan(val as any);
+    }
+    for (const u of users) scan(u.avatar);
+
+    if (referenced.size === 0) {
+      return res.status(409).json({ error: "Không đọc được tham chiếu ảnh nào — dừng để tránh xoá nhầm. Hãy kiểm tra kết nối database." });
+    }
+
+    const all = await listCloudImages("memory-makers", 1000);
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const orphans = all.filter((it: { url: string; publicId: string; createdAt: string }) => {
+      const created = new Date(it.createdAt).getTime();
+      if (!created || created > cutoff) return false;                 // còn mới -> giữ
+      return !referenced.has((it.url || "").split("?")[0]);           // còn ai dùng -> giữ
+    });
+
+    if (!req.body?.confirm) {
+      return res.json({ preview: true, scanned: all.length, referenced: referenced.size, orphans: orphans.length });
+    }
+    let deleted = 0;
+    for (const o of orphans) if (await destroyByPublicId(o.publicId)) deleted++;
+    res.json({ ok: true, scanned: all.length, referenced: referenced.size, deleted });
+  } catch (e: any) {
+    console.error("cleanup-images:", e?.message);
+    res.status(500).json({ error: "Dọn ảnh lỗi: " + (e?.message || "không rõ") });
+  }
 });
 
 // KIỂM TRA TRƯỚC KHI GHÉP: liệt kê template đủ/thiếu dữ liệu (không tải ảnh nặng, chỉ check nhanh cấu trúc + HEAD ảnh trang đầu)

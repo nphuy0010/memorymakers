@@ -12,6 +12,7 @@ import messageRoutes from "./routes/message.routes";
 import paymentRoutes from "./routes/payment.routes";
 import rateLimit from "express-rate-limit";
 import { prisma } from "./lib/prisma";
+import { schedulePhotoCleanup } from "./lib/photoCleanup";
 
 // Sentry (bật khi có SENTRY_DSN) — bắt lỗi production thay vì "chờ user báo"
 let Sentry: any = null;
@@ -94,5 +95,6 @@ async function ensureOwner() {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
   await ensureOwner();
+  schedulePhotoCleanup();  // tự dọn ảnh tạm quá 24h, chạy nền theo lịch
   console.log(`🚀 Backend chạy tại http://localhost:${PORT}`);
 });
